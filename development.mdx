@@ -1,94 +1,201 @@
 ---
-title: 'Development'
-description: 'Preview changes locally to update your docs'
+title: "Development"
+description: "Set up your local development environment for ClyptQ documentation"
+icon: "code"
 ---
 
-<Info>
-  **Prerequisites**:
-  - Node.js version 19 or higher
-  - A docs repository with a `docs.json` file
-</Info>
+## Local Development
 
-Follow these steps to install and run Mintlify on your operating system.
+Edit your ClyptQ documentation locally and preview changes in real-time.
+
+### Prerequisites
+
+- Node.js 16+ and npm
+- Git
+- Text editor (VS Code recommended)
+
+### Setup Steps
 
 <Steps>
-<Step title="Install the Mintlify CLI">
+  <Step title="Install Mintlify CLI">
+    Install the Mintlify CLI globally:
 
-```bash
-npm i -g mint
-```
-</Step>
+    ```bash
+    npm i -g mintlify
+    ```
+  </Step>
 
-<Step title="Preview locally">
+  <Step title="Clone the repository">
+    Clone the docs repository:
 
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+    ```bash
+    git clone https://github.com/clypt/docs.git
+    cd docs
+    ```
+  </Step>
 
-```bash
-mint dev
-```
+  <Step title="Start development server">
+    Run the development server:
 
-A local preview of your documentation will be available at `http://localhost:3000`.
+    ```bash
+    mintlify dev
+    ```
 
-</Step>
+    Your docs will be available at `http://localhost:3000`
+
+    <Info>
+    The preview automatically updates as you edit files.
+    </Info>
+  </Step>
 </Steps>
 
-## Custom ports
+## Making Changes
 
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+### File Structure
 
-```bash
-mint dev --port 3333
+```
+docs/
+├── mint.json           # Configuration
+├── index.mdx          # Homepage
+├── quickstart.mdx     # Quick start guide
+├── ecosystem/         # Ecosystem documentation
+│   ├── overview.mdx
+│   ├── buyer-guide.mdx
+│   └── builder-guide.mdx
+├── engine/            # Engine documentation
+│   ├── operator-protocol.mdx
+│   ├── strategy-framework.mdx
+│   ├── trading-system.mdx
+│   ├── data-system.mdx
+│   └── configuration.mdx
+└── api-reference/     # API documentation
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
+### Writing Documentation
 
-```md
-Port 3000 is already in use. Trying 3001 instead.
+All documentation is written in MDX (Markdown + React components):
+
+```mdx
+---
+title: "Page Title"
+description: "Page description"
+icon: "rocket"
+---
+
+## Section Title
+
+Content goes here...
+
+<Tip>
+Use Mintlify components for rich content!
+</Tip>
 ```
 
-## Mintlify versions
-
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
-
-```bash
-npm mint update
-```
-
-## Validating links
-
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
-
-```bash
-mint broken-links
-```
-
-## Deployment
-
-If the deployment is successful, you should see the following:
-
-<Frame>
-  <img src="/images/checks-passed.png" alt="Screenshot of a deployment confirmation message that says All checks have passed." style={{ borderRadius: '0.5rem' }} />
-</Frame>
-
-## Code formatting
-
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
-
-## Troubleshooting
+### Available Components
 
 <AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
+  <Accordion title="Callouts">
+    ```mdx
+    <Note>
+    Important information
+    </Note>
 
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
+    <Tip>
+    Helpful tips
+    </Tip>
+
+    <Warning>
+    Warning messages
+    </Warning>
+
+    <Info>
+    Informational content
+    </Info>
+    ```
   </Accordion>
 
-  <Accordion title="Issue: Encountering an unknown error">
-  
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
+  <Accordion title="Cards">
+    ```mdx
+    <CardGroup cols={2}>
+      <Card title="Card Title" icon="rocket" href="/link">
+        Card content
+      </Card>
+    </CardGroup>
+    ```
+  </Accordion>
+
+  <Accordion title="Code Blocks">
+    ````mdx
+    ```python
+    # Your code here
+    print("Hello, ClyptQ!")
+    ```
+    ````
+  </Accordion>
+
+  <Accordion title="Tabs">
+    ```mdx
+    <Tabs>
+      <Tab title="Python">
+        Python content
+      </Tab>
+      <Tab title="TypeScript">
+        TypeScript content
+      </Tab>
+    </Tabs>
+    ```
   </Accordion>
 </AccordionGroup>
 
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+## Publishing Changes
+
+<Steps>
+  <Step title="Test locally">
+    Verify your changes look correct:
+
+    ```bash
+    mintlify dev
+    ```
+  </Step>
+
+  <Step title="Commit changes">
+    Commit your changes:
+
+    ```bash
+    git add .
+    git commit -m "Update documentation"
+    ```
+  </Step>
+
+  <Step title="Push to GitHub">
+    Push to the repository:
+
+    ```bash
+    git push origin main
+    ```
+
+    <Success>
+    Your changes will be automatically deployed!
+    </Success>
+  </Step>
+</Steps>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Mintlify Docs" icon="book" href="https://mintlify.com/docs">
+    Official Mintlify documentation
+  </Card>
+
+  <Card title="MDX Guide" icon="markdown" href="https://mdxjs.com/">
+    Learn MDX syntax
+  </Card>
+
+  <Card title="Report Issue" icon="bug" href="https://github.com/clypt/docs/issues">
+    Report documentation issues
+  </Card>
+
+  <Card title="Contribute" icon="code-pull-request" href="https://github.com/clypt/docs/pulls">
+    Submit a pull request
+  </Card>
+</CardGroup>

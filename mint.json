@@ -1,0 +1,71 @@
+{
+  "name": "Clypt",
+  "logo": {
+    "dark": "/logo/clypt_logo.svg",
+    "light": "/logo/clypt_logo_black.png"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "anchors": {
+      "from": "#0D9373",
+      "to": "#07C983"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:jaden@clypt.ai"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://clypt.ai"
+  },
+  "anchors": [
+    {
+      "name": "X",
+      "icon": "x-twitter",
+      "url": "https://x.com/clyptai"
+    },
+    {
+      "name": "LinkedIn",
+      "icon": "linkedin",
+      "url": "https://www.linkedin.com/company/clypt-ai"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "index",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Platform Overview",
+      "pages": [
+        "ecosystem/overview",
+        "ecosystem/buyer-guide",
+        "ecosystem/builder-guide"
+      ]
+    },
+    {
+      "group": "Trading Engine",
+      "pages": [
+        "engine/operator-protocol",
+        "engine/strategy-framework",
+        "engine/trading-system",
+        "engine/data-system",
+        "engine/configuration"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "x": "https://x.com/clyptai",
+    "linkedin": "https://www.linkedin.com/company/clypt-ai",
+    "github": "https://github.com/clypt"
+  }
+}

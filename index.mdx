@@ -1,97 +1,205 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to Clypt"
+description: "Trading Commerce Platform - Building Trust Between Strategy Buyers and Builders"
 ---
 
-## Setting up
+Clypt is a **Trading Commerce platform** that establishes trust between strategy **Buyers** and **Builders** through transparent, reproducible, and reliable algorithmic trading infrastructure powered by the ClyptQ Trading Engine.
 
-Get your documentation site up and running in minutes.
+## Ecosystem Vision
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<Note>
+**Trading Commerce Ecosystem**
 
-## Make it yours
+Clypt creates a trusted marketplace where Builders monetize their strategies and Buyers deploy verified strategies with confidence, all powered by production-grade infrastructure.
+</Note>
 
-Design a docs site that looks great and empowers your users.
+### The Trust Relationship
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="For Builders" icon="wrench" href="/ecosystem/builder-guide">
+    - Verifiable performance through reproducible backtests
+    - Production infrastructure for seamless deployment
+    - Marketplace monetization with transparent metrics
+    - Same code runs from backtest to live trading
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
 
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+  <Card title="For Buyers" icon="wallet" href="/ecosystem/buyer-guide">
+    - Access to verified, professionally developed strategies
+    - Transparent performance metrics and risk analytics
+    - Deploy strategies without coding knowledge
+    - Built-in risk management and monitoring
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Core Platform Values
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+**Transparency**: All strategy performance is verifiable and reproducible through the ClyptQ Trading Engine.
+
+**Reliability**: Backtest and live trading run on identical infrastructure, ensuring what you test is what you get in production.
+
+**Accessibility**: Builders access production-grade tools, Buyers deploy strategies without technical expertise.
+
+## ClyptQ Trading Engine
+
+The foundation of the Clypt ecosystem is the **ClyptQ Trading Engine**, a production-grade quantitative trading system with four core layers:
+
+<Tabs>
+  <Tab title="System Layer">
+    **Execution Infrastructure**
+
+    - ComputeGraph: DAG-based execution with automatic dependency resolution
+    - TaggedArray: 4-field data structure (value, exists, valid, updated) for robust data handling
+    - Operator Protocol: Standardized interface for all trading operations
+
+    ```python
+    graph = ComputeGraph()
+    signal = graph.add_node("signal",
+        CrossoverAlpha(Input("sma_fast"), Input("sma_slow"))
+    )
+    ```
+  </Tab>
+
+  <Tab title="Operator Layer">
+    **Strategy Composition**
+
+    - 9 Operator roles: ALPHA, FACTOR, FILTER, INDICATOR, METRIC, TRANSFORM, OPTIMIZER, SCORE, SEMANTIC
+    - 40+ built-in technical indicators
+    - Composable operators for complex strategies
+
+    ```python
+    sma_fast = SMA(Input("close", lookback=10), span=10)
+    sma_slow = SMA(Input("close", lookback=50), span=50)
+    signal = CrossoverAlpha(sma_fast, sma_slow)
+    ```
+  </Tab>
+
+  <Tab title="Trading Layer">
+    **Execution & Risk Management**
+
+    - TradingDriver orchestration
+    - 3-stage execution: Intention → Delta → Order
+    - Execution modes: Backtest (INSTANT/LATENT), Paper, Live
+    - Built-in risk management and cost modeling
+
+    ```python
+    driver = TradingDriver.from_spec(spec)
+    driver.load_data(items=["BTC/USDT:USDT"], start=..., end=...)
+    for result in driver.run():
+        print(f"PnL: {result.pnl}")
+    ```
+  </Tab>
+
+  <Tab title="Data Layer">
+    **Multi-Asset Data Integration**
+
+    - Crypto, stocks, macro, on-chain data sources
+    - Environment-based automatic routing (dev/prod/kernel)
+    - Validation, FFill, and live data handling
+    - Redis integration for multi-consumer optimization
+
+    ```python
+    storage = get_storage("binance/futures/ohlcv")
+    # Automatic routing based on environment
+    ```
+  </Tab>
+</Tabs>
+
+## How It Works
+
+<Steps>
+  <Step title="Builders Develop Strategies">
+    Builders create strategies using the ClyptQ Trading Engine's Operator Protocol and Strategy Framework. The same code runs from development through backtesting to live trading.
+
+    [Learn more about Operator Protocol →](/engine/operator-protocol)
+  </Step>
+
+  <Step title="Transparent Verification">
+    All strategy performance is verified through reproducible backtests and paper trading. The Trading Engine ensures identical execution between test and production environments.
+
+    [Learn more about Trading System →](/engine/trading-system)
+  </Step>
+
+  <Step title="Marketplace Listing">
+    Builders list verified strategies on the marketplace with transparent performance metrics. Buyers can evaluate strategies with complete confidence in the reported results.
+
+    [Learn more about Builder Guide →](/ecosystem/builder-guide)
+  </Step>
+
+  <Step title="Buyers Deploy with Confidence">
+    Buyers select and deploy strategies knowing that performance is verifiable, execution is reliable, and risk management is built-in.
+
+    [Learn more about Buyer Guide →](/ecosystem/buyer-guide)
+  </Step>
+</Steps>
+
+## Documentation Structure
+
+<CardGroup cols={2}>
+  <Card title="Clypt Ecosystem" icon="globe" href="/ecosystem/overview">
+    Understanding the Trading Commerce platform and Buyer-Builder trust relationship
+  </Card>
+
+  <Card title="ClyptQ Trading Engine" icon="gears" href="/engine/operator-protocol">
+    Production-grade quantitative trading engine with comprehensive documentation
+  </Card>
+</CardGroup>
+
+### Complete Documentation
+
+**Clypt Ecosystem**:
+- [Ecosystem Overview](/ecosystem/overview) - Trading Commerce platform vision
+- [Buyer Guide](/ecosystem/buyer-guide) - Strategy evaluation and deployment
+- [Builder Guide](/ecosystem/builder-guide) - Development workflow and marketplace
+
+**ClyptQ Trading Engine**:
+- [Operator Protocol](/engine/operator-protocol) - Core execution infrastructure
+- [Strategy Framework](/engine/strategy-framework) - Strategy composition patterns
+- [Trading System](/engine/trading-system) - Execution pipeline and risk management
+- [Data System](/engine/data-system) - Multi-asset data integration
+- [Configuration](/engine/configuration) - System configuration and setup
+
+## Why Clypt?
+
+### Unique Value Proposition
+
+**For Builders**:
+- Immediate access to production infrastructure
+- Backtest = Live guarantee (same code, same results)
+- Marketplace monetization with transparent metrics
+- Focus on strategy development, not infrastructure
+
+**For Buyers**:
+- Verifiable strategy performance through reproducible results
+- Transparent metrics with built-in validation
+- Professional risk management and monitoring
+- Deploy without technical expertise
+
+**For the Ecosystem**:
+- Trust-based Trading Commerce platform
+- Sustainable fee models benefiting all participants
+- Continuous innovation through Builder competition
+- Quality assurance through transparent verification
+
+## Getting Started
+
+<CardGroup cols={3}>
+  <Card title="Understand the Ecosystem" icon="lightbulb" href="/ecosystem/overview">
+    Learn about the Trading Commerce platform
+  </Card>
+
+  <Card title="For Buyers" icon="shopping-cart" href="/ecosystem/buyer-guide">
+    Evaluate and deploy strategies
+  </Card>
+
+  <Card title="For Builders" icon="code" href="/ecosystem/builder-guide">
+    Develop and monetize strategies
+  </Card>
+</CardGroup>
+
+---
+
+<Warning>
+**Risk Disclaimer**
+
+Trading carries substantial risk. Past performance does not guarantee future results. All strategies are provided for informational purposes. Trade responsibly and never invest more than you can afford to lose.
+</Warning>

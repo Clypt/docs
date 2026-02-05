@@ -1,43 +1,75 @@
-# Mintlify Starter Kit
+# Clypt Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Official documentation for the Clypt Trading Commerce Platform and ClyptQ Trading Engine.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Overview
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+Clypt is a **Trading Commerce platform** that establishes trust between strategy **Buyers** and **Builders** through transparent, reproducible, and reliable algorithmic trading infrastructure powered by the ClyptQ Trading Engine.
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+## Documentation Structure
 
-## Development
+- **Get Started**: Quick start guide and introduction
+- **Clypt Ecosystem**: Understanding the Trading Commerce platform and Buyer-Builder trust relationship
+- **ClyptQ Trading Engine**: Production-grade quantitative trading engine documentation
+- **API Reference**: Complete API documentation
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
+## Local Development
 
+### Prerequisites
+
+- Node.js 16+
+- npm or yarn
+
+### Setup
+
+1. Install the Mintlify CLI:
+```bash
+npm i -g mintlify
 ```
-npm i -g mint
+
+2. Start the development server:
+```bash
+cd docs
+mintlify dev
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+3. Open http://localhost:3000 in your browser
 
-```
-mint dev
-```
+### Making Changes
 
-View your local preview at `http://localhost:3000`.
+All documentation is written in MDX (Markdown + React components). See [development.mdx](development.mdx) for detailed guidance.
 
-## Publishing changes
+## Contributing
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+We welcome contributions! Please:
 
-## Need help?
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test locally with `mintlify dev`
+5. Submit a pull request
 
-### Troubleshooting
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
+## Deployment
 
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+Documentation is automatically deployed when changes are pushed to the main branch via Mintlify's GitHub integration.
+
+## Project Links
+
+- **Website**: https://clypt.ai
+- **Documentation**: https://docs.clypt.ai
+- **GitHub**: https://github.com/clypt
+- **X (Twitter)**: https://x.com/clyptai
+- **LinkedIn**: https://www.linkedin.com/company/clypt-ai
+
+## License
+
+See [LICENSE](LICENSE) for details.
+
+## Support
+
+- **Documentation Issues**: https://github.com/clypt/docs/issues
+- **Email**: jaden@clypt.ai
+- **X (Twitter)**: https://x.com/clyptai
+- **LinkedIn**: https://www.linkedin.com/company/clypt-ai
