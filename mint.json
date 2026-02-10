@@ -5,9 +5,9 @@
     "light": "/logo/clypt_logo_black.png"
   },
   "favicon": "/favicon.ico",
-  "appearance": {
+  "modeToggle": {
     "default": "dark",
-    "strict": true
+    "isHidden": true
   },
   "colors": {
     "primary": "#94F1E8",
