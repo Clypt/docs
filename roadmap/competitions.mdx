@@ -11,11 +11,12 @@ Clypt will host **hedge fund-style trading competitions** where participants com
 
 ### Tournament Structure
 
-```
-Registration → Qualifying Round → Semi-Finals → Finals → Capital Allocation
-     │              │                  │            │           │
-  Submit         Backtest           Paper         Live     Top performers
-  strategy      validation        trading       trading    get AUM
+```mermaid
+flowchart LR
+    A["Registration<br><i>Submit strategy</i>"] --> B["Qualifying Round<br><i>Backtest validation</i>"]
+    B --> C["Semi-Finals<br><i>Paper trading</i>"]
+    C --> D["Finals<br><i>Live trading</i>"]
+    D --> E["Capital Allocation<br><i>Top performers get AUM</i>"]
 ```
 
 ### Qualifying Round (Backtest)

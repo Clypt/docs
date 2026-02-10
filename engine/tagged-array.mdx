@@ -45,21 +45,14 @@ data.is_fresh    # = data.exists & data.valid & data.updated
 
 The 3 boolean fields form a **hierarchical gate** — each level only matters if the previous level is `True`:
 
-```
-exists?  ─── No ──→  Not in domain (delisted/unlisted). Stop here.
-  │
-  Yes
-  │
-valid?   ─── No ──→  In domain but no usable value (missing data/warmup). Stop here.
-  │
-  Yes
-  │
-updated? ─── No ──→  Valid value, but forward-filled from previous tick.
-  │
-  Yes
-  │
-  ▼
-  Fresh data. Use with confidence.
+```mermaid
+flowchart TB
+    A{"exists?"} -- No --> B["Not in domain<br>(delisted/unlisted).<br>Stop here."]
+    A -- Yes --> C{"valid?"}
+    C -- No --> D["In domain but no usable value<br>(missing data/warmup).<br>Stop here."]
+    C -- Yes --> E{"updated?"}
+    E -- No --> F["Valid value, but<br>forward-filled from<br>previous tick."]
+    E -- Yes --> G["Fresh data.<br>Use with confidence."]
 ```
 
 If `exists=False`, `valid` and `updated` are irrelevant.

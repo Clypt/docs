@@ -7,20 +7,12 @@ description: "Migrating the compute engine to Rust for PyTorch-level performance
 
 ClyptQ's engine will be rewritten in **Rust** with **Python bindings via PyO3** — following the same architecture as PyTorch (C++/CUDA core, Python research interface). Builders write strategies in Python. The engine executes them at native speed.
 
-```
-┌─────────────────────────────────────────┐
-│            Python Layer                  │
-│  Strategy research, Jupyter notebooks,   │
-│  operator definitions, TradingSpec       │
-├─────────────────────────────────────────┤
-│          PyO3 Bindings                   │
-│  Zero-copy numpy ↔ Rust array bridge     │
-├─────────────────────────────────────────┤
-│           Rust Core Engine               │
-│  Graph execution, RollingBuffer,         │
-│  TaggedArray ops, order matching,        │
-│  risk management, data I/O               │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    A["<b>Python Layer</b><br>Strategy research, Jupyter notebooks,<br>operator definitions, TradingSpec"]
+    B["<b>PyO3 Bindings</b><br>Zero-copy numpy ↔ Rust array bridge"]
+    C["<b>Rust Core Engine</b><br>Graph execution, RollingBuffer,<br>TaggedArray ops, order matching,<br>risk management, data I/O"]
+    A --> B --> C
 ```
 
 **Goal:** All PyTorch-equivalent functionality in Rust. Python does research. Rust does computation.

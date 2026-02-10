@@ -19,18 +19,16 @@ This guide walks you through the full Builder workflow: develop a strategy in Ju
 
 ## Development Workflow
 
-```
-1. Explore          → Helper.exchanges(), Helper.symbols(), Helper.data_catalog()
-   │
-2. Build Graph      → StatefulGraph + operators + FIELD/STATE inputs
-   │
-3. Backtest         → TradingExecutionSpec(mode="backtest")
-   │
-4. Paper Trade      → TradingExecutionSpec(mode="paper") — 2-4 weeks
-   │
-5. Live (Small)     → TradingExecutionSpec(mode="live") — start with 5-10% capital
-   │
-6. Marketplace      → Submit TradingSpec for verification and listing
+```mermaid
+flowchart TD
+    S1["1. Explore<br>Helper.exchanges(), Helper.symbols(), Helper.data_catalog()"]
+    S2["2. Build Graph<br>StatefulGraph + operators + FIELD/STATE inputs"]
+    S3["3. Backtest<br>TradingExecutionSpec(mode=backtest)"]
+    S4["4. Paper Trade<br>TradingExecutionSpec(mode=paper) — 2-4 weeks"]
+    S5["5. Live (Small)<br>TradingExecutionSpec(mode=live) — start with 5-10% capital"]
+    S6["6. Marketplace<br>Submit TradingSpec for verification and listing"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 ## Step 1: Explore
@@ -340,16 +338,14 @@ Platform tests your strategy at 2×, 5×, and 10× your declared capital. This d
 
 The validation pipeline is not a burden — it's your **sales engine**:
 
-```
-You as Builder                              Buyer's Perspective
-──────────────                              ────────────────────
-Self-reported metrics     →   "Anyone can claim Sharpe 2.0"
-  + Platform-verified     →   "This is independently confirmed"
-  + Cross-exchange valid  →   "It works on venues I'll use"
-  + Scale tested          →   "It works at my capital level"
-  + Real cost impact      →   "Returns are after fees"
-                          =   HIGH TRUST → More subscriptions
-```
+| You as Builder | | Buyer's Perspective |
+|---|---|---|
+| Self-reported metrics | | "Anyone can claim Sharpe 2.0" |
+| + Platform-verified | | "This is independently confirmed" |
+| + Cross-exchange valid | | "It works on venues I'll use" |
+| + Scale tested | | "It works at my capital level" |
+| + Real cost impact | | "Returns are after fees" |
+| **Result** | **=** | **HIGH TRUST = More subscriptions** |
 
 Every buyer who deploys your strategy generates revenue for you. The more trust signals your listing has, the more buyers convert.
 

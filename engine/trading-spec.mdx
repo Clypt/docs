@@ -18,31 +18,24 @@ spec = TradingSpec(
 
 ## Hierarchy Overview
 
-```
-TradingSpec
-├── data: TradingDataSpec
-│   ├── symbol_source_map: SymbolSourceMap
-│   ├── observations: List[ObservationSpec]
-│   ├── start / end: Optional[datetime]
-│   └── storage: "local" | "db"
-│
-├── strategy: TradingStrategySpec
-│   ├── graph: StatefulGraph
-│   ├── name / version / description
-│   └── output_nodes: Optional[List[str]]
-│
-├── execution: TradingExecutionSpec
-│   ├── accounts: Tuple[AccountSpec, ...]
-│   │   ├── exchange / market_type / base_currency
-│   │   ├── initial_cash / max_leverage
-│   │   ├── credentials: Optional[VenueCredential]
-│   │   └── cost_model: Optional[CostModelSpec]
-│   ├── execution_price_source: "ohlcv" | "orderbook"
-│   └── max_position_size / max_order_size
-│
-├── mode: "backtest" | "paper" | "live"
-├── max_ticks: Optional[int]
-└── debug: bool
+```mermaid
+graph TD
+    TS["<b>TradingSpec</b>"]
+    DS["<b>TradingDataSpec</b><br>symbol_source_map: SymbolSourceMap<br>observations: List[ObservationSpec]<br>start / end: Optional[datetime]<br>storage: local or db"]
+    SS["<b>TradingStrategySpec</b><br>graph: StatefulGraph<br>name / version / description<br>output_nodes: Optional[List[str]]"]
+    ES["<b>TradingExecutionSpec</b><br>execution_price_source: ohlcv or orderbook<br>max_position_size / max_order_size"]
+    AS["<b>AccountSpec</b><br>exchange / market_type / base_currency<br>initial_cash / max_leverage<br>credentials: Optional[VenueCredential]<br>cost_model: Optional[CostModelSpec]"]
+    MD["mode: backtest / paper / live"]
+    MT["max_ticks: Optional[int]"]
+    DB["debug: bool"]
+
+    TS --> DS
+    TS --> SS
+    TS --> ES
+    ES --> AS
+    TS --> MD
+    TS --> MT
+    TS --> DB
 ```
 
 ## TradingDataSpec

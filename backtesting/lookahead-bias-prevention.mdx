@@ -81,16 +81,12 @@ This is fundamentally different from vectorized frameworks where every operation
 
 Before the backtest starts, ClyptQ automatically computes how many ticks are needed to fill all `RollingBuffer`s. This **warmup phase** runs the graph without executing any trades:
 
-```
-Graph trace (backward from leaf nodes to FIELD sources):
-
-  intention ← weights ← signal ← sma_20 ← FIELD:close
-                                     └── lookback=20
-
-  intention ← weights ← signal ← sma_50 ← FIELD:close
-                                     └── lookback=50
-
-  Max path: 50 ticks + 5% safety buffer = 52 warmup ticks
+```mermaid
+flowchart RL
+    FC1["FIELD:close"] -- "lookback=20" --> SMA20["sma_20"] --> SIG1["signal"] --> W1["weights"] --> INT1["intention"]
+    FC2["FIELD:close"] -- "lookback=50" --> SMA50["sma_50"] --> SIG2["signal"] --> W2["weights"] --> INT2["intention"]
+    MAX["Max path: 50 ticks + 5% safety buffer = 52 warmup ticks"]
+    style MAX fill:#fff3cd,stroke:#ffc107
 ```
 
 The algorithm works by:
@@ -117,15 +113,19 @@ Warmup ticks are **automatically computed** — you never need to manually set w
 
 The graph executes operators in **dependency order** (Kahn's algorithm), ensuring that every operator's inputs are computed before the operator runs:
 
-```
-Execution Order (topological sort):
-  1. FIELD:close          → Raw price data
-  2. sma_fast             → Depends on FIELD:close
-  3. sma_slow             → Depends on FIELD:close
-  4. signal               → Depends on sma_fast, sma_slow
-  5. weights              → Depends on signal
-  6. equity               → Depends on STATE:cash, STATE:pos_quantity, FIELD:close
-  7. intention            → Depends on weights, STATE:pos_quantity, FIELD:close
+```mermaid
+flowchart LR
+    FC["1. FIELD:close<br>(Raw price data)"] --> SF["2. sma_fast"]
+    FC --> SS["3. sma_slow"]
+    SF --> SIG["4. signal"]
+    SS --> SIG
+    SIG --> W["5. weights"]
+    SC["STATE:cash"] --> EQ["6. equity"]
+    SP["STATE:pos_quantity"] --> EQ
+    FC --> EQ
+    W --> INT["7. intention"]
+    SP --> INT
+    FC --> INT
 ```
 
 Each operator sees only:
@@ -139,23 +139,15 @@ There is no global state, no shared mutable array, no way for operator 5 to acce
 
 These four mechanisms work together to create an environment where lookahead is structurally impossible:
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Tick N                             │
-│                                                     │
-│  FIELD data (tick N only) ──┐                       │
-│                              │                       │
-│  RollingBuffer              ▼                       │
-│  ┌─────────────────────┐  ┌──────────┐              │
-│  │ [N-19] [N-18] ... [N]│→│ Operator │→ TaggedArray │
-│  │   (20 ticks only)   │  │ compute()│              │
-│  └─────────────────────┘  └──────────┘              │
-│                                                     │
-│  ✗ No tick N+1, N+2, ... data exists in the buffer  │
-│  ✗ No global price array accessible                 │
-│  ✗ No way to read another operator's future output  │
-│  ✗ No trades during warmup period                   │
-└─────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph TN["Tick N"]
+        FD["FIELD data<br>(tick N only)"] --> RB["RollingBuffer<br>[N-19] [N-18] ... [N]<br>(20 ticks only)"]
+        RB --> OP["Operator<br>compute()"]
+        OP --> TA["TaggedArray"]
+    end
+    NF["No tick N+1, N+2, ... in buffer<br>No global price array accessible<br>No future operator output readable<br>No trades during warmup"]
+    style NF fill:#f8d7da,stroke:#dc3545
 ```
 
 ## Comparison with Vectorized Frameworks

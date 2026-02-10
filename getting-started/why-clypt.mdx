@@ -9,16 +9,15 @@ Every quant trader has experienced this: a backtest shows 40% annual returns, bu
 
 **Why this happens on traditional platforms:**
 
-```
-Research Code (Python/pandas)          Production Code (different language/framework)
-┌──────────────────────────┐          ┌──────────────────────────────┐
-│ • Vectorized operations  │          │ • Event-driven architecture  │
-│ • Full dataset in memory │   ≠     │ • Tick-by-tick processing    │
-│ • No execution logic     │          │ • Order management, fills    │
-│ • No costs, no slippage  │          │ • Fee models, latency        │
-│ • Accidental lookahead   │          │ • State management           │
-└──────────────────────────┘          └──────────────────────────────┘
-        Backtest: +40%                        Live: -15%
+```mermaid
+flowchart LR
+    subgraph RC["Research Code (Python/pandas)<br>Backtest: +40%"]
+        R1["Vectorized operations<br>Full dataset in memory<br>No execution logic<br>No costs, no slippage<br>Accidental lookahead"]
+    end
+    RC -- "≠" --- PC
+    subgraph PC["Production Code (different framework)<br>Live: -15%"]
+        P1["Event-driven architecture<br>Tick-by-tick processing<br>Order management, fills<br>Fee models, latency<br>State management"]
+    end
 ```
 
 This gap exists because:
@@ -112,13 +111,17 @@ Existing platforms (QuantConnect community, copy-trading services) suffer from:
 
 Because the same graph runs on any exchange's data (operators process `TaggedArray`s, not exchange-specific formats), the platform can independently verify strategies:
 
-```
-Builder submits: Tested on Binance futures
-Platform verifies:
-  ✓ Binance futures  → Sharpe 1.8  (builder's data)
-  ✓ Bybit futures    → Sharpe 1.5  (builder never saw)
-  ✓ Gateio futures   → Sharpe 1.3  (builder never saw)
-  ✗ Coinbase futures → Sharpe 0.4  (poor — flagged)
+```mermaid
+flowchart TB
+    A["Builder submits:<br>Tested on Binance futures"] --> V["Platform verifies"]
+    V --> B["Binance futures → Sharpe 1.8<br>(builder's data)"]
+    V --> C["Bybit futures → Sharpe 1.5<br>(builder never saw)"]
+    V --> D["Gateio futures → Sharpe 1.3<br>(builder never saw)"]
+    V --> E["Coinbase futures → Sharpe 0.4<br>(poor — flagged)"]
+    style B fill:#d4edda,stroke:#28a745
+    style C fill:#d4edda,stroke:#28a745
+    style D fill:#d4edda,stroke:#28a745
+    style E fill:#f8d7da,stroke:#dc3545
 ```
 
 **What the buyer sees:** Independently computed metrics, cross-exchange consistency scores, and real-cost impact — not self-reported numbers.

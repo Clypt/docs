@@ -55,9 +55,15 @@ for result in driver:
 
 ClyptQ processes data **one tick at a time**, maintaining proper state at every step:
 
-```
-Tick N:   FIELD data → Operators → Signal → Intention → Executor → Fill → STATE update
-Tick N+1: Updated STATE + new FIELD → Operators → Signal → ...
+```mermaid
+flowchart LR
+    subgraph TN["Tick N"]
+        F1["FIELD data"] --> O1["Operators"] --> S1["Signal"] --> I1["Intention"] --> E1["Executor"] --> F1a["Fill"] --> ST1["STATE update"]
+    end
+    subgraph TN1["Tick N+1"]
+        F2["Updated STATE +<br>new FIELD"] --> O2["Operators"] --> S2["Signal"] --> I2["..."]
+    end
+    TN --> TN1
 ```
 
 Each operator sees **only past data** through its `RollingBuffer`. There is no array of future prices to accidentally index into. Lookahead bias is **structurally impossible**.
@@ -141,26 +147,19 @@ No other platform offers a marketplace where backtests are **independently verif
 
 ## Architecture at a Glance
 
-```
-┌──────────────────────────────────────────────────┐
-│                  TradingSpec                       │
-│  ┌────────────┐ ┌────────────┐ ┌────────────────┐│
-│  │ DataSpec   │ │StrategySpec│ │ ExecutionSpec   ││
-│  │            │ │            │ │                 ││
-│  │ Exchanges  │ │ Graph      │ │ mode: backtest  ││
-│  │ Symbols    │ │ Operators  │ │   → paper       ││
-│  │ Timeframes │ │ Connections│ │   → live        ││
-│  └────────────┘ └────────────┘ └────────────────┘│
-└──────────────────────────────────────────────────┘
-         │                │                │
-         ▼                ▼                ▼
-    ┌─────────┐    ┌────────────┐   ┌───────────┐
-    │  FIELD   │    │ StatefulGraph│  │ Executor  │
-    │ Protocol │───▶│ (DAG)       │──▶│(Memoryless)│
-    └─────────┘    └────────────┘   └───────────┘
-                         ▲                │
-                         │    STATE       │
-                         └────────────────┘
+```mermaid
+flowchart TB
+    subgraph TS["TradingSpec"]
+        DS["DataSpec<br>Exchanges<br>Symbols<br>Timeframes"]
+        SS["StrategySpec<br>Graph<br>Operators<br>Connections"]
+        XS["ExecutionSpec<br>mode: backtest<br>→ paper<br>→ live"]
+    end
+    DS --> FP["FIELD<br>Protocol"]
+    SS --> SG["StatefulGraph<br>(DAG)"]
+    XS --> EX["Executor<br>(Memoryless)"]
+    FP --> SG
+    SG --> EX
+    EX -- "STATE" --> SG
 ```
 
 Every component is designed for **one principle**: the same code, the same data flow, the same execution logic — regardless of whether you're researching in a Jupyter notebook or trading live on Binance.

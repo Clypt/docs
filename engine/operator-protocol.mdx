@@ -306,18 +306,11 @@ This means:
 
 ClyptQ separates execution into three **memoryless** components:
 
-```
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│  Operator Graph   │ →  │  Intention Node   │ →  │   Executor        │
-│  (Signal → Weights│    │  (Weights → Delta │    │  (Delta → Order   │
-│   → Position)     │    │   → Intention)    │    │   → Fill → STATE) │
-│                   │    │                   │    │                   │
-│  Stateless        │    │  Stateless        │    │  Memoryless       │
-│  (pure functions) │    │  (delta compute)  │    │  (no history)     │
-└──────────────────┘    └──────────────────┘    └──────────────────┘
-         ▲                                                │
-         │              STATE feedback                     │
-         └─────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    OG["Operator Graph<br>Signal → Weights → Position<br><br>Stateless<br>(pure functions)"] --> IN["Intention Node<br>Weights → Delta → Intention<br><br>Stateless<br>(delta compute)"]
+    IN --> EX["Executor<br>Delta → Order → Fill → STATE<br><br>Memoryless<br>(no history)"]
+    EX -- "STATE feedback" --> OG
 ```
 
 ### Memoryless Execution
@@ -336,9 +329,9 @@ This means **all metrics and tracking are done by operators in the graph**, not 
 Because STATE flows back into the graph as input, strategies can create **closed-loop feedback**:
 
 ```python
-# Signal → Intention → Fill → STATE → Equity → Risk Adjustment → Signal
-#                                                                   ↑
-#                                   Feedback loop via STATE ────────┘
+# Signal -> Intention -> Fill -> STATE -> Equity -> Risk Adjustment -> Signal
+#   ^                                                                    |
+#   +----------------------- Feedback loop via STATE -------------------+
 
 graph.add_node("signal", MomentumAlpha(), inputs=[close])
 graph.add_node("equity", EquityCalculator(), inputs=[state_inputs...])

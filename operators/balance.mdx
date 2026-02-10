@@ -182,22 +182,28 @@ book = BookSize(
 
 Balance operators are the bridge between **STATE** (execution engine) and **FIELD** (market data):
 
-```
-FIELD (market data)              STATE (portfolio state)
-├── close prices ──────┐    ┌── cash balance
-├── open prices        │    ├── position quantities
-├── high prices        │    ├── entry prices
-├── low prices         │    ├── available margin
-└── volume             │    └── unrealized PnL
-                       │    │
-                       ▼    ▼
-                 EquityCalculator
-                       │
-                       ▼
-                   BookSize
-                       │
-                       ▼
-              Order Operators
+```mermaid
+flowchart TB
+    subgraph FIELD["FIELD (market data)"]
+        F1["close prices"]
+        F2["open prices"]
+        F3["high prices"]
+        F4["low prices"]
+        F5["volume"]
+    end
+    subgraph STATE["STATE (portfolio state)"]
+        S1["cash balance"]
+        S2["position quantities"]
+        S3["entry prices"]
+        S4["available margin"]
+        S5["unrealized PnL"]
+    end
+    F1 --> EQ["EquityCalculator"]
+    S1 --> EQ
+    S2 --> EQ
+    S3 --> EQ
+    EQ --> BS["BookSize"]
+    BS --> OO["Order Operators"]
 ```
 
 ### STATE Keys

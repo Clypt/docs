@@ -216,51 +216,39 @@ sizing = VenueAwareSizing(
 
 ### Single-Venue (Typical)
 
-```
-Signal
-  │
-  ▼
-ZScore (normalize)
-  │
-  ▼
-EqualWeight (optimize)
-  │
-  ▼
-BookSize ─────────────┐
-  │                    │
-  ▼                    ▼
-TargetPositionIntention
-  │
-  ▼
-TradingIntention → Executor → Exchange
+```mermaid
+flowchart TB
+    A["Signal"] --> B["ZScore (normalize)"]
+    B --> C["EqualWeight (optimize)"]
+    C --> D["BookSize"]
+    D --> E["TargetPositionIntention"]
+    C --> E
+    E --> F["TradingIntention"]
+    F --> G["Executor"]
+    G --> H["Exchange"]
 ```
 
 ### Multi-Venue (Arbitrage)
 
-```
-Spread Signal
-  │
-  ├─► VenueAwareSizing ─► target_notional (all venues)
-  │
-  ├─► FuturesTargetPositionIntention (futures leg)
-  │     └─ STATE:binance:futures:*
-  │
-  └─► TargetPositionIntention (spot leg)
-        └─ STATE:binance:spot:*
+```mermaid
+flowchart TB
+    A["Spread Signal"] --> B["VenueAwareSizing"]
+    B --> C["target_notional (all venues)"]
+    A --> D["FuturesTargetPositionIntention<br>(futures leg)<br>STATE:binance:futures:*"]
+    A --> E["TargetPositionIntention<br>(spot leg)<br>STATE:binance:spot:*"]
 ```
 
 ### With ArbitrageIntention
 
-```
-Spread Signal
-  │
-  ▼
-ArbitrageIntention
-  ├─► Long leg (spot) ──► paired TradingIntention
-  └─► Short leg (futures) ──► paired TradingIntention
-                                    │
-                                    ▼
-                               Executor (routes to correct venue)
+```mermaid
+flowchart TB
+    A["Spread Signal"] --> B["ArbitrageIntention"]
+    B --> C["Long leg (spot)"]
+    B --> D["Short leg (futures)"]
+    C --> E["Paired TradingIntention"]
+    D --> F["Paired TradingIntention"]
+    E --> G["Executor<br>(routes to correct venue)"]
+    F --> G
 ```
 
 ## Safety Guards

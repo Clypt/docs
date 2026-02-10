@@ -293,45 +293,41 @@ df_signal.plot(title="Basis (Futures Premium)", figsize=(14, 3))
 
 ## The Complete Graph
 
-```
-FIELD:spot:close ──────────────┐
-                               ▼
-                          SMA(spot)
-                               │
-FIELD:futures:close ───────────┤
-                               ▼
-                         SMA(futures)
-                               │
-                    ┌──────────┴──────────┐
-                    ▼                     ▼
-              BasisAlpha            (basis signal)
-                    │                     │
-          ┌─────── ┼ ─────────────────────┤
-          │        │                      │
-          ▼        ▼                      ▼
-   PairIdGenerator VenueAwareSizing  (per venue)
-                        │
-            ┌───────────┴───────────┐
-            ▼                       ▼
-STATE:spot:cash               STATE:futures:cash
-STATE:spot:pos                STATE:futures:pos
-     │                              │
-     ▼                              ▼
-EquityCalculator(spot)    EquityCalculator(futures)
-     │                              │
-     └─────────┬────────────────────┘
-               ▼
-      TotalEquityCalculator
-               │
-           BookSize
-               │
-     ┌─────────┴─────────┐
-     ▼                    ▼
-TargetPosition     FuturesTargetPosition
- Intention(spot)    Intention(futures)
-     │                    │
-     ▼                    ▼
-  Executor(spot)    Executor(futures)
+```mermaid
+flowchart TB
+    SPOT_CLOSE["FIELD:spot:close"] --> sma_spot["SMA(spot)"]
+    FUT_CLOSE["FIELD:futures:close"] --> sma_spot
+    FUT_CLOSE --> sma_fut["SMA(futures)"]
+    SPOT_CLOSE --> sma_fut
+
+    sma_spot --> basis["BasisAlpha"]
+    sma_fut --> basis
+
+    basis --> pairid["PairIdGenerator"]
+    basis --> sizing["VenueAwareSizing"]
+
+    subgraph Spot Venue
+        S_CASH["STATE:spot:cash"] --> eq_spot["EquityCalculator<br>(spot)"]
+        S_POS["STATE:spot:pos"] --> eq_spot
+    end
+
+    subgraph Futures Venue
+        F_CASH["STATE:futures:cash"] --> eq_fut["EquityCalculator<br>(futures)"]
+        F_POS["STATE:futures:pos"] --> eq_fut
+    end
+
+    eq_spot --> total_eq["TotalEquityCalculator"]
+    eq_fut --> total_eq
+    total_eq --> book["BookSize"]
+
+    sizing --> spot_int["TargetPosition<br>Intention (spot)"]
+    book --> spot_int
+
+    sizing --> fut_int["FuturesTargetPosition<br>Intention (futures)"]
+    book --> fut_int
+
+    spot_int --> exec_spot["Executor (spot)"]
+    fut_int --> exec_fut["Executor (futures)"]
 ```
 
 ## Multi-Exchange Variant

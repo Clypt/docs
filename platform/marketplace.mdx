@@ -9,28 +9,21 @@ The Clypt marketplace is not a typical app store. It's a **Trading Commerce** pl
 
 ## How It Works
 
-```
-Builder                        Platform                       Buyer
-  │                              │                              │
-  │  1. Submit strategy          │                              │
-  │  (TradingSpec, no source)    │                              │
-  │─────────────────────────────▶│                              │
-  │                              │  2. Run backtest on          │
-  │                              │     builder's exchange data  │
-  │                              │                              │
-  │                              │  3. Run backtest on          │
-  │                              │     CROSS-EXCHANGE data      │
-  │                              │     (builder never saw this) │
-  │                              │                              │
-  │                              │  4. Compute metrics          │
-  │                              │     (Sharpe, MDD, fees, etc.)│
-  │                              │                              │
-  │                              │  5. Publish with             │
-  │                              │     Verified badge           │
-  │                              │─────────────────────────────▶│
-  │                              │                              │
-  │                              │  6. Buyer deploys            │
-  │                              │     (paper → live)           │
+```mermaid
+flowchart LR
+    subgraph Builder
+        A["1. Submit strategy<br>(TradingSpec, no source)"]
+    end
+    subgraph Platform
+        B["2. Run backtest on<br>builder's exchange data"]
+        C["3. Run backtest on<br>CROSS-EXCHANGE data<br>(builder never saw this)"]
+        D["4. Compute metrics<br>(Sharpe, MDD, fees, etc.)"]
+        E["5. Publish with<br>Verified badge"]
+    end
+    subgraph Buyer
+        F["6. Buyer deploys<br>(paper → live)"]
+    end
+    A --> B --> C --> D --> E --> F
 ```
 
 ## Submission Flow
@@ -69,13 +62,30 @@ spec = TradingSpec(
 
 The validation pipeline exists because **the buyer's capital is at stake**. Every validation step directly addresses a specific risk that the buyer faces:
 
-```
-Builder submits           Platform validates           Buyer sees
-───────────────           ──────────────────           ─────────
-"Sharpe 2.0"         →   Reproduce on same data   →   Verified Sharpe 1.98 ✓
-"Works everywhere"   →   Run on unseen exchanges  →   Consistency score 0.85 ✓
-"Profitable at $1M"  →   Scale test at 2×/5×/10×  →   Capacity: $500K max ⚠️
-"Low cost impact"    →   Apply real venue fees     →   Fee impact: -12% of return ✓
+```mermaid
+flowchart LR
+    subgraph BS["Builder submits"]
+        B1["Sharpe 2.0"]
+        B2["Works everywhere"]
+        B3["Profitable at $1M"]
+        B4["Low cost impact"]
+    end
+    subgraph PV["Platform validates"]
+        P1["Reproduce on same data"]
+        P2["Run on unseen exchanges"]
+        P3["Scale test at 2x/5x/10x"]
+        P4["Apply real venue fees"]
+    end
+    subgraph BY["Buyer sees"]
+        Y1["Verified Sharpe 1.98"]
+        Y2["Consistency score 0.85"]
+        Y3["Capacity: $500K max"]
+        Y4["Fee impact: -12% of return"]
+    end
+    B1 --> P1 --> Y1
+    B2 --> P2 --> Y2
+    B3 --> P3 --> Y3
+    B4 --> P4 --> Y4
 ```
 
 **Without this chain:** Buyers would have to trust self-reported metrics — the same broken trust model that plagues every existing copy-trading platform.

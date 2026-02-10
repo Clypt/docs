@@ -9,15 +9,9 @@ ClyptQ's data system handles everything from historical Parquet files to live We
 
 ## Data Flow
 
-```
-TradingDataSpec                          StatefulGraph
-┌───────────────────────┐    ┌─────────────────────────────────┐
-│ symbol_source_map     │    │                                 │
-│ observations          │───▶│  FIELD:binance:futures:ohlcv:   │
-│   └─ OHLCVSpec        │    │    close, open, high, low, vol  │
-│ start / end           │    │                                 │
-└───────────────────────┘    │  → RollingBuffer → Operator     │
-                             └─────────────────────────────────┘
+```mermaid
+flowchart LR
+    A["<b>TradingDataSpec</b><br>symbol_source_map<br>observations<br>- OHLCVSpec<br>start / end"] --> B["<b>StatefulGraph</b><br>FIELD:binance:futures:ohlcv:<br>close, open, high, low, vol<br><br>RollingBuffer to Operator"]
 ```
 
 ## ObservationSpec
@@ -166,47 +160,24 @@ Helper.data_info("binance", "futures", "BTC/USDT:USDT", "1m")
 
 ### Backtest mode
 
-```
-TradingDataSpec(start, end)
-        │
-        ▼
-  Load Parquet files for [start, end] range
-        │
-        ▼
-  Validate: coverage, NaN ratio, time range
-        │
-        ▼
-  Forward-fill missing bars
-        │
-        ▼
-  Feed into RollingBuffers → Graph
+```mermaid
+flowchart TB
+    A["TradingDataSpec(start, end)"] --> B["Load Parquet files for start–end range"]
+    B --> C["Validate: coverage, NaN ratio, time range"]
+    C --> D["Forward-fill missing bars"]
+    D --> E["Feed into RollingBuffers → Graph"]
 ```
 
 All data is loaded upfront. The driver iterates through bars sequentially.
 
 ### Paper/Live mode
 
-```
-TradingDataSpec (no start/end)
-        │
-        ▼
-  1. Historical warmup
-     Load last N bars from Parquet
-     (N = max lookback across graph)
-        │
-        ▼
-  2. Gap fill (if needed)
-     If historical data doesn't reach current time,
-     fetch missing bars from exchange REST API
-        │
-        ▼
-  3. Clock sync
-     Align to next bar boundary
-        │
-        ▼
-  4. Live stream
-     WebSocket feed from exchange
-     Each new bar → tick through graph
+```mermaid
+flowchart TB
+    A["TradingDataSpec (no start/end)"] --> B["1. Historical warmup<br>Load last N bars from Parquet<br>(N = max lookback across graph)"]
+    B --> C["2. Gap fill (if needed)<br>Fetch missing bars from<br>exchange REST API"]
+    C --> D["3. Clock sync<br>Align to next bar boundary"]
+    D --> E["4. Live stream<br>WebSocket feed from exchange<br>Each new bar → tick through graph"]
 ```
 
 The `warmup_info` property tracks how data was sourced:

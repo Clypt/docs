@@ -260,47 +260,46 @@ for result in driver:
 
 ## The Complete Graph
 
-```
-FIELD:close ─────────────┬────────────────────────────────┐
-                         │                                │
-                    ┌────┴────┐                            │
-                    ▼         ▼                            │
-               SMA(10)    SMA(50)     RSI(14)             │
-                    │         │          │                 │
-                    ▼         ▼          │                 │
-              CrossoverAlpha  │      RSIAlpha              │
-                    │         │          │                 │
-FIELD:high ──┐     │         │          │                 │
-FIELD:low ───┤     │         │          │                 │
-FIELD:close ─┤     │         │          │                 │
-             ▼     │         │          │                 │
-          ATR(14)  │         │          │                 │
-             │     │         │          │                 │
-             ▼     │         │          │                 │
-       ConditionalGate       │          │                 │
-             │               │          │                 │
-        ┌────┴────┐          │          │                 │
-        ▼         ▼          │          │                 │
-    WebSearch  LLMScorer     │          │                 │
-        │         │          │          │                 │
-        ▼         │          │          │                 │
-   SentimentParser│          │          │                 │
-        │         │          │          │                 │
-        └────┬────┴────┬─────┴──────────┘                 │
-             ▼                                            │
-        EqualWeight                                       │
-             │            STATE:cash ──┐                  │
-             │            STATE:pos ───┤                  │
-             │                         ▼                  │
-             │                EquityCalculator             │
-             │                         │                  │
-             │                    BookSize                │
-             │                         │                  │
-             ▼                         ▼                  │
-        FuturesTargetPositionIntention ◄──────────────────┘
-             │
-             ▼
-          Executor
+```mermaid
+flowchart TB
+    CLOSE["FIELD:close"]
+    CLOSE --> sma10["SMA(10)"]
+    CLOSE --> sma50["SMA(50)"]
+    CLOSE --> rsi14["RSI(14)"]
+
+    sma10 --> crossover["CrossoverAlpha"]
+    sma50 --> crossover
+
+    rsi14 --> rsi_alpha["RSIAlpha"]
+
+    HIGH["FIELD:high"] --> atr["ATR(14)"]
+    LOW["FIELD:low"] --> atr
+    CLOSE2["FIELD:close"] --> atr
+
+    atr --> gate["ConditionalGate"]
+
+    gate --> websearch["WebSearch"]
+    gate --> llm["LLMScorer"]
+    crossover --> llm
+    rsi14 --> llm
+
+    websearch --> sentiment["SentimentParser"]
+
+    crossover --> ew["EqualWeight"]
+    rsi_alpha --> ew
+    llm --> ew
+    sentiment --> ew
+
+    STATE_CASH["STATE:cash"] --> equity["EquityCalculator"]
+    STATE_POS["STATE:pos"] --> equity
+    CLOSE --> equity
+    equity --> book["BookSize"]
+
+    ew --> intention["FuturesTargetPosition<br>Intention"]
+    book --> intention
+    CLOSE --> intention
+
+    intention --> executor["Executor"]
 ```
 
 ## Cost Control Strategies

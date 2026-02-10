@@ -224,34 +224,36 @@ df_equity.plot(title="Multi-Factor Equity Curve", figsize=(14, 5))
 
 ## The Complete Graph
 
-```
-FIELD:close ─────────────┬──────────────────────────────┐
-                         │                              │
-                    ┌────┴────┐                         │
-                    ▼         ▼                         ▼
-              MomentumAlpha  RSIAlpha  BollingerAlpha   │
-                    │         │              │          │
-                    ▼         ▼              ▼          │
-               ZScore     ZScore         ZScore        │
-                    │         │              │          │
-                    └────┬────┴──────────────┘          │
-                         ▼                              │
-                    EqualWeight                         │
-                         │                              │
-FIELD:close ─────┐       ▼                              │
-FIELD:volume ────┤  ClipWeights                         │
-                 │       │            STATE:cash ──┐    │
-                 ▼       │            STATE:pos ───┤    │
-          LiquidityFilter│                         ▼    │
-                 │       │                EquityCalculator
-                 │       │                         │    │
-                 │       │                    BookSize   │
-                 │       │                         │    │
-                 │       ▼                         ▼    │
-                 │  FuturesTargetPositionIntention ◄────┘
-                 │       │
-                 │       ▼
-                 └── Executor
+```mermaid
+flowchart TB
+    CLOSE["FIELD:close"] --> alpha_mom["MomentumAlpha"]
+    CLOSE --> alpha_rsi["RSIAlpha"]
+    CLOSE --> alpha_boll["BollingerAlpha"]
+
+    alpha_mom --> z_mom["ZScore"]
+    alpha_rsi --> z_rsi["ZScore"]
+    alpha_boll --> z_boll["ZScore"]
+
+    z_mom --> ew["EqualWeight"]
+    z_rsi --> ew
+    z_boll --> ew
+
+    ew --> clip["ClipWeights"]
+
+    CLOSE2["FIELD:close"] --> liq["LiquidityFilter"]
+    VOL["FIELD:volume"] --> liq
+
+    STATE_CASH["STATE:cash"] --> equity["EquityCalculator"]
+    STATE_POS["STATE:pos"] --> equity
+    CLOSE --> equity
+    equity --> book["BookSize"]
+
+    clip --> intention["FuturesTargetPosition<br>Intention"]
+    book --> intention
+    CLOSE --> intention
+
+    intention --> executor["Executor"]
+    liq --> executor
 ```
 
 ## Variations

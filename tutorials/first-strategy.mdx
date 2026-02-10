@@ -239,31 +239,26 @@ print(results["state"])
 
 Here's how data flows through the graph we built:
 
-```
-FIELD:binance:futures:ohlcv:close
-  │
-  ├──▶ sma_fast (SMA, span=10)
-  │       │
-  ├──▶ sma_slow (SMA, span=50)
-  │       │
-  │       ▼
-  │    signal (CrossoverAlpha)
-  │       │
-  │       ▼
-  │    weights (EqualWeight)
-  │       │                    STATE:cash ──┐
-  │       │                    STATE:pos ───┤
-  │       │                                 ▼
-  │       │                    equity (EquityCalculator)
-  │       │                        │
-  │       │                        ▼
-  │       │                    book (BookSize)
-  │       │                        │
-  │       ▼                        ▼
-  │    intention (FuturesTargetPositionIntention)
-  │       │
-  │       ▼
-  └── Executor → Fill → STATE update
+```mermaid
+flowchart TB
+    FIELD["FIELD:binance:futures<br>:ohlcv:close"]
+    FIELD --> sma_fast["sma_fast<br>(SMA, span=10)"]
+    FIELD --> sma_slow["sma_slow<br>(SMA, span=50)"]
+    sma_fast --> signal["signal<br>(CrossoverAlpha)"]
+    sma_slow --> signal
+    signal --> weights["weights<br>(EqualWeight)"]
+
+    STATE_CASH["STATE:cash"] --> equity["equity<br>(EquityCalculator)"]
+    STATE_POS["STATE:pos"] --> equity
+    FIELD --> equity
+    equity --> book["book<br>(BookSize)"]
+
+    weights --> intention["intention<br>(FuturesTargetPosition<br>Intention)"]
+    book --> intention
+    FIELD --> intention
+    intention --> executor["Executor"]
+    executor --> fill["Fill"]
+    fill --> state_update["STATE update"]
 ```
 
 ## Next Steps

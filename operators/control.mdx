@@ -105,8 +105,8 @@ graph.add_node("extreme_gate", gate_or, inputs=[
 ```
 oversold_gate:    [1.0, 0.0, 0.0]
 overbought_gate:  [0.0, 0.0, 1.0]
-───────────────────────────────────
-GateOr output:    [1.0, 0.0, 1.0]  ← BTC oversold OR SOL overbought
+-----------------------------------
+GateOr output:    [1.0, 0.0, 1.0]  <- BTC oversold OR SOL overbought
 ```
 
 ---
@@ -136,8 +136,8 @@ graph.add_node("trade_gate", gate_and, inputs=[
 ```
 high_vol_gate:  [1.0, 1.0, 0.0]
 trend_gate:     [1.0, 0.0, 1.0]
-────────────────────────────────
-GateAnd output: [1.0, 0.0, 0.0]  ← Only BTC passes both conditions
+--------------------------------
+GateAnd output: [1.0, 0.0, 0.0]  <- Only BTC passes both conditions
 ```
 
 ## Common Patterns

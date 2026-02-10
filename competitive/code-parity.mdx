@@ -22,12 +22,14 @@ Each difference is small. Together, they destroy your edge.
 
 **Most quant platforms have two codebases.** One for research and one for production:
 
-```
-Research Path:
-  Jupyter → pandas/numpy → DataFrame → backtest_engine.py
-
-Production Path:
-  live_adapter.py → event_handler.py → order_router.py → exchange_api.py
+```mermaid
+flowchart LR
+    subgraph RP["Research Path"]
+        J["Jupyter"] --> PN["pandas/numpy"] --> DF["DataFrame"] --> BE["backtest_engine.py"]
+    end
+    subgraph PP["Production Path"]
+        LA["live_adapter.py"] --> EH["event_handler.py"] --> OR["order_router.py"] --> EA["exchange_api.py"]
+    end
 ```
 
 These codebases drift. They always drift. And when they drift, strategies that worked in backtest fail in production.
@@ -245,23 +247,15 @@ This code runs **unchanged** in backtest (iterating over 1 year of data in secon
 
 Inside the driver, each iteration of the `for` loop executes one tick:
 
-```
-for result in driver:
-    ┌──────────────────────────────────────────────────┐
-    │  1. Fetch next tick                               │
-    │     Backtest: read from Parquet                   │
-    │     Live: receive from exchange WebSocket          │
-    │                                                    │
-    │  2. FIELD data → distribute to consumer buffers   │
-    │  3. STATE data → distribute to consumer buffers   │
-    │  4. Execute operators in topological order         │
-    │  5. Intention nodes → compute deltas              │
-    │  6. Executor → process fill                       │
-    │     Backtest: simulate fill with cost model        │
-    │     Live: send order to exchange, await fill       │
-    │  7. Update STATE with fill result                 │
-    │  8. Yield result to user                          │
-    └──────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    A["1. Fetch next tick<br>Backtest: read from Parquet<br>Live: receive from WebSocket"] --> B["2. FIELD data →<br>distribute to consumer buffers"]
+    B --> C["3. STATE data →<br>distribute to consumer buffers"]
+    C --> D["4. Execute operators<br>in topological order"]
+    D --> E["5. Intention nodes →<br>compute deltas"]
+    E --> F["6. Executor → process fill<br>Backtest: simulate with cost model<br>Live: send order, await fill"]
+    F --> G["7. Update STATE<br>with fill result"]
+    G --> H["8. Yield result to user"]
 ```
 
 Steps 2-5 and 7-8 are **identical code** in all modes. Only steps 1 and 6 differ — and those are internal to the driver, invisible to the user.
@@ -272,38 +266,29 @@ While the user code is identical, the driver internally swaps two components:
 
 #### Data Injection (Step 1)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  BACKTEST                                                        │
-│                                                                  │
-│  Historical Parquet ─────────────────────────────→ Graph         │
-│  (all ticks pre-loaded, warmup auto-computed)                    │
-│                                                                  │
-│  Timeline: [───warmup───|────────backtest────────]               │
-│            no execution   normal execution                       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph BT["BACKTEST"]
+        direction LR
+        BT_P["Historical Parquet<br>(all ticks pre-loaded,<br>warmup auto-computed)"] --> BT_G["Graph"]
+        BT_T["Timeline: warmup (no execution) → backtest (normal execution)"]
+    end
 
-┌─────────────────────────────────────────────────────────────────┐
-│  PAPER                                                           │
-│                                                                  │
-│  Historical Parquet ──→ Gap Fill ──→ Live WebSocket ──→ Graph   │
-│  (warmup phase)         (if history    (real-time ticks)         │
-│                          insufficient)                           │
-│                                                                  │
-│  Timeline: [──history warmup──|─gap─|────live ticks────]        │
-│            no execution              simulated fills              │
-└─────────────────────────────────────────────────────────────────┘
+    subgraph PA["PAPER"]
+        direction LR
+        PA_P["Historical Parquet<br>(warmup phase)"] --> PA_GF["Gap Fill<br>(if history<br>insufficient)"]
+        PA_GF --> PA_WS["Live WebSocket<br>(real-time ticks)"]
+        PA_WS --> PA_G["Graph"]
+        PA_T["Timeline: history warmup → gap → live ticks (simulated fills)"]
+    end
 
-┌─────────────────────────────────────────────────────────────────┐
-│  LIVE                                                            │
-│                                                                  │
-│  Historical Parquet ──→ Gap Fill ──→ Live WebSocket ──→ Graph   │
-│  (warmup phase)         (if history    (real-time ticks)         │
-│                          insufficient)                           │
-│                                                                  │
-│  Timeline: [──history warmup──|─gap─|────live ticks────]        │
-│            no execution              real exchange orders         │
-└─────────────────────────────────────────────────────────────────┘
+    subgraph LV["LIVE"]
+        direction LR
+        LV_P["Historical Parquet<br>(warmup phase)"] --> LV_GF["Gap Fill<br>(if history<br>insufficient)"]
+        LV_GF --> LV_WS["Live WebSocket<br>(real-time ticks)"]
+        LV_WS --> LV_G["Graph"]
+        LV_T["Timeline: history warmup → gap → live ticks (real exchange orders)"]
+    end
 ```
 
 **Warmup fallback chain** (paper & live):

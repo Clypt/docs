@@ -106,10 +106,13 @@ Transaction fees scale with **marketplace GMV** — more buyers deploying more s
 
 ### Network Effects
 
-```
-More Builders → More strategies → More Buyers → More revenue
-     ↑                                              │
-     └──────────── Higher builder payouts ←─────────┘
+```mermaid
+flowchart LR
+    A["More Builders"] --> B["More strategies"]
+    B --> C["More Buyers"]
+    C --> D["More revenue"]
+    D --> E["Higher builder payouts"]
+    E --> A
 ```
 
 The marketplace creates a two-sided network effect:

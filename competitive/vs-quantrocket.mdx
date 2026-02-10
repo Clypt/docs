@@ -15,19 +15,16 @@ Unlike most platforms that provide a single backtesting engine, QuantRocket offe
 
 QuantRocket runs as a collection of Docker containers:
 
-```
-┌─────────────────────────────────────────┐
-│            Docker Compose                │
-│                                          │
-│  ┌──────────┐  ┌──────────┐  ┌────────┐│
-│  │ Jupyter   │  │ Zipline  │  │ IB     ││
-│  │ Notebook  │  │ Engine   │  │Gateway ││
-│  └──────────┘  └──────────┘  └────────┘│
-│  ┌──────────┐  ┌──────────┐  ┌────────┐│
-│  │ Moonshot  │  │ Database │  │ Flightlog│
-│  │ Engine    │  │ (Postgres)│ │(Logging)││
-│  └──────────┘  └──────────┘  └────────┘│
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph DC["Docker Compose"]
+        JN["Jupyter<br>Notebook"]
+        ZE["Zipline<br>Engine"]
+        IB["IB<br>Gateway"]
+        ME["Moonshot<br>Engine"]
+        DB["Database<br>(Postgres)"]
+        FL["Flightlog<br>(Logging)"]
+    end
 ```
 
 **Pros**: Professional-grade pipeline, each service is isolated.
@@ -35,17 +32,16 @@ QuantRocket runs as a collection of Docker containers:
 
 ### ClyptQ: Unified SaaS
 
-```
-┌──────────────────────────────────────┐
-│           TradingSpec                 │
-│  ┌──────┐  ┌──────────┐  ┌────────┐│
-│  │ Data │  │ Strategy │  │Execute ││
-│  │ Spec │  │ (Graph)  │  │ Spec   ││
-│  └──────┘  └──────────┘  └────────┘│
-└──────────────────────────────────────┘
-        │           │            │
-   FIELD Protocol   DAG     Memoryless
-                              Executor
+```mermaid
+flowchart TB
+    subgraph TS["TradingSpec"]
+        DS["Data<br>Spec"]
+        SG["Strategy<br>(Graph)"]
+        ES["Execute<br>Spec"]
+    end
+    DS --> FP["FIELD Protocol"]
+    SG --> DAG["DAG"]
+    ES --> ME["Memoryless<br>Executor"]
 ```
 
 Everything in one `TradingSpec`. No Docker. No microservices. No infrastructure management.

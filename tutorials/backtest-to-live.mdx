@@ -7,17 +7,12 @@ description: "Deploy the same strategy from backtest through paper to live tradi
 
 ClyptQ's code parity means the deployment lifecycle is a parameter change, not a rewrite:
 
-```
-Backtest (mode="backtest")
-    │  Validate strategy logic, measure Sharpe, check costs
-    ▼
-Paper (mode="paper")
-    │  Verify on live data with simulated fills, 2-4 weeks
-    ▼
-Live (mode="live")
-    │  Real money, start small, scale gradually
-    ▼
-Scale
+```mermaid
+flowchart TB
+    BT["Backtest<br>(mode=backtest)"]
+    BT -- "Validate strategy logic,<br>measure Sharpe, check costs" --> PP["Paper<br>(mode=paper)"]
+    PP -- "Verify on live data with<br>simulated fills, 2-4 weeks" --> LV["Live<br>(mode=live)"]
+    LV -- "Real money, start small,<br>scale gradually" --> SC["Scale"]
 ```
 
 This tutorial uses the SMA crossover strategy from [Your First Strategy](/tutorials/first-strategy). The graph and operators don't change — only the `TradingExecutionSpec`.
