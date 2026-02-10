@@ -10,20 +10,21 @@ The Clypt marketplace is not a typical app store. It's a **Trading Commerce** pl
 ## How It Works
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph Builder
-        A["1. Submit strategy<br>(TradingSpec, no source)"]
+        A["Submit TradingSpec"]
     end
-    subgraph Platform
-        B["2. Run backtest on<br>builder's exchange data"]
-        C["3. Run backtest on<br>CROSS-EXCHANGE data<br>(builder never saw this)"]
-        D["4. Compute metrics<br>(Sharpe, MDD, fees, etc.)"]
-        E["5. Publish with<br>Verified badge"]
+    subgraph Platform["Platform Validation"]
+        direction TB
+        B["Reproduce backtest"] --> C["Cross-exchange validation"]
+        C --> D["Compute verified metrics"]
+        D --> E["Publish with Verified badge"]
     end
     subgraph Buyer
-        F["6. Buyer deploys<br>(paper → live)"]
+        F["Deploy: paper → live"]
     end
-    A --> B --> C --> D --> E --> F
+    A --> B
+    E --> F
 ```
 
 ## Submission Flow
@@ -64,23 +65,26 @@ The validation pipeline exists because **the buyer's capital is at stake**. Ever
 
 ```mermaid
 flowchart LR
-    subgraph BS["Builder submits"]
+    subgraph BS["Builder Claims"]
+        direction TB
         B1["Sharpe 2.0"]
         B2["Works everywhere"]
         B3["Profitable at $1M"]
         B4["Low cost impact"]
     end
-    subgraph PV["Platform validates"]
-        P1["Reproduce on same data"]
-        P2["Run on unseen exchanges"]
-        P3["Scale test at 2x/5x/10x"]
-        P4["Apply real venue fees"]
+    subgraph PV["Platform Validates"]
+        direction TB
+        P1["Reproduce backtest"]
+        P2["Unseen exchanges"]
+        P3["Scale 2x/5x/10x"]
+        P4["Real venue fees"]
     end
-    subgraph BY["Buyer sees"]
-        Y1["Verified Sharpe 1.98"]
-        Y2["Consistency score 0.85"]
-        Y3["Capacity: $500K max"]
-        Y4["Fee impact: -12% of return"]
+    subgraph BY["Buyer Sees"]
+        direction TB
+        Y1["Sharpe 1.98 ✓"]
+        Y2["Consistency 0.85"]
+        Y3["Capacity $500K"]
+        Y4["Fee impact -12%"]
     end
     B1 --> P1 --> Y1
     B2 --> P2 --> Y2
@@ -183,16 +187,21 @@ Capacity constraints affect builder revenue:
 
 Buyers see independently verified metrics for each strategy:
 
-| Metric | Source | Builder Can Manipulate? |
-|--------|--------|------------------------|
-| Sharpe Ratio | Platform-computed | No |
-| Max Drawdown | Platform-computed | No |
-| Total Return | Platform-computed | No |
-| Win Rate | Platform-computed | No |
-| Avg Trade Duration | Platform-computed | No |
-| Fee Impact | Platform-computed (real exchange fees) | No |
-| Funding Cost | Platform-computed (historical rates) | No |
-| Cross-Exchange Consistency | Platform-computed (unseen data) | No |
+| Metric | Source | Standardization | Builder Can Manipulate? |
+|--------|--------|----------------|------------------------|
+| **Sharpe Ratio** | Platform-computed | **Annualized** (`periods_per_year=252`) | No |
+| **Max Drawdown (MDD)** | Platform-computed | **Peak-to-trough**, percentage | No |
+| **Total Return** | Platform-computed | **Annualized** (CAGR) | No |
+| Win Rate | Platform-computed | Percentage of positive returns | No |
+| Volatility | Platform-computed | **Annualized** std deviation | No |
+| Avg Trade Duration | Platform-computed | Time-weighted | No |
+| Fee Impact | Platform-computed (real exchange fees) | Basis points | No |
+| Funding Cost | Platform-computed (historical rates) | Annualized drag | No |
+| Cross-Exchange Consistency | Platform-computed (unseen data) | 0-1 score | No |
+
+<Info>
+**All core metrics are annualized and standardized.** Sharpe Ratio, Total Return (CAGR), and Volatility use `periods_per_year=252` for consistent comparison across strategies with different timeframes. MDD is reported as the maximum peak-to-trough drawdown percentage. These three — **Annualized Return, MDD, and Annualized Sharpe** — are the required metrics for every marketplace listing.
+</Info>
 
 ### Deployment
 
@@ -254,6 +263,8 @@ Builders earn revenue without revealing their strategy logic:
 | **Independent metrics** | Platform computes all metrics — builders cannot override |
 | **Cross-venue robustness** | Validated on data the builder never saw |
 | **Real-time verification** | Paper trading results are tracked and compared to backtest expectations |
+| **Malicious code protection** | Multi-layer validation pipeline detects and blocks abusive patterns before and during execution |
+| **Metric integrity** | Required metric operators (AccumSharpe, AccumMaxDrawdown, AccumTotalReturn) are computed by platform code — cannot be faked |
 
 ## Related Pages
 

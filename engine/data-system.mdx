@@ -174,10 +174,10 @@ All data is loaded upfront. The driver iterates through bars sequentially.
 
 ```mermaid
 flowchart TB
-    A["TradingDataSpec (no start/end)"] --> B["1. Historical warmup<br>Load last N bars from Parquet<br>(N = max lookback across graph)"]
-    B --> C["2. Gap fill (if needed)<br>Fetch missing bars from<br>exchange REST API"]
-    C --> D["3. Clock sync<br>Align to next bar boundary"]
-    D --> E["4. Live stream<br>WebSocket feed from exchange<br>Each new bar → tick through graph"]
+    A["TradingDataSpec<br>(no start/end)"] --> B["Historical warmup<br>Load last N bars from Parquet"]
+    B --> C["Gap fill<br>Fetch missing bars via REST"]
+    C --> D["Clock sync<br>Align to next bar boundary"]
+    D --> E["Live stream<br>WebSocket feed → graph ticks"]
 ```
 
 The `warmup_info` property tracks how data was sourced:

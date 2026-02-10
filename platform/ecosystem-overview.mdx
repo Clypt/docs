@@ -16,11 +16,11 @@ ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative s
 ## Trading Commerce Ecosystem
 
 ```mermaid
-flowchart TB
-    Builder["Builder (Strategy Creator)<br>Develops strategy in Jupyter<br>Tests with backtest → paper → live<br>Submits TradingSpec to marketplace"]
-    Platform["ClyptQ Platform<br>Reproduces backtest on builder's data<br>Cross-exchange validation (unseen data)<br>Computes all metrics independently"]
-    Buyer["Buyer (Capital Provider)<br>Evaluates verified metrics<br>Paper trades for 2-4 weeks<br>Deploys live with same graph"]
-    Revenue["Revenue flows back to Builder"]
+flowchart LR
+    Builder["Builder<br><br>Develop in Jupyter<br>Backtest → Paper → Live<br>Submit to Marketplace"]
+    Platform["ClyptQ Platform<br><br>Reproduce backtest<br>Cross-exchange validation<br>Compute all metrics"]
+    Buyer["Buyer<br><br>Evaluate verified metrics<br>Paper trade 2-4 weeks<br>Deploy live"]
+    Revenue["Revenue<br><br>Flows back<br>to Builder"]
 
     Builder --> Platform --> Buyer --> Revenue
 ```
@@ -50,21 +50,21 @@ flowchart TB
 ClyptQ consists of **4 layers**:
 
 ```mermaid
-flowchart TB
-    subgraph L1["Layer 1: TradingSpec (Configuration)"]
-        direction LR
-        DS["DataSpec (what data)"]
-        SS["StrategySpec (what graph)"]
-        ES["ExecutionSpec (how to trade)"]
+flowchart LR
+    subgraph L1["TradingSpec"]
+        direction TB
+        DS["DataSpec"]
+        SS["StrategySpec"]
+        ES["ExecutionSpec"]
     end
-    subgraph L2["Layer 2: TradingDriver (Orchestrator)"]
-        Driver["warmup → clock sync → tick loop → shutdown"]
+    subgraph L2["TradingDriver"]
+        Driver["Warmup → Clock Sync<br>→ Tick Loop → Shutdown"]
     end
-    subgraph L3["Layer 3: StatefulGraph (Execution Engine)"]
-        Graph["FIELD → Operators → STATE → Intentions"]
+    subgraph L3["StatefulGraph"]
+        Graph["FIELD → Operators<br>→ STATE → Intentions"]
     end
-    subgraph L4["Layer 4: Executor (Fill Engine)"]
-        Exec["BacktestFactory (backtest/paper)<br>LiveFactory (live — real orders via CCXT)"]
+    subgraph L4["Executor"]
+        Exec["BacktestFactory<br>LiveFactory (CCXT)"]
     end
 
     L1 --> L2 --> L3 --> L4

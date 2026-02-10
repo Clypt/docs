@@ -21,24 +21,28 @@ This guide is for **strategy investors** — people who want to deploy verified 
 
 ### What metrics to look for
 
-Every marketplace strategy shows independently verified metrics:
+Every marketplace strategy shows independently verified metrics. All core metrics are **annualized and standardized** for consistent comparison across strategies:
+
+<Info>
+**Required Metrics (Annualized):** Every listing must display **Annualized Total Return (CAGR)**, **Maximum Drawdown (MDD)**, and **Annualized Sharpe Ratio** — all computed with `periods_per_year=252` by the platform.
+</Info>
 
 **Return Metrics:**
 
-| Metric | What It Tells You | Good Target |
-|--------|------------------|------------|
-| **Total Return** | Overall profit/loss | > 30%/year |
-| **Sharpe Ratio** | Return per unit of risk | > 1.5 |
-| **Sortino Ratio** | Return per unit of downside risk | > 2.0 |
+| Metric | What It Tells You | Standardization | Good Target |
+|--------|------------------|----------------|------------|
+| **Total Return (CAGR)** | Annualized compound growth rate | **Annualized** (`periods_per_year=252`) | > 30%/year |
+| **Sharpe Ratio** | Annualized return per unit of risk | **Annualized** (`periods_per_year=252`) | > 1.5 |
+| **Sortino Ratio** | Annualized return per unit of downside risk | **Annualized** (downside deviation) | > 2.0 |
 
 **Risk Metrics:**
 
-| Metric | What It Tells You | Good Target |
-|--------|------------------|------------|
-| **Max Drawdown** | Worst peak-to-trough decline | < 20% |
-| **Volatility** | Annualized standard deviation | < 40% |
-| **Win Rate** | % of profitable trades | > 55% |
-| **Profit Factor** | Total profit / Total loss | > 1.5 |
+| Metric | What It Tells You | Standardization | Good Target |
+|--------|------------------|----------------|------------|
+| **Max Drawdown (MDD)** | Worst peak-to-trough decline | **Peak-to-trough %** | < 20% |
+| **Volatility** | Annualized standard deviation | **Annualized** (`periods_per_year=252`) | < 40% |
+| **Win Rate** | % of profitable trades | Percentage | > 55% |
+| **Profit Factor** | Total profit / Total loss | Ratio | > 1.5 |
 
 **Trust Metrics (ClyptQ-Specific):**
 

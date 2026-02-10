@@ -199,10 +199,10 @@ RollingBuffer uses **0.005%** of the memory. It only stores what's needed.
 
 ```mermaid
 flowchart TB
-    A["1. add_node()<br>RollingBuffer allocated<br>(lookback × n_symbols)"]
-    B["2. on_tick() — warmup phase<br>buffer.append(tick)<br>valid=False until full"]
-    C["3. on_tick() — normal phase<br>overwrites oldest entry<br>operator receives full lookback"]
-    D["4. expand_axis()<br>if new symbols appear<br>buffer.pad(pad_count)"]
+    A["add_node()<br>RollingBuffer allocated<br>(lookback × n_symbols)"]
+    B["on_tick() — warmup<br>buffer.append(tick)<br>valid=False until full"]
+    C["on_tick() — normal<br>overwrites oldest entry<br>operator receives full lookback"]
+    D["expand_axis()<br>new symbols appear<br>buffer.pad(pad_count)"]
 
     A --> B --> C
     C -.-> D

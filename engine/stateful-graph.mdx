@@ -144,9 +144,9 @@ This pre-computation makes tick distribution O(consumers) instead of O(nodes).
 ```mermaid
 flowchart TB
     OnTick["on_tick(raw_tick_data, timestamp)"]
-    OnTick --> Step1["1. _distribute_source_inputs()<br>For each FIELD/STATE source:<br>buffer.append(tick)"]
-    Step1 --> Step2["2. Execute operators in topological order<br>compute(inputs, ts, ctx) for each node<br>distribute output to downstream buffers"]
-    Step2 --> Step3["3. Return all outputs"]
+    OnTick --> Step1["Distribute source inputs<br>For each FIELD/STATE source:<br>buffer.append(tick)"]
+    Step1 --> Step2["Execute operators<br>in topological order<br>distribute outputs to buffers"]
+    Step2 --> Step3["Return all outputs"]
 ```
 
 ### Step 1: Distribute Source Inputs

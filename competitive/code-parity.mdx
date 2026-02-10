@@ -249,13 +249,13 @@ Inside the driver, each iteration of the `for` loop executes one tick:
 
 ```mermaid
 flowchart TB
-    A["1. Fetch next tick<br>Backtest: read from Parquet<br>Live: receive from WebSocket"] --> B["2. FIELD data →<br>distribute to consumer buffers"]
-    B --> C["3. STATE data →<br>distribute to consumer buffers"]
-    C --> D["4. Execute operators<br>in topological order"]
-    D --> E["5. Intention nodes →<br>compute deltas"]
-    E --> F["6. Executor → process fill<br>Backtest: simulate with cost model<br>Live: send order, await fill"]
-    F --> G["7. Update STATE<br>with fill result"]
-    G --> H["8. Yield result to user"]
+    A["Fetch next tick<br>Backtest: Parquet<br>Live: WebSocket"] --> B["Distribute FIELD data<br>to consumer buffers"]
+    B --> C["Distribute STATE data<br>to consumer buffers"]
+    C --> D["Execute operators<br>in topological order"]
+    D --> E["Intention nodes<br>compute deltas"]
+    E --> F["Executor: process fill<br>Backtest: simulate<br>Live: real order"]
+    F --> G["Update STATE<br>with fill result"]
+    G --> H["Yield result"]
 ```
 
 Steps 2-5 and 7-8 are **identical code** in all modes. Only steps 1 and 6 differ — and those are internal to the driver, invisible to the user.

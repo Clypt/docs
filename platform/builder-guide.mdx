@@ -17,16 +17,190 @@ This guide walks you through the full Builder workflow: develop a strategy in Ju
 | **Monetization** | List strategies on marketplace with performance fee or subscription pricing |
 | **Independent Verification** | Platform verifies your backtest + runs cross-exchange validation |
 
+## Template Format
+
+When you submit a strategy to the marketplace, your `.py` file is executed inside ClyptQ's validation sandbox. Your code must follow a specific contract for the platform to validate, backtest, and deploy it correctly.
+
+### The `main()` function
+
+Every strategy must define a `main()` function that returns a `TradingDriver`. The platform calls this function to run your strategy.
+
+**New format (recommended)** — receives `mode` and `accounts` from the platform:
+
+```python
+def main(mode, accounts):
+    """
+    Args:
+        mode: "backtest", "paper", or "live" — injected by the platform
+        accounts: Dict mapping venue -> {"initial_cash": float}
+                  e.g., {"binance:futures": {"initial_cash": 10000.0}}
+    Returns:
+        TradingDriver instance
+    """
+    graph = StatefulGraph()
+    # ... build graph ...
+
+    spec = TradingSpec(
+        data=TradingDataSpec(...),
+        strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
+        execution=TradingExecutionSpec(
+            mode=mode,  # Use the injected mode
+            accounts=[AccountSpec(
+                "binance", "futures",
+                initial_cash=accounts["binance:futures"]["initial_cash"],
+            )],
+        ),
+        debug=True,
+    )
+
+    driver = TradingDriver.from_spec(spec)
+    for result in driver:
+        pass
+
+    return driver  # MUST return the driver
+```
+
+**Old format** — no parameters, uses injected global variables:
+
+```python
+def main():
+    initial_cash = __SANDBOX_INITIAL_CASH__  # Injected by the platform
+
+    # ... build graph and spec ...
+    driver = TradingDriver.from_spec(spec)
+    for result in driver:
+        pass
+
+    return driver  # MUST return the driver
+```
+
+<Warning>
+`main()` must contain a `return driver` statement. The platform validates this at submission time — strategies without a return statement will be rejected.
+</Warning>
+
+### Required metric operators
+
+For marketplace listing, your graph **must** include three metric operators with **exact node names**. These operators are computed by ClyptQ's internal code — the platform extracts final values from these nodes to display verified metrics to buyers.
+
+```python
+from clyptq.apps.trading.operators.metric import (
+    AccumSharpe,
+    AccumMaxDrawdown,
+    AccumTotalReturn,
+)
+
+# These three are REQUIRED — node names must match exactly
+graph.add_node("sharpe", AccumSharpe(
+    equity=Input("equity", "1m", lookback=1),
+))
+
+graph.add_node("max_drawdown", AccumMaxDrawdown(
+    equity=Input("equity", "1m", lookback=1),
+))
+
+graph.add_node("total_return", AccumTotalReturn(
+    equity=Input("equity", "1m", lookback=1),
+))
+```
+
+| Node Name | Operator | What It Computes |
+|-----------|----------|-----------------|
+| `"sharpe"` | `AccumSharpe` | Incremental Sharpe ratio (Welford's algorithm) |
+| `"max_drawdown"` | `AccumMaxDrawdown` | Running peak-to-trough max drawdown |
+| `"total_return"` | `AccumTotalReturn` | Cumulative total return |
+
+<Info>
+These metric operators are computed by ClyptQ's internal code, not by user-supplied logic. This is how the platform guarantees that reported metrics are independently verified — builders cannot self-report or manipulate performance numbers.
+</Info>
+
+### Required output nodes
+
+Your `TradingStrategySpec.output_nodes` must include `"equity"` at minimum:
+
+```python
+TradingStrategySpec(
+    graph=graph,
+    output_nodes=["equity", "signal"],  # "equity" is REQUIRED
+)
+```
+
+| Node | Purpose |
+|------|---------|
+| `"equity"` | Portfolio value over time **(required)** |
+| `"intention"` | Trading signals and target positions (recommended) |
+| `"pnl"` | Profit/loss tracking (recommended) |
+| `"drawdown"` | Drawdown curve visualization (recommended) |
+
+### Configuration parsed from your code
+
+The platform automatically parses the following from your strategy code:
+
+| What | How It's Detected | Example |
+|------|------------------|---------|
+| **Venues** | `SymbolSourceMap`, `AccountSpec`, or `"exchange:market_type"` strings | `"binance:futures"` |
+| **Symbols** | `SymbolSourceMap` dict values, or `SYMBOLS` variable | `["BTC/USDT:USDT", "ETH/USDT:USDT"]` |
+| **Timeframe** | `TIMEFRAME` variable, or `timeframe=` in `OHLCVSpec`/`Input` | `"4h"` |
+| **Initial cash** | `initial_cash=` in `AccountSpec`, or `INITIAL_CASH` variable | `50_000.0` |
+| **Base currency** | `base_currency=` in `AccountSpec` | `"USDT"` |
+
+<Warning>
+All venues in your `SymbolSourceMap` must have a matching `AccountSpec` with `initial_cash`. Strategies with missing cash configuration will fail validation.
+</Warning>
+
+### Injected sandbox variables
+
+During validation, the platform injects these variables into your execution environment:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `__SANDBOX_CONFIG__` | `dict` | Contains `symbols`, `start`, `end`, `timeframe`, `initial_cash` |
+| `__SANDBOX_INITIAL_CASH__` | `float` | Target initial cash for current scale test |
+| `__SANDBOX_ACCOUNTS__` | `dict` or `None` | Multi-venue accounts: `{"binance:futures": {"initial_cash": 10000.0}}` |
+
+For multi-scale validation, the platform runs your strategy at multiple capital levels (e.g., $1K, $10K, $100K). The injected values are adjusted proportionally for each scale — your code should use these values instead of hardcoding initial cash.
+
+### Ephemeral operators
+
+Strategies using ephemeral (semantic) operators — `LLMScorer`, `WebSearchOperator`, `SentimentParser` — are handled differently:
+
+- **Backtesting is skipped entirely** (these operators hit rate limits and produce non-reproducible results for historical data)
+- **Paper trading validation only** is performed
+- The strategy listing will display a badge indicating it uses AI/semantic operators
+
+### Sandbox security
+
+The platform enforces multiple layers of security during strategy validation to protect the infrastructure and other users. Submitted code is analyzed and executed in an isolated environment with restricted capabilities.
+
+Strategies that attempt to access system resources, network endpoints, or execute arbitrary code outside of the ClyptQ operator framework will be automatically rejected. The platform's validation pipeline is designed to detect and block malicious or abusive patterns at multiple stages — from static analysis through runtime execution.
+
+<Info>
+Focus on writing clean strategy logic using ClyptQ's operator framework. If your code only uses ClyptQ imports, standard data science libraries (numpy, pandas, scipy, sklearn), and standard Python utilities (datetime, math, json, re, collections), it will pass validation without issues.
+</Info>
+
+### Template checklist
+
+| Requirement | Details |
+|-------------|---------|
+| `main()` function exists | Defined at top level, returns `TradingDriver` |
+| `main()` returns driver | Must have explicit `return driver` statement |
+| `"sharpe"` node | `graph.add_node("sharpe", AccumSharpe(...))` |
+| `"max_drawdown"` node | `graph.add_node("max_drawdown", AccumMaxDrawdown(...))` |
+| `"total_return"` node | `graph.add_node("total_return", AccumTotalReturn(...))` |
+| `"equity"` in `output_nodes` | Required for equity curve display |
+| Symbols defined | `SymbolSourceMap` or `SYMBOLS` variable |
+| `AccountSpec` with `initial_cash` | Required for each venue |
+| Timeframe specified | `TIMEFRAME` variable or `timeframe=` parameter |
+
 ## Development Workflow
 
 ```mermaid
-flowchart TD
-    S1["1. Explore<br>Helper.exchanges(), Helper.symbols(), Helper.data_catalog()"]
-    S2["2. Build Graph<br>StatefulGraph + operators + FIELD/STATE inputs"]
-    S3["3. Backtest<br>TradingExecutionSpec(mode=backtest)"]
-    S4["4. Paper Trade<br>TradingExecutionSpec(mode=paper) — 2-4 weeks"]
-    S5["5. Live (Small)<br>TradingExecutionSpec(mode=live) — start with 5-10% capital"]
-    S6["6. Marketplace<br>Submit TradingSpec for verification and listing"]
+flowchart LR
+    S1["Explore<br><br>Helper.exchanges()<br>Helper.symbols()<br>Helper.data_catalog()"]
+    S2["Build Graph<br><br>StatefulGraph<br>Operators<br>FIELD/STATE inputs"]
+    S3["Backtest<br><br>mode=backtest"]
+    S4["Paper Trade<br><br>mode=paper<br>2-4 weeks"]
+    S5["Live (Small)<br><br>mode=live<br>5-10% capital"]
+    S6["Marketplace<br><br>Submit TradingSpec<br>for verification"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
@@ -176,10 +350,18 @@ df_equity.plot(title="Equity Curve", figsize=(14, 5))
 
 ### Validation checklist
 
+<Info>
+**Required metrics for marketplace submission** — the platform computes and displays three core metrics, all **annualized** with `periods_per_year=252`:
+- **Annualized Total Return (CAGR)**: Compound annual growth rate
+- **Maximum Drawdown (MDD)**: Peak-to-trough percentage decline
+- **Annualized Sharpe Ratio**: Risk-adjusted return (excess return / annualized std deviation)
+</Info>
+
 | Check | Target | How to Verify |
 |-------|--------|--------------|
-| **Sharpe ratio** | > 1.0 after costs | `driver.export_results()` |
-| **Max drawdown** | < 20% (or your tolerance) | `df_equity.min()` relative analysis |
+| **Sharpe ratio (annualized)** | > 1.0 after costs | `driver.export_results()` |
+| **Max drawdown (MDD)** | < 20% (or your tolerance) | `df_equity.min()` relative analysis |
+| **Total return (CAGR)** | Positive, annualized | `driver.export_results()` |
 | **Fee impact** | < 50% of gross return | Compare zero-fee vs real-fee backtest |
 | **Trade frequency** | Reasonable for timeframe | Check signal changes in `df_signal` |
 | **Rejection rate** | Low | `driver.export_results()["rejection_stats"]` |

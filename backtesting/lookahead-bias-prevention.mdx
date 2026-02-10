@@ -86,7 +86,7 @@ flowchart RL
     FC1["FIELD:close"] -- "lookback=20" --> SMA20["sma_20"] --> SIG1["signal"] --> W1["weights"] --> INT1["intention"]
     FC2["FIELD:close"] -- "lookback=50" --> SMA50["sma_50"] --> SIG2["signal"] --> W2["weights"] --> INT2["intention"]
     MAX["Max path: 50 ticks + 5% safety buffer = 52 warmup ticks"]
-    style MAX fill:#fff3cd,stroke:#ffc107
+    style MAX fill:#1e1b16,stroke:#a1854a,color:#e8dcc4
 ```
 
 The algorithm works by:
@@ -115,15 +115,15 @@ The graph executes operators in **dependency order** (Kahn's algorithm), ensurin
 
 ```mermaid
 flowchart LR
-    FC["1. FIELD:close<br>(Raw price data)"] --> SF["2. sma_fast"]
-    FC --> SS["3. sma_slow"]
-    SF --> SIG["4. signal"]
+    FC["FIELD:close"] --> SF["sma_fast"]
+    FC --> SS["sma_slow"]
+    SF --> SIG["signal"]
     SS --> SIG
-    SIG --> W["5. weights"]
-    SC["STATE:cash"] --> EQ["6. equity"]
+    SIG --> W["weights"]
+    SC["STATE:cash"] --> EQ["equity"]
     SP["STATE:pos_quantity"] --> EQ
     FC --> EQ
-    W --> INT["7. intention"]
+    W --> INT["intention"]
     SP --> INT
     FC --> INT
 ```
@@ -147,7 +147,7 @@ flowchart LR
         OP --> TA["TaggedArray"]
     end
     NF["No tick N+1, N+2, ... in buffer<br>No global price array accessible<br>No future operator output readable<br>No trades during warmup"]
-    style NF fill:#f8d7da,stroke:#dc3545
+    style NF fill:#2a1f1f,stroke:#a87171,color:#e8c4c4
 ```
 
 ## Comparison with Vectorized Frameworks
