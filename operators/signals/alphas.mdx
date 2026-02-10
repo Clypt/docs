@@ -1,0 +1,627 @@
+---
+title: "Alpha Signals"
+description: "21 alpha signals across momentum, mean reversion, volatility, volume, and liquidity categories"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **21 operators** (role: `ALPHA`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **AmihudAlpha** | `ALPHA` | — | No |
+| **EffectiveSpreadAlpha** | `ALPHA` | — | No |
+| **VolatilityOfVolatilityAlpha** | `ALPHA` | `vol_window=5`, `outer_lookback=20` | No |
+| **BollingerAlpha** | `ALPHA` | `num_std=2.0` | No |
+| **ZScoreAlpha** | `ALPHA` | `clip_value=3.0` | No |
+| **PercentileAlpha** | `ALPHA` | — | No |
+| **MomentumAlpha** | `ALPHA` | — | No |
+| **RSIAlpha** | `ALPHA` | — | No |
+| **TrendStrengthAlpha** | `ALPHA` | `annualization=252` | No |
+| **VolumeStabilityAlpha** | `ALPHA` | — | No |
+| **PriceImpactAlpha** | `ALPHA` | — | No |
+| **MarketDepthProxyAlpha** | `ALPHA` | — | No |
+| **DollarVolumeSizeAlpha** | `ALPHA` | — | No |
+| **RealizedSpreadAlpha** | `ALPHA` | — | No |
+| **PriceEfficiencyAlpha** | `ALPHA` | — | No |
+| **ImpliedBasisAlpha** | `ALPHA` | — | No |
+| **VolatilityAlpha** | `ALPHA` | `annualize=True` | No |
+| **VolatilityRegimeAlpha** | `ALPHA` | `short_window=5` | No |
+| **VolumeAlpha** | `ALPHA` | — | No |
+| **DollarVolumeAlpha** | `ALPHA` | — | No |
+| **VolumeRatioAlpha** | `ALPHA` | `short_window=5` | No |
+
+---
+
+## AmihudAlpha
+
+Amihud illiquidity alpha (higher liquidity = higher score).
+
+Requires two inputs: close and volume.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = AmihudAlpha(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=21),
+        Input("FIELD:volume", timeframe="1m", lookback=21),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
+
+
+---
+
+## EffectiveSpreadAlpha
+
+Effective spread alpha (lower spread = higher score).
+
+Requires three inputs: high, low, close.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = EffectiveSpreadAlpha(
+    inputs=[
+        Input("FIELD:high", timeframe="1m", lookback=20),
+        Input("FIELD:low", timeframe="1m", lookback=20),
+        Input("FIELD:close", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
+
+
+---
+
+## VolatilityOfVolatilityAlpha
+
+Volatility of volatility alpha (lower vol-of-vol = higher score).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `vol_window` | `int` | `5` |  |
+| `outer_lookback` | `int` | `20` |  |
+
+### Usage
+
+```python
+alpha = VolatilityOfVolatilityAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=26),
+    vol_window=5,
+    outer_lookback=20,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
+
+
+---
+
+## BollingerAlpha
+
+Bollinger mean reversion alpha.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `num_std` | `float` | `2.0` |  |
+
+### Usage
+
+```python
+alpha = BollingerAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+    num_std=2.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
+
+
+---
+
+## ZScoreAlpha
+
+Z-Score mean reversion alpha.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `clip_value` | `float` | `3.0` |  |
+
+### Usage
+
+```python
+alpha = ZScoreAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+    clip_value=3.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
+
+
+---
+
+## PercentileAlpha
+
+Percentile mean reversion alpha.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+alpha = PercentileAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
+
+
+---
+
+## MomentumAlpha
+
+Simple momentum alpha (return over lookback period).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+momentum = MomentumAlpha(Input("FIELD:close", timeframe="1m", lookback=20))
+graph.add_node("momentum", momentum)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
+
+
+---
+
+## RSIAlpha
+
+RSI alpha normalized to [-1, 1].
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+rsi = RSIAlpha(Input("FIELD:close", timeframe="1m", lookback=15))
+graph.add_node("rsi", rsi)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
+
+
+---
+
+## TrendStrengthAlpha
+
+Trend strength alpha (annualized slope of log prices).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `annualization` | `int` | `252` |  |
+
+### Usage
+
+```python
+trend = TrendStrengthAlpha(Input("FIELD:close", timeframe="1m", lookback=20))
+graph.add_node("trend", trend)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
+
+
+---
+
+## VolumeStabilityAlpha
+
+Volume stability alpha (higher stability = higher score).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+alpha = VolumeStabilityAlpha(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
+
+
+---
+
+## PriceImpactAlpha
+
+Price impact alpha (lower impact = higher score).
+
+Requires two inputs: close and volume.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = PriceImpactAlpha(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=21),
+        Input("FIELD:volume", timeframe="1m", lookback=21),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
+
+
+---
+
+## MarketDepthProxyAlpha
+
+Market depth proxy alpha (higher depth = higher score).
+
+Requires two inputs: close and volume.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = MarketDepthProxyAlpha(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=21),
+        Input("FIELD:volume", timeframe="1m", lookback=21),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
+
+
+---
+
+## DollarVolumeSizeAlpha
+
+Dollar volume size alpha (log of average dollar volume).
+
+Requires two inputs: close and volume.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = DollarVolumeSizeAlpha(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=20),
+        Input("FIELD:volume", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/size.py`</sub>
+
+
+---
+
+## RealizedSpreadAlpha
+
+Realized spread alpha (lower spread = higher score).
+
+Requires three inputs: high, low, close.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = RealizedSpreadAlpha(
+    inputs=[
+        Input("FIELD:high", timeframe="1m", lookback=20),
+        Input("FIELD:low", timeframe="1m", lookback=20),
+        Input("FIELD:close", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
+
+
+---
+
+## PriceEfficiencyAlpha
+
+Price efficiency alpha (lower deviation from mid = higher score).
+
+Requires three inputs: high, low, close.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = PriceEfficiencyAlpha(
+    inputs=[
+        Input("FIELD:high", timeframe="1m", lookback=20),
+        Input("FIELD:low", timeframe="1m", lookback=20),
+        Input("FIELD:close", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
+
+
+---
+
+## ImpliedBasisAlpha
+
+Implied basis alpha (risk-adjusted momentum / Sharpe ratio proxy).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+alpha = ImpliedBasisAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
+
+
+---
+
+## VolatilityAlpha
+
+Inverse volatility alpha (lower volatility = higher score).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `annualize` | `bool` | `True` |  |
+
+### Usage
+
+```python
+alpha = VolatilityAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+    annualize=True,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/volatility.py`</sub>
+
+
+---
+
+## VolatilityRegimeAlpha
+
+Volatility regime alpha (current vol / average vol).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `short_window` | `int` | `5` |  |
+
+### Usage
+
+```python
+alpha = VolatilityRegimeAlpha(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+    short_window=5,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/volatility.py`</sub>
+
+
+---
+
+## VolumeAlpha
+
+Volume alpha (recent volume / average volume).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+alpha = VolumeAlpha(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>
+
+
+---
+
+## DollarVolumeAlpha
+
+Dollar volume alpha (average dollar volume).
+
+Requires two inputs: close and volume.
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+alpha = DollarVolumeAlpha(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=20),
+        Input("FIELD:volume", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>
+
+
+---
+
+## VolumeRatioAlpha
+
+Volume ratio alpha (short-term / long-term average volume).
+
+**Role**: `ALPHA` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `short_window` | `int` | `5` |  |
+
+### Usage
+
+```python
+alpha = VolumeRatioAlpha(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+    short_window=5,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

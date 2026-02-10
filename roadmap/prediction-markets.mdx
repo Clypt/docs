@@ -1,0 +1,81 @@
+---
+title: "Prediction Markets"
+description: "Expanding Clypt into prediction market trading and strategy development"
+---
+
+## Overview
+
+Clypt will expand into **prediction markets**, enabling users to build and deploy quantitative strategies that trade on event outcomes. The same StatefulGraph architecture and operator protocol that powers crypto trading will extend to event-based contracts.
+
+## Why Prediction Markets
+
+Prediction markets are growing rapidly as a new asset class:
+
+- **Polymarket** processed $1B+ in volume in 2024
+- Event contracts offer uncorrelated returns to traditional crypto/equity markets
+- The market structure (binary/scalar outcomes, fixed expiry) creates unique alpha opportunities
+- Most prediction market trading is currently manual — quantitative automation is the next frontier
+
+## Platform Integration
+
+### Data Integration
+
+New `ObservationSpec` types for prediction market data:
+
+```python
+# Planned API (subject to change)
+from clyptq.apps.trading.spec.observation.prediction import PredictionSpec
+
+prediction_data = PredictionSpec(
+    platform="polymarket",
+    categories=["politics", "crypto", "sports"],
+    timeframe="1m",
+)
+```
+
+### New Operators
+
+Prediction market-specific operators planned:
+
+| Operator | Category | Description |
+|----------|----------|-------------|
+| **ProbabilityCalibrator** | Transform | Calibrate implied probabilities from market prices |
+| **EventResolver** | Signal | Track event resolution and settlement |
+| **ExpiryDecay** | Signal | Time decay signal as event approaches resolution |
+| **CrossMarketArb** | Alpha | Arbitrage between prediction market platforms |
+| **SentimentCorrelation** | Semantic | Correlate news sentiment with contract prices |
+| **MarketMaker** | Order | Automated market making for prediction contracts |
+
+### Execution
+
+The existing `TradingDriver` and `TradingIntention` pipeline extends to prediction market execution:
+- Binary contract buying/selling
+- Limit order placement for market making
+- Automated settlement and profit collection
+
+## Key Challenges
+
+| Challenge | Approach |
+|-----------|----------|
+| **Low liquidity** | Market making operators, smart order routing |
+| **Event resolution risk** | Resolution tracking, early exit logic |
+| **Non-standard data** | Custom ObservationSpec with probability fields |
+| **Platform API diversity** | Exchange-agnostic adapter layer (same as crypto) |
+
+## Timeline
+
+Prediction market integration is planned for **Phase 2-3**:
+
+1. **Phase 2**: Polymarket data integration + basic event operators
+2. **Phase 3**: Full strategy support, marketplace listing, additional platforms
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Data System" icon="database" href="/engine/data-system">
+    How ObservationSpec handles different data sources
+  </Card>
+  <Card title="Semantic Operators" icon="brain" href="/operators/semantic">
+    LLM and web search for event analysis
+  </Card>
+</CardGroup>

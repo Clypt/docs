@@ -1,0 +1,316 @@
+---
+title: "Multi-Factor Strategy"
+description: "Combine multiple alphas, transforms, and filters into a portfolio-optimized strategy"
+---
+
+## What We're Building
+
+A multi-factor strategy that combines momentum, mean reversion, and volatility signals with cross-sectional scoring, universe filtering, and portfolio optimization:
+
+- **3 alpha signals** — Momentum, RSI mean reversion, Bollinger mean reversion
+- **Cross-sectional transforms** — ZScore normalization and equal weighting
+- **Universe filter** — Liquidity filter to exclude illiquid symbols
+- **Portfolio optimization** — Risk parity weighting across selected assets
+- Trade 5 symbols on Binance futures with 2× leverage
+
+This builds on [Your First Strategy](/tutorials/first-strategy). Make sure you understand `StatefulGraph`, `Input`, and the FIELD/STATE model.
+
+## Step 1: Setup
+
+```python
+from clyptq.system.graph import StatefulGraph, Input
+from clyptq.apps.trading.spec.symbol_source_map import SymbolSourceMap
+
+symbol_source_map = SymbolSourceMap({
+    "binance:futures": [
+        "BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT",
+        "BNB/USDT:USDT", "XRP/USDT:USDT",
+    ],
+})
+
+graph = StatefulGraph()
+
+# FIELD inputs
+close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
+volume = Input("FIELD:binance:futures:ohlcv:volume", "1m", lookback=20)
+```
+
+## Step 2: Alpha Signals
+
+Three independent alpha signals, each capturing a different market dynamic:
+
+### Momentum alpha
+
+```python
+from clyptq.apps.trading.operators.signal import MomentumAlpha
+
+# Momentum: positive return over lookback = bullish
+graph.add_node("alpha_momentum", MomentumAlpha(input=close))
+```
+
+`MomentumAlpha` computes `(current - past) / past` over the lookback window. Positive values = uptrend, negative = downtrend.
+
+### RSI mean reversion alpha
+
+```python
+from clyptq.apps.trading.operators.signal import RSIAlpha
+
+# RSI: oversold → buy, overbought → sell
+graph.add_node("alpha_rsi", RSIAlpha(input=close))
+```
+
+`RSIAlpha` normalizes RSI to [-1, 1] range: `(RSI - 50) / 50`. Values near -1 = oversold (buy signal), near +1 = overbought (sell signal).
+
+### Bollinger mean reversion alpha
+
+```python
+from clyptq.apps.trading.operators.signal import BollingerAlpha
+
+# Bollinger: price below lower band → buy, above upper → sell
+graph.add_node("alpha_bollinger", BollingerAlpha(input=close, num_std=2.0))
+```
+
+`BollingerAlpha` measures deviation from the moving average: `(middle - current) / (std × num_std)`. Prices below the lower band produce positive signals (buy).
+
+## Step 3: Universe Filter
+
+Filter out illiquid symbols to avoid slippage and execution issues:
+
+```python
+from clyptq.apps.trading.operators.universe import LiquidityFilter
+
+# Only trade symbols with > $1M average daily dollar volume
+graph.add_node("universe", LiquidityFilter(
+    min_dollar_volume=1_000_000,
+), inputs=[
+    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20),
+    Input("FIELD:binance:futures:ohlcv:volume", "1m", lookback=20),
+])
+```
+
+`LiquidityFilter` takes two inputs (close price and volume), computes dollar volume (price × volume), and outputs a binary mask: 1.0 for symbols passing the threshold, 0.0 for those that don't.
+
+## Step 4: Cross-Sectional Transforms
+
+Normalize each alpha signal across the symbol universe, then combine:
+
+### ZScore normalization
+
+```python
+from clyptq.apps.trading.operators.transform import ZScore
+
+# Normalize each alpha to zero mean, unit variance across symbols
+graph.add_node("z_momentum", ZScore(
+    input=Input("alpha_momentum", "1m", lookback=1),
+))
+
+graph.add_node("z_rsi", ZScore(
+    input=Input("alpha_rsi", "1m", lookback=1),
+))
+
+graph.add_node("z_bollinger", ZScore(
+    input=Input("alpha_bollinger", "1m", lookback=1),
+))
+```
+
+`ZScore` performs cross-sectional normalization at each timestamp: `(x - mean) / std` across all symbols. This ensures each alpha contributes equally regardless of scale.
+
+### Combine signals
+
+```python
+from clyptq.apps.trading.operators.transform import EqualWeight
+
+# Equal-weight combination of the three normalized alphas
+graph.add_node("combined_signal", EqualWeight(),
+    inputs=[
+        Input("z_momentum", "1m", lookback=1),
+        Input("z_rsi", "1m", lookback=1),
+        Input("z_bollinger", "1m", lookback=1),
+    ])
+```
+
+### Apply universe filter
+
+```python
+from clyptq.apps.trading.operators.transform import ClipWeights
+
+# Multiply combined signal by universe mask (0 for filtered symbols)
+# Then clip weights to [-1, 1] range
+graph.add_node("filtered_signal", ClipWeights(
+    input=Input("combined_signal", "1m", lookback=1),
+    lower=-1.0,
+    upper=1.0,
+    renormalize=True,
+))
+```
+
+## Step 5: Portfolio Accounting
+
+```python
+from clyptq.apps.trading.operators.balance import EquityCalculator, BookSize
+
+graph.add_node("equity", EquityCalculator(
+    cash=Input("STATE:binance:futures:cash", "1m", lookback=0),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    entry_prices=Input("STATE:binance:futures:pos_entry_price", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+))
+
+graph.add_node("book", BookSize(min_book_size=100.0),
+    inputs=[Input("equity", "1m", lookback=1)])
+```
+
+## Step 6: Intention (Order Generation)
+
+```python
+from clyptq.apps.trading.operators.order import FuturesTargetPositionIntention
+
+graph.add_node("intention", FuturesTargetPositionIntention(
+    weights=Input("filtered_signal", "1m", lookback=1),
+    book_size=Input("book", "1m", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    execution_routing=symbol_source_map.execution_routing,
+    leverage=2.0,
+))
+```
+
+## Step 7: Run and Analyze
+
+```python
+from datetime import datetime, timezone
+from clyptq.apps.trading.spec.unified import TradingSpec
+from clyptq.apps.trading.spec.data import TradingDataSpec
+from clyptq.apps.trading.spec.strategy import TradingStrategySpec
+from clyptq.apps.trading.spec.execution import TradingExecutionSpec, AccountSpec
+from clyptq.apps.trading.spec.observation.crypto import OHLCVSpec
+from clyptq.apps.trading.driver import TradingDriver
+
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbol_source_map=symbol_source_map,
+        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
+        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+    ),
+    strategy=TradingStrategySpec(
+        graph=graph,
+        output_nodes=["equity", "combined_signal", "alpha_momentum", "alpha_rsi", "alpha_bollinger"],
+    ),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[AccountSpec(
+            exchange="binance", market_type="futures",
+            initial_cash=50_000.0, max_leverage=2.0,
+        )],
+        execution_price_source="ohlcv",
+    ),
+    debug=True,
+)
+
+driver = TradingDriver.from_spec(spec)
+for result in driver:
+    pass
+
+# Analyze
+df_equity = driver.to_dataframe("equity")
+df_combined = driver.to_dataframe("combined_signal")
+df_momentum = driver.to_dataframe("alpha_momentum")
+
+df_equity.plot(title="Multi-Factor Equity Curve", figsize=(14, 5))
+```
+
+## The Complete Graph
+
+```
+FIELD:close ─────────────┬──────────────────────────────┐
+                         │                              │
+                    ┌────┴────┐                         │
+                    ▼         ▼                         ▼
+              MomentumAlpha  RSIAlpha  BollingerAlpha   │
+                    │         │              │          │
+                    ▼         ▼              ▼          │
+               ZScore     ZScore         ZScore        │
+                    │         │              │          │
+                    └────┬────┴──────────────┘          │
+                         ▼                              │
+                    EqualWeight                         │
+                         │                              │
+FIELD:close ─────┐       ▼                              │
+FIELD:volume ────┤  ClipWeights                         │
+                 │       │            STATE:cash ──┐    │
+                 ▼       │            STATE:pos ───┤    │
+          LiquidityFilter│                         ▼    │
+                 │       │                EquityCalculator
+                 │       │                         │    │
+                 │       │                    BookSize   │
+                 │       │                         │    │
+                 │       ▼                         ▼    │
+                 │  FuturesTargetPositionIntention ◄────┘
+                 │       │
+                 │       ▼
+                 └── Executor
+```
+
+## Variations
+
+### Add more alphas
+
+The pattern is additive — just add more alpha nodes and include them in `EqualWeight`:
+
+```python
+from clyptq.apps.trading.operators.signal import VolatilityFactor
+
+graph.add_node("alpha_vol", VolatilityFactor(input=close))
+graph.add_node("z_vol", ZScore(input=Input("alpha_vol", "1m", lookback=1)))
+
+# Add to combined signal
+graph.add_node("combined_signal", EqualWeight(),
+    inputs=[
+        Input("z_momentum", "1m", lookback=1),
+        Input("z_rsi", "1m", lookback=1),
+        Input("z_bollinger", "1m", lookback=1),
+        Input("z_vol", "1m", lookback=1),  # New factor
+    ])
+```
+
+### Use Rank instead of ZScore
+
+```python
+from clyptq.apps.trading.operators.transform import Rank
+
+# Rank normalization to [0, 1] — more robust to outliers
+graph.add_node("r_momentum", Rank(input=Input("alpha_momentum", "1m", lookback=1)))
+```
+
+### Limit number of positions
+
+```python
+from clyptq.apps.trading.operators.transform import MaxPositions
+
+# Only hold top 3 positions (by signal strength)
+graph.add_node("top_signals", MaxPositions(
+    input=Input("combined_signal", "1m", lookback=1),
+    n=3,
+    renormalize=True,
+))
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Alpha Signals" icon="bolt" href="/operators/signals/alphas">
+    All 21 available alpha operators
+  </Card>
+  <Card title="Transforms" icon="arrows-rotate" href="/operators/transforms/scalers">
+    ZScore, Rank, Softmax, and other scalers
+  </Card>
+  <Card title="Universe Filters" icon="filter" href="/operators/universe/filters">
+    Volume, liquidity, and volatility filters
+  </Card>
+  <Card title="AI-Augmented Strategy" icon="brain" href="/tutorials/ai-augmented">
+    Add LLM scoring and web search to your strategy
+  </Card>
+</CardGroup>

@@ -1,0 +1,273 @@
+---
+title: "Buyer Guide"
+description: "Strategy evaluation and deployment guide for capital providers"
+---
+
+## Overview
+
+This guide is for **strategy investors** — people who want to deploy verified strategies from the ClyptQ marketplace without writing code. It covers how to evaluate strategies, deploy them safely, and manage risk.
+
+## Why ClyptQ for Buyers?
+
+| Benefit | What It Means |
+|---------|--------------|
+| **Independent Verification** | All metrics (Sharpe, drawdown, returns) are computed by the platform — not self-reported by builders |
+| **Cross-Exchange Validation** | Strategies are tested on exchange data the builder never saw. Overfitting is exposed |
+| **Code Parity** | The strategy you paper-trade is the exact same code that was backtested. No "backtest version" vs "live version" |
+| **One-Click Deploy** | Paper trade → live with a parameter change. Same graph, same logic |
+| **Built-in Safety** | Emergency shutdown, balance sync, drawdown limits — all built into the engine |
+
+## Strategy Evaluation
+
+### What metrics to look for
+
+Every marketplace strategy shows independently verified metrics:
+
+**Return Metrics:**
+
+| Metric | What It Tells You | Good Target |
+|--------|------------------|------------|
+| **Total Return** | Overall profit/loss | > 30%/year |
+| **Sharpe Ratio** | Return per unit of risk | > 1.5 |
+| **Sortino Ratio** | Return per unit of downside risk | > 2.0 |
+
+**Risk Metrics:**
+
+| Metric | What It Tells You | Good Target |
+|--------|------------------|------------|
+| **Max Drawdown** | Worst peak-to-trough decline | < 20% |
+| **Volatility** | Annualized standard deviation | < 40% |
+| **Win Rate** | % of profitable trades | > 55% |
+| **Profit Factor** | Total profit / Total loss | > 1.5 |
+
+**Trust Metrics (ClyptQ-Specific):**
+
+| Metric | What It Tells You | Builder Can Manipulate? |
+|--------|------------------|------------------------|
+| **Cross-Exchange Consistency** | Performance stability across venues | No |
+| **Fee Impact** | Return degradation with real costs | No |
+| **Funding Cost** | Cumulative funding rate impact | No |
+| **Scale Sensitivity** | Performance at 2×, 5×, 10× capital | No |
+
+### Cross-exchange validation
+
+This is ClyptQ's unique trust mechanism. Because operators process `TaggedArray`s (not exchange-specific data), the same strategy can run on any exchange's data:
+
+```
+Builder submits: Tested on Binance futures
+Platform verifies:
+  ✓ Binance futures  → Sharpe 1.8, MDD -12%  (builder's data)
+  ✓ Bybit futures    → Sharpe 1.5, MDD -15%  (builder never saw)
+  ✓ Gateio futures   → Sharpe 1.3, MDD -18%  (builder never saw)
+  ✗ Coinbase futures → Sharpe 0.4, MDD -35%  (poor — noted in listing)
+```
+
+**What to look for:**
+- High **consistency score** = strategy works across venues = more robust
+- Large gap between primary and cross-exchange = possible overfitting
+- Poor performance on specific exchanges may be due to different fee structures or liquidity
+
+### Scale testing results
+
+Every listing shows how the strategy performs at larger capital levels:
+
+```
+1× ($10K)   → Sharpe 1.8   ← builder's declared capital
+2× ($20K)   → Sharpe 1.7   ← minimal degradation ✓
+5× ($50K)   → Sharpe 1.2   ← moderate degradation ⚠️
+10× ($100K) → Sharpe 0.6   ← significant degradation ✗
+
+Estimated capacity: $50K
+```
+
+**Why this matters for you:** If you plan to deploy $50K, but the strategy was only tested at $10K, you need to know whether it scales. The platform tests this for you — so you don't discover capacity limits with real money.
+
+| Scale Result | What It Means | Your Action |
+|-------------|--------------|------------|
+| **Stable at 10×** | High capacity | Safe to deploy with significant capital |
+| **Drops at 5×** | Moderate capacity | Deploy up to estimated capacity |
+| **Drops at 2×** | Low capacity | Only deploy at or below declared capital |
+
+### Evaluation checklist
+
+Before deploying any strategy:
+
+- [ ] **Sharpe > 1.0** after all costs (fees + funding + slippage)
+- [ ] **Max drawdown** within your risk tolerance
+- [ ] **1+ year backtest** with different market conditions
+- [ ] **2+ weeks paper trading** verification exists
+- [ ] **Cross-exchange consistency** is reasonable
+- [ ] **Fee impact** doesn't destroy most of the return
+- [ ] **Platform Verified badge** present
+
+## Deployment
+
+### Step 1: Paper Trading
+
+Paper trading uses live data with simulated fills. No real money at risk:
+
+```python
+from clyptq.apps.trading.driver import TradingDriver
+
+# The marketplace provides the TradingSpec
+# Paper mode uses live data but simulated fills
+spec_paper = marketplace.get_spec("momentum_crossover_pro", mode="paper")
+
+driver = TradingDriver.from_spec(spec_paper)
+
+# Same iterator pattern — now running on live data
+for result in driver:
+    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
+```
+
+**What happens:**
+1. Historical warmup fills all operator buffers with past data
+2. Clock syncs to the next real-time bar boundary
+3. Live data arrives via WebSocket from the exchange
+4. Orders are executed with simulated fills (same fill model as backtest)
+
+**How long to paper trade:**
+
+| Strategy Type | Recommended | Why |
+|--------------|-------------|-----|
+| Intraday | 1-2 weeks | Need enough trades for statistical significance |
+| Daily | 2-4 weeks | Capture different market conditions |
+| Swing | 4-8 weeks | Need multiple full trade cycles |
+
+**What to verify:**
+- Does paper equity roughly match backtest predictions for similar conditions?
+- Are signals generating at expected frequency?
+- Is latency acceptable for your timeframe?
+
+### Step 2: Live (Small Capital)
+
+If paper results match expectations, deploy with small capital:
+
+```python
+# Switch to live — same graph, only mode and credentials change
+spec_live = marketplace.get_spec("momentum_crossover_pro", mode="live",
+    api_key="your_api_key",
+    api_secret="your_api_secret",
+)
+
+driver = TradingDriver.from_spec(spec_live)
+
+for result in driver:
+    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
+```
+
+**Start small, scale gradually:**
+
+| Phase | Capital | Duration | Purpose |
+|-------|---------|----------|---------|
+| **Small** | 5-10% of target | 1-2 weeks | Verify real fills match paper |
+| **Medium** | 25-50% of target | 2-4 weeks | Check for capacity constraints |
+| **Full** | 100% | Ongoing | Monitor continuously |
+
+At each phase, compare live performance to paper and backtest. Significant divergence indicates issues.
+
+### Step 3: Monitoring
+
+Track key metrics during live trading:
+
+| Metric | Check Frequency | Action Threshold |
+|--------|----------------|-----------------|
+| **Equity** | Real-time | Unexpected drops > 5% |
+| **Drawdown** | Real-time | Exceeds max drawdown target |
+| **Sharpe (rolling)** | Daily | Drops below 0.5 |
+| **Trade frequency** | Daily | Significant change from backtest |
+| **Latency** | Daily | Processing exceeds clock interval |
+
+## Safety Features
+
+| Feature | What It Does | When It Activates |
+|---------|-------------|-------------------|
+| **Emergency shutdown** | Closes all positions immediately | Ctrl+C or SIGTERM signal |
+| **Balance sync** | Detects external changes (manual trades, liquidation) | Before each tick |
+| **Heartbeat** | Prevents Kernel idle timeout | Continuously during execution |
+| **First tick skip** | Skips execution on first real-time tick | Transition from warmup to live |
+| **Funding auto-injection** | Includes funding costs in simulation | Automatically for futures |
+
+## Pricing Models
+
+### Performance fee
+
+```
+Model:    Performance-based
+Fee:      20% of profits (example)
+Example:  $10,000 invested → $2,000 profit → $400 fee → $1,600 net profit
+          High water mark: fees only charged on new highs
+```
+
+### Subscription
+
+```
+Model:    Fixed monthly
+Fee:      $100/month (example)
+Example:  $10,000 invested → strategy runs regardless of profit/loss
+```
+
+### Hybrid
+
+```
+Model:    Base subscription + performance fee
+Fee:      $50/month + 10% of profits (example)
+Example:  Combines predictable cost with profit-sharing
+```
+
+## Common Questions
+
+**What if a strategy loses money?**
+Performance fee models only charge on profits (with high water mark). You can stop a strategy at any time — emergency shutdown closes all positions immediately.
+
+**Can I modify a strategy?**
+Buyers can adjust risk parameters (capital allocation, max leverage) but not strategy logic. The graph is the builder's intellectual property.
+
+**Can I run multiple strategies?**
+Yes. Each strategy runs as an independent `TradingDriver` with its own account and risk parameters.
+
+**What's the minimum investment?**
+Varies by strategy. Typically $1,000-$10,000. The listing specifies minimum capital for the strategy to work effectively.
+
+**How do I verify performance?**
+All metrics are independently computed by the platform. You can also run your own backtest using the strategy's `TradingSpec` — results should match within tolerance.
+
+**What if data disconnects?**
+The driver automatically reconnects WebSocket feeds. If a gap is detected during reconnection, it fills from historical data (gap-fill warmup).
+
+## Best Practices
+
+### Due diligence
+- Verify 1+ year backtest with real costs
+- Check cross-exchange consistency (not just primary exchange results)
+- Run paper trading yourself for 2+ weeks
+- Understand the strategy's risk profile (leverage, max drawdown, asset classes)
+
+### Position sizing
+- Start with 5-10% of capital you're willing to risk
+- Never allocate more than 20% to a single strategy
+- Diversify across strategies with different alpha sources
+- Account for correlation between strategies
+
+### Risk management
+- Set max drawdown limit before deploying
+- Monitor daily — set up alerts for equity drops
+- Have an emergency plan (know how to stop the driver)
+- Re-evaluate quarterly: compare live vs backtest expectations
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    How strategy verification and cross-exchange validation works
+  </Card>
+  <Card title="Supported Exchanges" icon="building-columns" href="/platform/supported-exchanges">
+    Exchange matrix with fees, leverage, and data availability
+  </Card>
+  <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
+    How ClyptQ ensures backtest results are realistic
+  </Card>
+  <Card title="Code Parity" icon="equals" href="/competitive/code-parity">
+    Why backtest = live and what it means for trust
+  </Card>
+</CardGroup>

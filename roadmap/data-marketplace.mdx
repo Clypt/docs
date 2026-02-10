@@ -1,0 +1,229 @@
+---
+title: "Data Marketplace"
+description: "Vendor-licensed data integrations for news, fundamentals, on-chain, and alternative data"
+---
+
+## Vision
+
+ClyptQ's Data Marketplace brings **third-party data** directly into the operator framework. Instead of writing custom data pipelines, builders access vendor data as standard `FIELD` inputs — the same way they access OHLCV data today.
+
+Data is either **provided by ClyptQ** (pre-licensed and included in the platform) or **purchased by builders** through vendor licensing agreements brokered by ClyptQ.
+
+## Licensing Model
+
+### ClyptQ-Provided Data
+
+Data that ClyptQ licenses in bulk and provides to all users:
+
+| Category | Examples | Access |
+|---|---|---|
+| **Crypto OHLCV** | Binance, Bybit, OKX, Gate.io, Coinbase | Included (current) |
+| **Crypto on-chain (basic)** | Exchange flows, TVL, network metrics | Included (planned) |
+| **Economic calendar** | FOMC, CPI, NFP, GDP releases | Included (planned) |
+| **Funding rates** | Perpetual contract funding rates | Included (planned) |
+
+### Vendor-Licensed Data
+
+Data accessed through ClyptQ's licensing partnerships with vendors:
+
+```
+Builder → ClyptQ → Vendor
+         ↕ License Agreement ↕
+     (usage-based or subscription)
+```
+
+**How it works:**
+1. ClyptQ negotiates **redistribution licenses** with data vendors
+2. Builders subscribe to datasets through the ClyptQ marketplace
+3. Data is delivered as standard `FIELD` inputs — no custom integration
+4. Billing is either **per-use** (API calls) or **monthly subscription**
+5. Vendors receive revenue share based on usage
+
+**Pricing tiers:**
+
+| Tier | Data Access | Target |
+|---|---|---|
+| **Free** | Crypto OHLCV, basic on-chain, economic calendar | All users |
+| **Pro** | News feeds, fundamental data, advanced on-chain | Individual builders |
+| **Enterprise** | Bloomberg, Refinitiv, satellite, premium alternative | Institutional |
+
+### Vendor Integration Requirements
+
+For a vendor to be listed on the ClyptQ marketplace:
+
+1. **API availability** — REST or WebSocket API with documented endpoints
+2. **Historical data** — Minimum 1 year of backfillable history for backtesting
+3. **Licensing terms** — Redistribution rights for ClyptQ platform usage
+4. **Data format** — Convertible to TaggedArray (numeric values with symbol alignment)
+5. **Update frequency** — Defined update schedule (real-time, hourly, daily)
+
+## Data Categories
+
+### News & Sentiment
+
+Real-time and historical news with structured metadata for event-driven strategies.
+
+| Vendor | Data Type | Delivery |
+|---|---|---|
+| **Benzinga** | Financial news, analyst ratings, earnings, dividends | Real-time streaming + historical backfill |
+| **RavenPack** | NLP sentiment scores from 40,000+ sources. 7,000+ event categories | Real-time + historical |
+| **Aylien** | Entity extraction, sentiment, topic classification from 80,000+ sources | Real-time + historical |
+| **NewsAPI** | Aggregated news from 80,000+ sources | Real-time + historical |
+
+**FIELD integration:**
+```python
+# News sentiment as FIELD input
+Input("FIELD:benzinga:news:sentiment", "1h", lookback=24)
+Input("FIELD:ravenpack:news:event_score", "1m", lookback=60)
+```
+
+### Fundamental Data
+
+Financial statements, ratios, and corporate actions for equity strategies.
+
+| Vendor | Coverage | Key Data |
+|---|---|---|
+| **SimFin** | US + Global, 20+ years | Income, balance sheet, cash flow. Free tier |
+| **Financial Modeling Prep** | 70,000+ securities | SEC-sourced fundamentals. Free tier |
+| **Intrinio** | US + Global, 50+ years | Financial statements, corporate actions, ESG |
+| **Morningstar** | US + Global | Fund ratings, equity research, standardized financials |
+| **SEC EDGAR** | US | Official filings (10-K, 10-Q, 8-K). XBRL-tagged. Free |
+| **S&P Capital IQ** | Global (Enterprise) | M&A, credit analytics, industry classifications |
+| **FactSet** | Global (Enterprise) | Portfolio analytics, risk models, quant APIs |
+| **Refinitiv / LSEG** | Global (Enterprise) | Machine-readable news, tick data, fundamentals |
+
+**FIELD integration:**
+```python
+# Fundamental data as FIELD input (daily resolution)
+Input("FIELD:simfin:fundamentals:pe_ratio", "1d", lookback=252)
+Input("FIELD:fmp:fundamentals:revenue_growth", "1d", lookback=4)
+```
+
+### Crypto On-Chain Data
+
+Blockchain-native analytics for crypto strategies.
+
+| Vendor | Focus | Key Metrics |
+|---|---|---|
+| **Glassnode** | BTC/ETH on-chain | 800+ metrics: exchange flows, UTXO, SOPR, realized cap, hash rate |
+| **CryptoQuant** | Exchange flows | Inflows/outflows, miner pressure, stablecoin reserves, derivatives positioning |
+| **Nansen** | Wallet intelligence | 500M+ labeled wallets. Smart Money tracking. Multi-chain |
+| **Santiment** | Social + on-chain | Crowd sentiment, dev activity, social volume + on-chain combined |
+| **Token Terminal** | Protocol fundamentals | Revenue, fees, TVL, earnings per protocol |
+| **DefiLlama** | DeFi TVL | All DeFi protocols/chains. Yields, stablecoins. Free open API |
+| **Coin Metrics** | Network data | Hashrate, fees, supply, addresses. Community API (free) |
+| **Flipside Crypto** | Enterprise analytics | 7 trillion rows. SQL-based. LiveQuery API |
+
+**FIELD integration:**
+```python
+# On-chain data as FIELD input
+Input("FIELD:glassnode:onchain:exchange_inflow", "1h", lookback=24)
+Input("FIELD:cryptoquant:onchain:funding_rate", "8h", lookback=3)
+Input("FIELD:defillama:defi:tvl", "1d", lookback=30)
+```
+
+### Alternative Data
+
+Non-traditional data sources for alpha generation.
+
+| Category | Vendors | Examples |
+|---|---|---|
+| **Social sentiment** | StockTwits, LunarCrush, Quiver Quantitative | Reddit/Twitter volume, Congressional trades, meme scores |
+| **Web traffic** | SimilarWeb, Thinknum | Website visits, app downloads, job postings, store count |
+| **Consumer spending** | Second Measure, Earnest Research | Credit card transaction data, real-time revenue estimates |
+| **Satellite imagery** | Orbital Insight, RS Metrics, SpaceKnow | Parking lot counts, oil tank levels, manufacturing activity |
+| **NLP signals** | Brain, ExtractAlpha | SEC filing sentiment, ML stock rankings, pre-validated signals |
+
+**FIELD integration:**
+```python
+# Alternative data as FIELD input
+Input("FIELD:lunarcrush:social:galaxy_score", "1h", lookback=24)
+Input("FIELD:quiver:alternative:congress_trades", "1d", lookback=30)
+```
+
+### Macro & Economic Data
+
+Macroeconomic indicators for regime detection and macro-overlay strategies.
+
+| Vendor | Coverage | Key Data |
+|---|---|---|
+| **FRED (St. Louis Fed)** | US macro | GDP, CPI, unemployment, interest rates, M2. Free API |
+| **EOD Historical Data** | Global macro | Economic events, macro indicators, dividend/earnings calendars |
+| **Nasdaq Data Link (Quandl)** | Multi-source | Millions of time-series from 400+ sources. Institutional-grade |
+| **World Bank** | Global | Development indicators, GDP, trade. Free |
+
+**FIELD integration:**
+```python
+# Macro data as FIELD input (low frequency)
+Input("FIELD:fred:macro:fed_funds_rate", "1d", lookback=252)
+Input("FIELD:eodhd:macro:cpi_yoy", "1mo", lookback=12)
+```
+
+## Platform Integration
+
+### Data as FIELD
+
+All marketplace data follows the same `FIELD` protocol:
+
+```
+FIELD:{vendor}:{domain}:{field_name}
+```
+
+Examples:
+- `FIELD:glassnode:onchain:exchange_inflow`
+- `FIELD:benzinga:news:sentiment`
+- `FIELD:simfin:fundamentals:pe_ratio`
+- `FIELD:fred:macro:fed_funds_rate`
+
+### Observation Specs
+
+Each data category gets its own `ObservationSpec`:
+
+```python
+data = TradingDataSpec(
+    symbol_source_map=SymbolSourceMap({
+        "binance:futures": ["BTC/USDT", "ETH/USDT"],
+    }),
+    observations=[
+        OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+        # Marketplace data (planned)
+        OnChainSpec(vendor="glassnode", metrics=["exchange_inflow", "sopr"]),
+        NewsSpec(vendor="benzinga", fields=["sentiment", "volume"]),
+        FundamentalSpec(vendor="simfin", fields=["pe_ratio", "revenue_growth"]),
+    ],
+)
+```
+
+### Backtest Compatibility
+
+Marketplace data supports backtesting through historical backfill:
+
+- **Daily resolution data** (fundamentals, macro): Full historical coverage
+- **Hourly resolution data** (on-chain, news sentiment): 1-3 years historical
+- **Real-time data** (news events, social): Paper/live mode only (ephemeral)
+
+Data that cannot be reliably backfilled is marked **ephemeral** and follows the same pattern as [semantic operators](/operators/semantic).
+
+## Revenue Model
+
+```
+Builder pays $X/month for dataset
+    → ClyptQ takes Y% platform fee
+    → Vendor receives (100-Y)% revenue share
+```
+
+| Role | Value |
+|---|---|
+| **Vendor** | Distribution channel + integration effort handled by ClyptQ |
+| **Builder** | One-click data access as FIELD inputs. No custom pipelines |
+| **ClyptQ** | Platform revenue + data moat + builder retention |
+
+## Timeline
+
+| Phase | Data Types | Status |
+|---|---|---|
+| **Current** | Crypto OHLCV (5 exchanges) | Live |
+| **2025 H2** | Funding rates, basic on-chain (Glassnode, CryptoQuant) | In Development |
+| **2026 H1** | News (Benzinga), fundamentals (SimFin/FMP), macro (FRED) | Planned |
+| **2026 H2** | Social sentiment, advanced on-chain (Nansen, Dune) | Planned |
+| **2027+** | Satellite, consumer spending, enterprise (Bloomberg, Refinitiv) | Planned |

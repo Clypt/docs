@@ -1,0 +1,247 @@
+---
+title: "Backtesting Accuracy"
+description: "Why ClyptQ backtests produce fundamentally more accurate results than vectorized frameworks"
+---
+
+## The Problem with Most Backtests
+
+Most backtesting frameworks produce results that **don't match reality**. The reasons are structural:
+
+| Problem | What Goes Wrong |
+|---|---|
+| **Lookahead bias** | Vectorized arrays expose future data; one indexing mistake invalidates results |
+| **Flat fee assumption** | Fixed 0.1% fee ignores maker/taker splits, VIP tiers, and exchange-specific schedules |
+| **No funding costs** | Perpetual futures funding rates (up to ±0.3% per 8h) are ignored entirely |
+| **No liquidation** | Leveraged positions never get liquidated, producing fantasy returns |
+| **No order validation** | Orders below exchange minimums are "filled" in backtest but rejected in live |
+
+ClyptQ addresses all five problems through its **tick-by-tick state machine architecture**.
+
+## How ClyptQ Backtesting Works
+
+Every backtest tick follows the same pipeline as live trading:
+
+```
+Tick N:
+  1. FIELD data arrives (OHLCV, orderbook, funding rates)
+  2. STATE extracted from portfolio (cash, positions, margin)
+  3. Graph executes operators in topological order
+  4. Intentions extracted from output nodes
+  5. Executor validates orders (margin, min size, reduce-only)
+  6. Fills simulated with exchange-specific cost model
+  7. STATE updated (positions, cash, PnL)
+  8. Funding rates applied (if 00:00/08:00/16:00 UTC)
+  9. Liquidation checked (if futures account)
+  10. TickResult yielded to driver iterator
+
+Tick N+1:
+  Updated STATE feeds back into step 2...
+```
+
+The only difference between backtest and live is **step 6**: backtest simulates fills; live sends orders to the exchange. Everything else — the graph, the operators, the state management, the cost model — is identical.
+
+## Five Layers of Accuracy
+
+### 1. Structural Lookahead Prevention
+
+Operators see only past data through `RollingBuffer` — a pre-allocated circular buffer that physically cannot contain future data. There is no array of future prices to accidentally index into.
+
+<Card title="Deep Dive: Lookahead Prevention" icon="shield" href="/backtesting/lookahead-bias-prevention">
+  How RollingBuffer, warmup calculation, and Input declarations make lookahead bias structurally impossible
+</Card>
+
+### 2. Exchange-Specific Cost Models
+
+Fees are auto-fetched from each exchange via CCXT. Maker/taker splits, VIP tier overrides, and slippage modeling are all configurable per venue:
+
+```python
+# Auto-fetched from Binance API
+# Or override manually:
+AccountSpec(
+    exchange="binance",
+    market_type="futures",
+    cost_model=CostModelSpec(
+        maker_fee=0.0002,    # VIP 1 rate
+        taker_fee=0.0004,
+        slippage_bps=1.0,    # 0.01% slippage
+    ),
+)
+```
+
+<Card title="Deep Dive: Cost Models" icon="receipt" href="/backtesting/cost-models">
+  CostModelSpec, VenueFeeResolver, CCXT auto-fetch, and slippage modeling
+</Card>
+
+### 3. Funding Rate Simulation
+
+Perpetual futures funding rates are applied at 8-hour intervals (00:00, 08:00, 16:00 UTC), matching real exchange settlement cycles. Funding data is **auto-injected** — if you have a futures account, ClyptQ automatically fetches historical funding rates:
+
+```python
+# Long 1 BTC at $50,000, funding rate = +0.05%
+# Every 8 hours: pay $50,000 × 0.0005 = $25
+# Over 30 days: ~$2,250 in funding costs
+# This is NOT free money — backtests without funding are misleading
+```
+
+<Card title="Deep Dive: Funding Rates" icon="clock" href="/backtesting/funding-rates">
+  How ClyptQ simulates 8-hour funding settlement and its impact on P&L
+</Card>
+
+### 4. Margin-Based Liquidation
+
+Leveraged positions are liquidated when margin ratios breach exchange-specific thresholds. Each exchange has different maintenance margin rates (MMR), liquidation fees, and margin ratio formulas:
+
+| Exchange | Default MMR | Liquidation Fee | Formula Style |
+|----------|-------------|-----------------|---------------|
+| Binance | 1.3% | 0.75% | MMR/Equity × 100 (inverted) |
+| Bybit | 0.5% | 0.6% | Equity/MMR (normal) |
+| OKX | 0.5% | 0.5% | MMR/Equity × 100 (inverted) |
+| Gateio | 1.0% | 0.5% | Equity/MMR (normal) |
+| Coinbase | 6.67% | 1.0% | Equity/MMR (CFTC regulated) |
+
+<Card title="Deep Dive: Liquidation Logic" icon="triangle-exclamation" href="/backtesting/liquidation-logic">
+  Exchange-specific margin calculations, cross vs isolated mode, and simulation method
+</Card>
+
+### 5. Order Validation
+
+Every order is validated against exchange-specific limits before execution:
+
+- **Minimum order amount** (e.g., 0.001 BTC on Binance)
+- **Minimum order value** (e.g., $10 notional on Gateio)
+- **Quantity precision** (rounded to exchange lot size)
+- **Margin availability** (checked before futures orders)
+- **Reduce-only constraints** (can't increase position with reduce_only=True)
+
+Orders that fail validation are **rejected** in backtest, just as they would be in live trading. After the backtest, you can inspect rejection statistics:
+
+```python
+results = driver.export_results()
+print(results.get("rejection_stats"))
+# → {"below_min_amount": 12, "insufficient_margin": 3, ...}
+```
+
+## Execution Modes
+
+BacktestFactory supports two simulation modes:
+
+### INSTANT Mode (Default)
+
+Orders fill immediately at the current market price (with slippage and fees applied). Simple, fast, suitable for most strategies:
+
+```
+Order submitted → Slippage applied → Fee calculated → Fill returned → STATE updated
+```
+
+### LATENT Mode
+
+Orders enter a queue and fill against an orderbook simulator on subsequent ticks. Models realistic fill dynamics:
+
+```
+Tick N:   Order submitted → Queued
+Tick N+1: Orderbook checked → Partial fill (volume-aware) → STATE updated
+Tick N+2: Remaining amount → Fill or expire
+```
+
+LATENT mode captures:
+- **Partial fills** based on available liquidity
+- **Price impact** from walking the orderbook
+- **Maker/taker determination** based on limit price vs best bid/ask
+
+## TP/SL (Take Profit / Stop Loss)
+
+Conditional orders are registered after trade execution and checked every tick using OHLC data:
+
+- **Long positions**: TP triggers at candle high, SL triggers at candle low
+- **Short positions**: TP triggers at candle low, SL triggers at candle high
+- **Both triggered in same candle**: Conservative assumption — SL executes first
+- **Paired positions** (arbitrage): When one leg's TP/SL triggers, the paired leg closes automatically
+
+## Comparing Backtest Accuracy
+
+| Feature | ClyptQ | Zipline | Backtrader | Freqtrade | VectorBT |
+|---|---|---|---|---|---|
+| **Lookahead prevention** | Structural (RollingBuffer) | Manual | Manual | Manual | None (vectorized) |
+| **Fee model** | Exchange-specific (CCXT) | Flat rate | Configurable | Flat rate | Flat rate |
+| **Funding rates** | Auto-injected, 8h cycle | No | No | No | No |
+| **Liquidation** | Exchange-specific MMR | No | No | No | No |
+| **Order validation** | Exchange limits (CCXT) | No | No | Basic | No |
+| **Margin tracking** | Full (cross/isolated) | No | No | No | No |
+| **Orderbook simulation** | LATENT mode | No | No | No | No |
+| **TP/SL simulation** | OHLC-aware | No | Basic | Basic | No |
+
+## What This Means in Practice
+
+A typical perpetual futures strategy with 3× leverage on Binance:
+
+| Cost Component | Annual Impact | Without Simulation |
+|---|---|---|
+| **Taker fees** (0.04%) | ~2-5% of equity | Often underestimated |
+| **Funding rates** | ~5-15% of equity | Completely ignored |
+| **Liquidation events** | Position wipeout | Never happens |
+| **Order rejections** | Missed trades | All trades execute |
+
+The difference between a "50% annual return" backtest (without proper cost modeling) and reality (with all costs simulated) can easily be **30+ percentage points**. ClyptQ's backtesting doesn't just produce prettier charts — it produces results you can actually trust.
+
+## Helper: Exchange Discovery
+
+Before configuring a backtest, use the `Helper` class to discover available exchanges, symbols, data, and margin parameters:
+
+```python
+from clyptq import Helper
+
+# Browse available exchanges and market types
+Helper.exchanges()
+# → Binance: spot (1x), futures (125x, USDT/USDC)
+# → Gateio: spot (1x), futures (100x, USDT)
+# → Bybit: spot (1x), futures (100x, USDT/USDC)
+# → ...
+
+# Find available symbols on a specific exchange
+symbols = Helper.symbols("binance", "futures", quote="USDT", limit=50)
+# → ['BTC/USDT:USDT', 'ETH/USDT:USDT', 'SOL/USDT:USDT', ...]
+
+# Check supported timeframes
+Helper.timeframes()
+# → 1m, 5m, 15m, 30m, 1h, 4h, 6h, 1d, 1w
+
+# Browse locally available data (with date ranges)
+Helper.data_catalog()
+# → binance/futures/ohlcv/1m: BTC/USDT (2023-01-01 ~ 2024-12-31)
+# → gateio/futures/ohlcv/1m: SOL/USDT (2024-01-01 ~ 2024-12-31)
+
+# Check detailed data availability for a specific source
+Helper.data_info("binance", "futures", "1m", "ohlcv")
+# → Available symbols, date ranges, gaps
+
+# View exchange margin parameters (MMR, liquidation thresholds)
+Helper.margin_info("binance")
+# → default_mmr: 1.3%, liquidation_fee: 0.75%, threshold: 100%
+
+# List all available operator roles
+Helper.roles()
+# → INDICATOR, ALPHA, FACTOR, TRANSFORM, OPTIMIZER, POSITION,
+#   FILTER, SCORE, METRIC, BALANCE, ORDER, SEMANTIC, CONTROL
+```
+
+`Helper` is a read-only discovery API — it doesn't modify anything. Use it to explore what's available before writing your TradingSpec.
+
+## Deep Dives
+
+<CardGroup cols={2}>
+  <Card title="Lookahead Bias Prevention" icon="shield" href="/backtesting/lookahead-bias-prevention">
+    How ClyptQ makes it structurally impossible to use future data
+  </Card>
+  <Card title="Cost Models" icon="receipt" href="/backtesting/cost-models">
+    Exchange-specific fees, slippage, and CCXT auto-fetch
+  </Card>
+  <Card title="Funding Rate Simulation" icon="clock" href="/backtesting/funding-rates">
+    8-hour settlement cycles and their P&L impact
+  </Card>
+  <Card title="Liquidation Logic" icon="triangle-exclamation" href="/backtesting/liquidation-logic">
+    Exchange-specific margin calculations and liquidation simulation
+  </Card>
+  <Card title="Exchange Specifics" icon="building-columns" href="/backtesting/exchange-specifics">
+    Per-exchange parameters: fees, limits, leverage, and market types
+  </Card>
+</CardGroup>

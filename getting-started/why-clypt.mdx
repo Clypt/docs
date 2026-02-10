@@ -1,0 +1,180 @@
+---
+title: "Why Clypt?"
+description: "The problems Clypt solves — and why they matter for quant traders, investors, and the industry"
+---
+
+## The Problem: Research Never Equals Live
+
+Every quant trader has experienced this: a backtest shows 40% annual returns, but the live strategy loses money. The gap between research code and production code is the single biggest source of failure in algorithmic trading.
+
+**Why this happens on traditional platforms:**
+
+```
+Research Code (Python/pandas)          Production Code (different language/framework)
+┌──────────────────────────┐          ┌──────────────────────────────┐
+│ • Vectorized operations  │          │ • Event-driven architecture  │
+│ • Full dataset in memory │   ≠     │ • Tick-by-tick processing    │
+│ • No execution logic     │          │ • Order management, fills    │
+│ • No costs, no slippage  │          │ • Fee models, latency        │
+│ • Accidental lookahead   │          │ • State management           │
+└──────────────────────────┘          └──────────────────────────────┘
+        Backtest: +40%                        Live: -15%
+```
+
+This gap exists because:
+1. **Different code paths** — Research uses pandas vectorization; live uses event-driven loops
+2. **Implicit lookahead** — `df.shift(-1)` or future data leaks are invisible in vectorized backtests
+3. **Missing costs** — Backtests ignore fees, slippage, funding rates, liquidation
+4. **State management** — Research doesn't track positions, cash, margin — live must
+5. **Warmup differences** — Research has full history; live has partial warmup
+
+## The Hedge Fund Advantage
+
+Top quantitative hedge funds (Two Sigma, Citadel, DE Shaw, Renaissance) solved this problem decades ago. They built custom infrastructure where:
+
+- The same execution engine runs both backtest and live
+- Data flows through identical pipelines in all modes
+- Risk management, cost models, and state management are built into the engine
+- Strategies are expressed as declarative configurations, not imperative code
+
+**The cost**: Millions of dollars in engineering and years of development. This infrastructure is their competitive moat — and it's not available to individual traders.
+
+## How ClyptQ Solves This
+
+ClyptQ brings hedge-fund-grade code parity to every quant trader:
+
+### Same code, every mode
+
+```python
+# This graph runs IDENTICALLY in backtest, paper, and live
+graph = StatefulGraph()
+graph.add_node("sma_fast", SMA(span=10), inputs=[close])
+graph.add_node("sma_slow", SMA(span=50), inputs=[close])
+graph.add_node("signal", CrossoverAlpha(), inputs=[...])
+
+# Only the execution spec changes
+TradingExecutionSpec(mode="backtest", ...)  # Historical data + simulated fills
+TradingExecutionSpec(mode="paper", ...)     # Live data + simulated fills
+TradingExecutionSpec(mode="live", ...)      # Live data + real orders
+```
+
+### Structural lookahead prevention
+
+ClyptQ doesn't just "check" for lookahead — it makes it **architecturally impossible**:
+
+| Mechanism | How It Works |
+|-----------|-------------|
+| **RollingBuffer** | Pre-allocated circular buffer. Operators can only see `lookback` ticks of history |
+| **Input declarations** | Every input explicitly declares how many ticks it needs: `Input("close", "1m", lookback=50)` |
+| **Automatic warmup** | Engine computes minimum warmup ticks by tracing the graph backward |
+| **Topological execution** | Operators execute in dependency order (Kahn's algorithm). No future dependencies |
+
+### Real-world cost modeling
+
+| Feature | What It Does |
+|---------|-------------|
+| **Exchange-specific fees** | Auto-fetched from each exchange via CCXT |
+| **Funding rate simulation** | 8-hour settlement cycles, auto-injected for futures |
+| **Liquidation logic** | Per-exchange margin ratio formulas (Binance, Bybit, OKX, etc.) |
+| **Slippage modeling** | BPS-based or orderbook-based (LATENT mode) |
+
+### Python freedom
+
+Unlike C#-locked (QuantConnect) or Rust-only (Nautilus) platforms, ClyptQ operators are pure Python. Use any library:
+
+```python
+class XGBAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def __init__(self, model_path: str):
+        self.model = xgb.Booster()
+        self.model.load_model(model_path)
+
+    def compute(self, inputs, timestamp, context):
+        features = inputs[0].value[-1]
+        prediction = self.model.predict(xgb.DMatrix([features]))
+        return TaggedArray(values=prediction, ...)
+```
+
+PyTorch, XGBoost, HuggingFace, scikit-learn, scipy — all work inside `compute()`.
+
+## The Marketplace Trust Problem
+
+The second problem ClyptQ solves is **trust in strategy marketplaces**.
+
+Existing platforms (QuantConnect community, copy-trading services) suffer from:
+- **Self-reported metrics** — builders can cherry-pick time periods
+- **No cross-validation** — strategies may be overfit to a single venue
+- **Different code paths** — backtest code ≠ deployed code
+- **No cost verification** — impressive returns disappear after real fees
+
+### ClyptQ's solution: Cross-Exchange Validation
+
+Because the same graph runs on any exchange's data (operators process `TaggedArray`s, not exchange-specific formats), the platform can independently verify strategies:
+
+```
+Builder submits: Tested on Binance futures
+Platform verifies:
+  ✓ Binance futures  → Sharpe 1.8  (builder's data)
+  ✓ Bybit futures    → Sharpe 1.5  (builder never saw)
+  ✓ Gateio futures   → Sharpe 1.3  (builder never saw)
+  ✗ Coinbase futures → Sharpe 0.4  (poor — flagged)
+```
+
+**What the buyer sees:** Independently computed metrics, cross-exchange consistency scores, and real-cost impact — not self-reported numbers.
+
+## Who Benefits
+
+### Builders (Strategy Creators)
+
+| Before ClyptQ | With ClyptQ |
+|---------------|-------------|
+| Rewrite strategy for production | Same code runs in all modes |
+| Self-manage infrastructure | Production infrastructure included |
+| No way to monetize | Marketplace listing with revenue |
+| Trust me, it works | Platform-verified metrics |
+
+### Buyers (Capital Providers)
+
+| Before ClyptQ | With ClyptQ |
+|---------------|-------------|
+| Trust self-reported metrics | Independently verified performance |
+| No cross-validation | Cross-exchange validation on unseen data |
+| Backtest ≠ live | Code parity guarantee |
+| Manual deployment | One-click paper → live |
+
+### Investors
+
+| Before ClyptQ | With ClyptQ |
+|---------------|-------------|
+| Generic SaaS metrics | Quantified technical moat |
+| No network effects | Builder-Buyer flywheel |
+| Single revenue stream | Commissions + subscriptions + data |
+
+## The Technical Moat
+
+ClyptQ's advantages are **structural, not incremental**:
+
+1. **Code parity** is built into the architecture (StatefulGraph + TradingSpec), not bolted on
+2. **Lookahead prevention** is structural (RollingBuffer), not runtime checks
+3. **Cross-exchange validation** requires exchange-agnostic operators (TaggedArray), which is an architectural decision made from day one
+4. **213+ operators** form a growing library that increases switching costs
+
+These are not features that can be added to existing platforms — they require rebuilding from the ground up.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first strategy in 5 minutes
+  </Card>
+  <Card title="Architecture Overview" icon="sitemap" href="/getting-started/architecture-overview">
+    How the 4-layer architecture works
+  </Card>
+  <Card title="Code Parity" icon="equals" href="/competitive/code-parity">
+    Deep dive into why backtest = live
+  </Card>
+  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/why-clyptq">
+    Detailed technical comparison with competitors
+  </Card>
+</CardGroup>

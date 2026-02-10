@@ -1,0 +1,185 @@
+---
+title: "Funding Rate Simulation"
+description: "How ClyptQ simulates crypto futures funding rates in backtest"
+---
+
+## What Are Funding Rates?
+
+Perpetual futures contracts have no expiry date. To keep the futures price anchored to the spot price, exchanges charge or pay **funding rates** every 8 hours. Holders of the majority side pay the minority side:
+
+- **Positive funding rate**: Longs pay shorts (futures trading above spot)
+- **Negative funding rate**: Shorts pay longs (futures trading below spot)
+
+Funding rates typically range from **-0.1% to +0.3%** per 8-hour period. Over time, this represents a significant cost — or income — that most backtesting frameworks ignore entirely.
+
+## Why It Matters
+
+A strategy that holds a long BTC position for 30 days during a high-funding period:
+
+```
+Position: Long 1 BTC at $50,000
+Average funding rate: +0.05% per 8h (bullish market)
+Settlements per day: 3 (00:00, 08:00, 16:00 UTC)
+
+Daily cost:  $50,000 × 0.0005 × 3 = $75/day
+Monthly cost: $75 × 30 = $2,250
+
+→ 4.5% of position value lost to funding alone
+```
+
+A backtest that ignores this reports **4.5% higher returns** than reality. For leveraged positions, the distortion is proportionally larger.
+
+## How ClyptQ Simulates Funding
+
+### Auto-Injection
+
+When you create a `TradingSpec` with a futures account, ClyptQ **automatically injects** a `FundingRateSpec` for that venue. You don't need to configure anything:
+
+```python
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbols=["BTC", "ETH"],
+        observations=[
+            OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+            # FundingRateSpec is auto-injected — no manual configuration needed
+        ],
+    ),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[
+            AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000),
+        ],
+    ),
+)
+```
+
+The auto-injection logic in `TradingDriver.from_spec()`:
+
+1. Scans all `AccountSpec`s for futures accounts
+2. Checks if the exchange supports historical funding rates
+3. If no `FundingRateSpec` exists for that venue, injects one automatically
+4. Logs: `"Auto-injecting FundingRateSpec for binance:futures"`
+
+### Settlement Timing
+
+Funding is applied at the standard 8-hour intervals:
+
+```python
+# Applied when timestamp matches:
+hour in (0, 8, 16) and minute == 0 and second == 0
+```
+
+This matches the settlement schedule of major exchanges (Binance, Bybit, Gateio, OKX). Some exchanges use different intervals — see [Exchange Specifics](/backtesting/exchange-specifics) for details.
+
+### Payment Calculation
+
+At each settlement, for every open position:
+
+```
+funding_payment = position_amount × current_price × funding_rate
+
+where:
+  position_amount = signed quantity (positive=long, negative=short)
+  current_price = mark price at settlement time
+  funding_rate = historical rate for that symbol at that settlement
+```
+
+The payment is **sign-aware**:
+
+| Position | Funding Rate | Notional | Payment | Effect |
+|----------|-------------|----------|---------|--------|
+| Long 1 BTC | +0.05% | +$50,000 | +$25 | **Pay** $25 (cash decreases) |
+| Short 1 BTC | +0.05% | -$50,000 | -$25 | **Receive** $25 (cash increases) |
+| Long 1 BTC | -0.03% | +$50,000 | -$15 | **Receive** $15 (cash increases) |
+| Short 1 BTC | -0.03% | -$50,000 | +$15 | **Pay** $15 (cash decreases) |
+
+### Cumulative Tracking
+
+Total funding paid is tracked per account for post-backtest analysis:
+
+```python
+# After backtest
+state = driver.trading_state
+for venue, account in state.accounts.items():
+    print(f"{venue}: funding_paid = ${account.funding_paid:.2f}")
+# → binance:futures: funding_paid = $-1,247.50  (negative = net paid)
+```
+
+## Exchange Support
+
+Not all exchanges provide full historical funding rate data:
+
+| Exchange | Historical Funding | Auto-Inject | Notes |
+|----------|-------------------|-------------|-------|
+| **Binance** | Full history | Yes | Standard 8h intervals |
+| **Bybit** | Full history | Yes | Standard 8h intervals |
+| **Gateio** | Full history | Yes | Standard 8h intervals |
+| **OKX** | Full history | Yes | Standard 8h intervals |
+| **Kraken** | Full history | Yes | Some pairs use 4h intervals |
+| **Coinbase** | Limited (~42 days) | No | Insufficient for long backtests |
+
+For exchanges with `has_funding_rate=False`, ClyptQ logs an info message and skips auto-injection. The backtest will run without funding simulation for that venue.
+
+<Warning>
+If you backtest a futures strategy on Coinbase, funding costs will **not** be simulated. Be aware that live P&L will differ from backtest due to unmodeled funding payments.
+</Warning>
+
+## Missing Rate Handling
+
+If funding rate data is missing for a symbol with an open position, ClyptQ logs a warning:
+
+```
+[FUNDING] Missing funding rates for binance:futures: ['DOGE/USDT'].
+Backtest PnL may be inaccurate.
+```
+
+This can happen when:
+- The symbol was recently listed (no historical funding data)
+- Data collection has gaps
+- The symbol uses a non-standard funding schedule
+
+The position is **not affected** by the missing rate — it simply skips that settlement. This is conservative: in reality, funding would have been charged.
+
+## Impact on Strategy Design
+
+### High-Frequency Strategies
+
+Strategies that open and close positions within a single 8-hour window are **unaffected** by funding — they never hold through a settlement. This is one reason why short-term momentum strategies often work better with perpetual futures than long-term holds.
+
+### Funding Rate Arbitrage
+
+Some strategies specifically target funding rate income:
+
+```
+Strategy: Short high-funding perpetual + Long spot (delta neutral)
+Income: Collect positive funding rate without directional exposure
+Risk: Basis change, execution costs, liquidation
+```
+
+ClyptQ's funding simulation makes these strategies backtestable with realistic P&L.
+
+### Long-Hold Strategies
+
+Strategies that hold positions for weeks or months must account for cumulative funding. A common pattern:
+
+```python
+# Add funding cost to exit decision
+class FundingAwareExit(BaseOperator):
+    def compute(self, inputs, timestamp, context):
+        signal = inputs[0]
+        # Consider closing long positions when funding is consistently high
+        # The backtest automatically deducts funding from equity,
+        # so Sharpe ratio and drawdown metrics reflect real costs
+        ...
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Cost Models" icon="receipt" href="/backtesting/cost-models">
+    Fee structures and slippage — the other half of cost modeling
+  </Card>
+  <Card title="Exchange Specifics" icon="building-columns" href="/backtesting/exchange-specifics">
+    Per-exchange funding intervals, market types, and supported features
+  </Card>
+</CardGroup>

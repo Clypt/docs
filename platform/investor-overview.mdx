@@ -1,0 +1,190 @@
+---
+title: "Investor Overview"
+description: "Technical moat, market opportunity, and revenue model for the Clypt platform"
+---
+
+## Executive Summary
+
+Clypt is a **Trading Commerce platform** that connects quantitative strategy builders with capital providers through independently verified, cross-exchange validated strategies. The platform's technical moat — code parity, structural lookahead prevention, and exchange-agnostic operators — creates defensible advantages that cannot be replicated by existing competitors without architectural rebuilds.
+
+## The Market Opportunity
+
+### Problem
+
+Quantitative trading strategies fail in production because research code and live code are fundamentally different. This problem has been solved by hedge funds with multi-million-dollar infrastructure — but not by individual traders or small funds.
+
+Existing solutions fall short:
+- **QuantConnect**: Research environment ≠ live execution. C# primary language limits ML/AI adoption
+- **Nautilus Trader**: Rust-only, no SaaS, no data included, no marketplace
+- **Vectorized frameworks** (Zipline, Backtrader, Freqtrade): Backtest-only or structurally different live execution
+- **Copy-trading platforms**: Self-reported metrics, no verification, no cross-validation
+
+### Opportunity
+
+| Market Segment | Size | Clypt's Position |
+|---------------|------|-----------------|
+| **Algo trading platforms** | $14B+ global (2024) | Full-stack alternative to fragmented tools |
+| **Crypto derivatives** | $5T+ monthly volume | 6 exchanges supported, more planned |
+| **Strategy marketplace** | Emerging category | First with independently verified, cross-exchange validated strategies |
+| **Retail quant trading** | Growing rapidly with AI/ML | Python-native platform for ML-first traders |
+
+## Technical Moat
+
+### 1. Code Parity (Architectural)
+
+The same `StatefulGraph` runs identically in backtest, paper, and live modes. This is not a feature — it's an architectural decision that permeates the entire system:
+
+- **TradingSpec** declares the complete strategy as a serializable configuration
+- **TradingDriver** executes the spec through an identical tick loop in all modes
+- Only the data source (Parquet vs WebSocket) and fill engine (simulated vs real) change
+
+**Why competitors can't replicate**: Achieving code parity requires the engine to be designed for it from the ground up. Bolting it onto an existing research platform or backtesting framework requires a complete rewrite.
+
+### 2. Structural Lookahead Prevention
+
+ClyptQ uses `RollingBuffer` — a pre-allocated circular buffer — that only exposes the declared lookback window to each operator. Combined with explicit `Input` declarations and automatic warmup computation, lookahead bias is **architecturally impossible**.
+
+**Why this matters**: Vectorized backtests (pandas-based) can accidentally access future data. ClyptQ's approach eliminates this entire class of bugs at the framework level.
+
+### 3. Exchange-Agnostic Operators
+
+All operators process `TaggedArray` — a 4-field data structure (value, exists, valid, updated) that is independent of any exchange's data format. This enables:
+- **Cross-exchange validation**: The same strategy runs on any exchange's data
+- **Marketplace trust**: Strategies are verified on data the builder never saw
+- **Multi-exchange strategies**: A single graph can trade across multiple venues
+
+### 4. Operator Library (213+)
+
+The prebuilt operator library covers:
+- **48+ technical indicators** (SMA, RSI, MACD, Bollinger, ATR, etc.)
+- **21 alpha signals** + 8 factor models + Alpha-101 (101 alphas)
+- **Portfolio optimization** (MVO, RiskParity, EqualWeight)
+- **Semantic operators** (LLM scoring, web search — unique to ClyptQ)
+- **Universe filters** and liquidity scores
+
+Each operator follows the same `BaseOperator.compute()` protocol, making them composable and interchangeable.
+
+## Revenue Model
+
+Two primary revenue streams drive the business:
+
+### 1. Platform Subscription (Recurring)
+
+Tiered monthly subscriptions for access to infrastructure:
+
+| Tier | Target | Revenue Driver |
+|------|--------|---------------|
+| **Free** | Exploration | User acquisition funnel |
+| **Builder** | Active strategy developers | Data access, backtest compute, marketplace listing |
+| **Pro** | Serious traders and small funds | Priority data, lower latency, advanced analytics |
+| **Enterprise** (planned) | Institutional clients | White-label engine, dedicated support |
+
+Subscriptions provide **predictable, recurring revenue** regardless of market conditions.
+
+### 2. Marketplace Transaction Fee (Transaction-based)
+
+The platform takes a commission on every strategy transaction between builders and buyers:
+
+```
+Buyer pays strategy fee → Platform takes commission → Builder receives remainder
+```
+
+Strategy pricing is set by the builder:
+- **Subscription model**: Fixed monthly fee per buyer (platform takes % commission)
+- **Performance fee model**: Builder receives % of buyer's profits (platform takes % of the fee)
+- **Hybrid**: Base subscription + performance fee (platform takes commission on both)
+
+Transaction fees scale with **marketplace GMV** — more buyers deploying more strategies = more revenue.
+
+### Future Revenue Streams
+
+| Stream | Model | Timeline |
+|--------|-------|---------|
+| **Data marketplace** | Transaction-based | Phase 3 |
+| **Enterprise licensing** | Annual contract | Phase 4 |
+| **Competition fees** | Entry fees + sponsorships | Phase 4 |
+
+### Network Effects
+
+```
+More Builders → More strategies → More Buyers → More revenue
+     ↑                                              │
+     └──────────── Higher builder payouts ←─────────┘
+```
+
+The marketplace creates a two-sided network effect:
+1. **Builders** attract buyers with diverse, verified strategies
+2. **Buyers** attract builders with a large, paying user base
+3. **Data demand** from both sides creates a third revenue stream
+
+## Competitive Positioning
+
+| Dimension | Clypt | QuantConnect | Nautilus | Vectorized |
+|-----------|-------|-------------|---------|-----------|
+| **Code parity** | Structural | No | Yes | No |
+| **Language** | Python (any library) | C# primary | Rust only | Python |
+| **Marketplace** | Cross-exchange verified | Community (unverified) | None | None |
+| **Data included** | 6 exchanges + stocks | Limited | None | None |
+| **Lookahead prevention** | Architectural | Runtime | Runtime | None |
+| **AI/ML integration** | Native (operators) | Limited | Limited | Manual |
+| **SaaS offering** | Cloud Jupyter + local | Cloud + local | Local only | Local only |
+| **Cost modeling** | Exchange-specific (auto) | Generic | Generic | Basic |
+
+### Key differentiators
+
+1. **Only platform with cross-exchange validated marketplace** — Creates trust that doesn't exist in any competitor
+2. **Only platform with structural lookahead prevention** — Eliminates the most common backtest failure mode
+3. **Only platform combining Python freedom with code parity** — QuantConnect has parity but C#; Nautilus has parity but Rust
+4. **Semantic operators are unique** — LLM scoring and web search inside the trading loop is novel
+
+## Growth Strategy
+
+### Phase 1: Crypto Foundation (Current)
+- 6 cryptocurrency exchanges supported
+- Full backtest/paper/live lifecycle
+- Strategy marketplace with cross-exchange validation
+- 213+ prebuilt operators
+
+### Phase 2: Asset Class Expansion
+- US equities via Alpaca and Interactive Brokers
+- Additional crypto exchanges
+- Prediction markets integration
+
+### Phase 3: Data Marketplace
+- Third-party data integration (news, on-chain, fundamentals)
+- Data providers earn revenue through the platform
+- Builders access diverse datasets without infrastructure
+
+### Phase 4: Enterprise & Performance
+- Rust conversion for backtesting speed (10-100× improvement)
+- White-label engine for institutional clients
+- Hedge fund competition platform
+- B2B quant team tools
+
+## Key Metrics to Track
+
+| Metric | What It Measures | Why It Matters |
+|--------|-----------------|---------------|
+| **Active builders** | Strategy creators developing on platform | Supply side of marketplace |
+| **Listed strategies** | Verified strategies available for deployment | Marketplace depth |
+| **AUM deployed** | Capital running on live strategies | Revenue proxy |
+| **Cross-exchange pass rate** | % of strategies that pass cross-venue validation | Platform quality signal |
+| **Backtest-to-live ratio** | Paper performance vs live performance correlation | Trust metric |
+| **Builder revenue** | Total payouts to strategy creators | Supply-side retention |
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Why Clypt?" icon="question" href="/getting-started/why-clypt">
+    The problems Clypt solves and why they matter
+  </Card>
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    How the verification and trust mechanism works
+  </Card>
+  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/why-clyptq">
+    Detailed technical comparison with competitors
+  </Card>
+  <Card title="Roadmap" icon="road" href="/roadmap/overview">
+    Product roadmap and expansion plans
+  </Card>
+</CardGroup>

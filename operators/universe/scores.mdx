@@ -1,0 +1,107 @@
+---
+title: "Universe Scores"
+description: "VolumeScore, LiquidityScore, VolatilityScore"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **3 operators** (role: `SCORE`).
+
+---
+
+## LiquidityScore
+
+Score symbols by dollar volume (price * volume).
+
+Requires two inputs: close price and volume.
+
+**Role**: `SCORE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+score = LiquidityScore(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=20),
+        Input("FIELD:volume", timeframe="1m", lookback=20),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/score/liquidity.py`</sub>
+
+
+---
+
+## VolatilityScore
+
+Score symbols by volatility (lower vol = higher score by default).
+
+**Role**: `SCORE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `inverse` | `bool` | `True` |  |
+| `annualize` | `bool` | `True` |  |
+| `periods_per_year` | `int` | `252` |  |
+
+### Usage
+
+```python
+score = VolatilityScore(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+    inverse=True,
+    annualize=True,
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/score/volatility.py`</sub>
+
+
+---
+
+## VolumeScore
+
+Score symbols by average volume.
+
+**Role**: `SCORE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+score = VolumeScore(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/score/volume.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

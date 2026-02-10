@@ -5,13 +5,21 @@
     "light": "/logo/clypt_logo_black.png"
   },
   "favicon": "/favicon.ico",
+  "appearance": {
+    "default": "dark",
+    "strict": true
+  },
   "colors": {
-    "primary": "#0D9373",
-    "light": "#07C983",
-    "dark": "#0D9373",
+    "primary": "#94F1E8",
+    "light": "#94F1E8",
+    "dark": "#94F1E8",
+    "background": {
+      "dark": "#000000",
+      "light": "#FFFFFF"
+    },
     "anchors": {
-      "from": "#0D9373",
-      "to": "#07C983"
+      "from": "#94F1E8",
+      "to": "#94F1E8"
     }
   },
   "topbarLinks": [
@@ -41,25 +49,129 @@
       "group": "Getting Started",
       "pages": [
         "index",
-        "quickstart"
+        "quickstart",
+        "getting-started/why-clypt",
+        "getting-started/architecture-overview"
       ]
     },
     {
-      "group": "Platform Overview",
+      "group": "Platform",
       "pages": [
-        "ecosystem/overview",
-        "ecosystem/buyer-guide",
-        "ecosystem/builder-guide"
+        "platform/ecosystem-overview",
+        "platform/builder-guide",
+        "platform/buyer-guide",
+        "platform/investor-overview",
+        "platform/marketplace",
+        "platform/jupyter-workflow",
+        "platform/supported-exchanges",
+        "platform/compliance"
       ]
     },
     {
-      "group": "Trading Engine",
+      "group": "Engine Concepts",
       "pages": [
+        "engine/field-data-principle",
+        "engine/state-principle",
+        "engine/tagged-array",
+        "engine/stateful-graph",
+        "engine/lookback-buffers",
         "engine/operator-protocol",
-        "engine/strategy-framework",
-        "engine/trading-system",
-        "engine/data-system",
-        "engine/configuration"
+        "engine/trading-spec",
+        "engine/execution-pipeline",
+        "engine/data-system"
+      ]
+    },
+    {
+      "group": "Backtesting Accuracy",
+      "pages": [
+        "backtesting/overview",
+        "backtesting/lookahead-bias-prevention",
+        "backtesting/cost-models",
+        "backtesting/funding-rates",
+        "backtesting/liquidation-logic",
+        "backtesting/exchange-specifics"
+      ]
+    },
+    {
+      "group": "Competitive Edge",
+      "pages": [
+        "competitive/why-clyptq",
+        "competitive/vs-quantconnect",
+        "competitive/vs-quantrocket",
+        "competitive/vs-nautilus",
+        "competitive/vs-vectorized",
+        "competitive/code-parity",
+        "competitive/semantic-operators"
+      ]
+    },
+    {
+      "group": "Tutorials",
+      "pages": [
+        "tutorials/first-strategy",
+        "tutorials/multi-factor",
+        "tutorials/ai-augmented",
+        "tutorials/cross-exchange-arb",
+        "tutorials/backtest-to-live"
+      ]
+    },
+    {
+      "group": "Operator Reference",
+      "pages": [
+        "operators/overview",
+        {
+          "group": "Indicators",
+          "pages": [
+            "operators/indicators/moving-averages",
+            "operators/indicators/momentum",
+            "operators/indicators/trend",
+            "operators/indicators/volatility",
+            "operators/indicators/volume",
+            "operators/indicators/statistics",
+            "operators/indicators/patterns"
+          ]
+        },
+        {
+          "group": "Signals",
+          "pages": [
+            "operators/signals/alphas",
+            "operators/signals/factors",
+            "operators/signals/alpha-101"
+          ]
+        },
+        {
+          "group": "Transforms",
+          "pages": [
+            "operators/transforms/scalers",
+            "operators/transforms/neutralizers",
+            "operators/transforms/optimizers",
+            "operators/transforms/position"
+          ]
+        },
+        {
+          "group": "Universe",
+          "pages": [
+            "operators/universe/filters",
+            "operators/universe/scores"
+          ]
+        },
+        "operators/metrics",
+        "operators/balance",
+        "operators/order",
+        "operators/semantic",
+        "operators/control",
+        "operators/utility"
+      ]
+    },
+    {
+      "group": "Roadmap",
+      "pages": [
+        "roadmap/overview",
+        "roadmap/us-stocks",
+        "roadmap/data-marketplace",
+        "roadmap/rust-conversion",
+        "roadmap/competitions",
+        "roadmap/prediction-markets",
+        "roadmap/b2b-quant"
       ]
     }
   ],

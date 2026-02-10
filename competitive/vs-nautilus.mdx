@@ -1,0 +1,235 @@
+---
+title: "ClyptQ vs Nautilus Trader"
+description: "Performance vs accessibility — why you don't have to choose"
+---
+
+## Two Different Philosophies
+
+Nautilus Trader and ClyptQ share an important design principle: **true backtest-to-live code parity**. Both are event-driven, both process ticks sequentially, and both use the same code path for backtesting and live trading.
+
+Where they differ is in **everything else**: who they're built for, how you use them, and what they include.
+
+| | Nautilus Trader | ClyptQ |
+|---|---|---|
+| **Philosophy** | Maximum performance for professionals | Maximum accessibility with institutional quality |
+| **Core language** | Rust + Cython | Python |
+| **Target user** | Quantitative developers at funds | Strategy builders of all levels |
+| **Deployment** | Self-hosted (your infrastructure) | SaaS (Jupyter, managed) |
+| **Data** | BYO (bring your own) | Included (5 exchanges) |
+| **Marketplace** | None | Verified strategy marketplace |
+
+## Where Nautilus Excels
+
+### Raw Performance
+
+Nautilus Trader's Rust/Cython core is **fast**. The performance-critical components (order matching, data handling, event processing) are compiled code:
+
+| Component | Nautilus | ClyptQ |
+|---|---|---|
+| **Engine core** | Rust + Cython | Python |
+| **Event processing** | Compiled (microsecond-level) | Interpreted (millisecond-level) |
+| **Backtest throughput** | Very high | Moderate |
+| **Memory efficiency** | Excellent (Rust ownership model) | Good (pre-allocated RollingBuffers) |
+
+For high-frequency strategies that need sub-millisecond latency, Nautilus Trader's compiled core has a structural advantage.
+
+### Low-Level Control
+
+Nautilus exposes the full order book, venue-level state, and execution engine internals:
+
+```python
+# Nautilus: direct access to order book, venue state
+class MyStrategy(Strategy):
+    def on_order_book(self, order_book: OrderBook):
+        best_bid = order_book.best_bid_price()
+        best_ask = order_book.best_ask_price()
+        spread = best_ask - best_bid
+        # L2/L3 order book data, venue-specific state
+```
+
+This level of control is essential for market making and HFT strategies.
+
+### Architecture Rigor
+
+Nautilus uses a typed message bus architecture with Actors, Strategies, and Engines. This design is battle-tested for institutional use:
+
+```python
+# Nautilus: typed event system
+class MyStrategy(Strategy):
+    def on_start(self):
+        self.subscribe_bars(BarType.from_str("BTC/USDT.BINANCE-1-MINUTE-LAST-EXTERNAL"))
+
+    def on_bar(self, bar: Bar):
+        # Typed events, strongly typed instruments
+        ...
+```
+
+## Where ClyptQ Excels
+
+### Zero Infrastructure Overhead
+
+With Nautilus, before you write your first strategy, you need to:
+
+1. **Install Rust toolchain** (for compilation from source) or find compatible pre-built wheels
+2. **Source data** — no data included; integrate with Tardis.dev, Databento, or manage your own data pipeline
+3. **Set up a data catalog** — organize and index data in Parquet/Feather format
+4. **Configure venue adapters** — set up brokerage connections for live trading
+5. **Deploy infrastructure** — provision servers, manage monitoring, handle failures
+
+With ClyptQ:
+
+1. **Open Jupyter** — everything is ready
+2. **Write your graph** — data is already available via FIELD protocol
+3. **Run** — backtest, paper, or live with one parameter change
+
+```python
+# ClyptQ: from idea to backtest in minutes
+spec = TradingSpec(
+    data=TradingDataSpec(
+        observations=[OHLCVSpec(exchange="binance", market_type="futures")],
+        symbols=["BTC/USDT", "ETH/USDT"],
+        timeframe="1m",
+    ),
+    strategy=TradingStrategySpec(graph=my_graph, initial_cash=10_000.0),
+    execution=TradingExecutionSpec(mode="backtest", accounts=[account]),
+)
+# That's it. Data, execution, cost model — all handled.
+```
+
+### Data Included
+
+| | Nautilus | ClyptQ |
+|---|---|---|
+| **Data source** | BYO (Tardis.dev, Databento, custom) | Included (Binance, Gate.io, Bybit, OKX, Coinbase) |
+| **Setup time** | Hours to days (sourcing, cataloging) | Zero (available immediately) |
+| **Cost** | Data vendor subscriptions ($100-$1000+/mo) | Included in platform |
+| **Multi-exchange alignment** | Manual (you align timestamps) | Automatic (pre-aligned) |
+| **Gap filling** | Manual | Automatic forward-fill |
+
+For Nautilus, data acquisition and management is a **separate project** that can take longer than strategy development itself. ClyptQ eliminates this entirely.
+
+### Composable Operator Graph vs Monolithic Strategy
+
+**Nautilus** strategies are classes that handle events:
+
+```python
+# Nautilus: monolithic strategy class
+class MyStrategy(Strategy):
+    def __init__(self, config):
+        super().__init__(config)
+        self.sma = SimpleMovingAverage(20)
+
+    def on_bar(self, bar: Bar):
+        self.sma.handle_bar(bar)
+        if bar.close > self.sma.value:
+            self.submit_order(
+                self.order_factory.market(
+                    instrument_id=self.instrument.id,
+                    order_side=OrderSide.BUY,
+                    quantity=Quantity.from_str("0.1"),
+                )
+            )
+```
+
+Signal generation, position sizing, and order management are mixed in `on_bar()`.
+
+**ClyptQ** strategies are DAGs of independent operators:
+
+```python
+# ClyptQ: composable operator graph
+graph.add_node("sma", SMA(span=20), inputs=[close])
+graph.add_node("signal", CrossoverAlpha(), inputs=[sma_fast, sma_slow])
+graph.add_node("weights", EqualWeight(), inputs=[signal])
+graph.add_node("risk", MaxExposure(ratio=0.5), inputs=[weights, equity])
+graph.add_node("intention", TargetPositionIntention(...), inputs=[risk, book_size])
+```
+
+Each node is testable in isolation. Swap the signal? Change one node. Add risk management? Add a node. The rest of the graph is untouched.
+
+### 213+ Pre-built Operators
+
+| Category | ClyptQ | Nautilus |
+|---|---|---|
+| **Technical indicators** | 100+ (SMA, EMA, RSI, MACD, Bollinger, ATR, etc.) | ~30 built-in indicators |
+| **Alpha signals** | 21 alphas + 101 Alpha_101 | None (build your own) |
+| **Factors** | 8 (Momentum, MeanReversion, etc.) | None |
+| **Transforms** | 24 (ZScore, Rank, MVO, RiskParity, etc.) | None |
+| **Universe filters** | 9 (Volume, Volatility, Liquidity, etc.) | None |
+| **Risk metrics** | 21 (Sharpe, Sortino, MaxDrawdown, etc.) | Basic built-in analytics |
+| **AI operators** | 3 (LLMScorer, WebSearch, Sentiment) | None |
+| **Order operators** | 6 (Target, Futures, Arbitrage, etc.) | Order factory (manual) |
+
+With Nautilus, you build everything from primitives. With ClyptQ, you compose from a library of 213+ operators.
+
+### AI-Powered Trading
+
+ClyptQ's semantic operators (LLMScorer, WebSearchOperator, SentimentParser) are **first-class graph nodes**. They output `TaggedArray`s that combine with technical indicators in the same DAG.
+
+Nautilus has no AI integration. Its Rust core makes LLM integration non-trivial — you'd need to bridge Python AI libraries through the Rust/Cython boundary.
+
+### Verified Marketplace
+
+ClyptQ's marketplace enables strategy monetization with cross-exchange verification. Nautilus has no marketplace, no community strategy sharing, and no signal licensing.
+
+## Feature Comparison
+
+| Feature | ClyptQ | Nautilus Trader |
+|---|---|---|
+| **Code parity (backtest=live)** | Yes | Yes |
+| **Backtesting model** | Tick-by-tick state machine | Event-driven (tick/bar) |
+| **Engine language** | Python | Rust + Cython |
+| **Strategy language** | Python | Python (wrapping Rust) |
+| **Raw performance** | Moderate | Excellent |
+| **Data included** | Yes (5 exchanges) | No (BYO) |
+| **Setup time** | Minutes | Hours to days |
+| **Deployment** | SaaS (managed) | Self-hosted |
+| **Learning curve** | Moderate | Steep |
+| **Operator library** | 213+ pre-built | ~30 indicators |
+| **Strategy architecture** | Composable DAG | Monolithic strategy class |
+| **Multi-exchange** | Native (FIELD protocol) | Supported (venue adapters) |
+| **Futures modeling** | Full (funding, liquidation, margin) | Configurable (manual setup) |
+| **AI operators** | Yes (LLM, WebSearch, Sentiment) | No |
+| **Marketplace** | Verified strategies | None |
+| **Open source** | No (SaaS) | Yes (LGPL) |
+| **Community size** | Growing | Small but technical |
+| **Order book data** | Not yet (planned) | Yes (L2/L3) |
+| **HFT suitable** | No | Yes |
+
+## When to Choose Nautilus
+
+Nautilus Trader is the right choice if you:
+
+- **Need sub-millisecond latency** — HFT and market making require compiled-language performance
+- **Want order book data** — L2/L3 order book access is essential for your strategy
+- **Have a data pipeline** — You already source and manage your own data
+- **Have infrastructure** — DevOps capability to deploy, monitor, and maintain trading systems
+- **Prefer open source** — You want to audit and modify the engine source code
+- **Are a professional quant** — You need maximum control over every aspect of execution
+
+## When to Choose ClyptQ
+
+ClyptQ is the better choice if you:
+
+- **Want to start trading fast** — Data, infrastructure, and execution handled for you
+- **Value composability** — Build strategies from 213+ pre-built operators
+- **Trade crypto across exchanges** — Native multi-exchange with exchange-specific cost modeling
+- **Use AI/ML in strategies** — LLM, web search, and sentiment as first-class operators
+- **Want to sell strategies** — Verified marketplace with cross-exchange validation
+- **Don't want to manage infrastructure** — SaaS deployment, not self-hosted
+- **Prefer Python-native** — No Rust compilation, no Cython, no bridge layers
+
+## The Middle Ground
+
+ClyptQ and Nautilus Trader aren't always competitors. Some users benefit from both:
+
+- **Explore with ClyptQ** → validate strategy ideas quickly with included data and pre-built operators
+- **Deploy with Nautilus** → when a strategy needs sub-millisecond execution that ClyptQ's Python runtime can't provide
+
+ClyptQ's [planned Rust migration](/roadmap/rust-conversion) (core engine in Rust with Python interface via PyO3) will narrow the performance gap while maintaining the Python-native developer experience.
+
+## Relationship to Other Concepts
+
+- **[Why ClyptQ?](/competitive/why-clyptq)**: Complete overview of all competitive advantages
+- **[Research = Backtest = Live](/competitive/code-parity)**: Code parity comparison (both platforms guarantee this)
+- **[AI-Powered Trading](/competitive/semantic-operators)**: The AI capability that Nautilus lacks
+- **[Rust Conversion Roadmap](/roadmap/rust-conversion)**: How ClyptQ plans to match Nautilus's performance

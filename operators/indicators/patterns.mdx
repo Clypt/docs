@@ -1,0 +1,1286 @@
+---
+title: "Candlestick Patterns"
+description: "48+ CDL pattern recognition operators"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **60 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **CDLDOJI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHAMMER** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHANGINGMAN** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLINVERTEDHAMMER** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSHOOTINGSTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLENGULFING** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHARAMI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLMORNINGSTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLEVENINGSTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLMARUBOZU** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL3WHITESOLDIERS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL3BLACKCROWS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL2CROWS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL3INSIDE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL3LINESTRIKE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDL3STARSINSOUTH** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLABANDONEDBABY** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLADVANCEBLOCK** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLBELTHOLD** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLBREAKAWAY** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLCLOSINGMARUBOZU** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLCONCEALBABYSWALL** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLCOUNTERATTACK** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLDARKCLOUDCOVER** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLDOJISTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLDRAGONFLYDOJI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLEVENINGDOJISTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLGAPSIDESIDEWHITE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLGRAVESTONEDOJI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHARAMICROSS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHIGHWAVE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHIKKAKE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHIKKAKEMOD** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLHOMINGPIGEON** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLIDENTICAL3CROWS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLINNECK** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLKICKING** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLKICKINGBYLENGTH** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLLADDERBOTTOM** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLLONGLEGGEDDOJI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLLONGLINE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLMATCHINGLOW** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLMATHOLD** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLMORNINGDOJISTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLONNECK** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLPIERCING** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLRICKSHAWMAN** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLRISEFALL3METHODS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSEPARATINGLINES** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSHORTLINE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSPINNINGTOP** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSTALLEDPATTERN** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLSTICKSANDWICH** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLTAKURI** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLTASUKIGAP** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLTHRUSTING** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLTRISTAR** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLUNIQUE3RIVER** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLUPSIDEGAP2CROWS** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CDLXSIDEGAP3METHODS** | `INDICATOR` | `open_`, `high`, `low` | No |
+
+---
+
+## CDLDOJI
+
+Doji pattern - Open and close are nearly equal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHAMMER
+
+Hammer pattern - Bullish reversal at bottom.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHANGINGMAN
+
+Hanging Man pattern - Bearish reversal at top (same shape as hammer).
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLINVERTEDHAMMER
+
+Inverted Hammer pattern - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSHOOTINGSTAR
+
+Shooting Star pattern - Bearish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLENGULFING
+
+Engulfing Pattern - Strong reversal signal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHARAMI
+
+Harami Pattern - Potential reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLMORNINGSTAR
+
+Morning Star - Bullish three-candle reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLEVENINGSTAR
+
+Evening Star - Bearish three-candle reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLMARUBOZU
+
+Marubozu - Strong candle with no shadows.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL3WHITESOLDIERS
+
+Three White Soldiers - Bullish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL3BLACKCROWS
+
+Three Black Crows - Bearish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL2CROWS
+
+Two Crows - Bearish reversal pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL3INSIDE
+
+Three Inside Up/Down - Reversal pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL3LINESTRIKE
+
+Three-Line Strike - Continuation pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDL3STARSINSOUTH
+
+Three Stars In The South - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLABANDONEDBABY
+
+Abandoned Baby - Strong reversal pattern with gaps.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLADVANCEBLOCK
+
+Advance Block - Bearish reversal with weakening bulls.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLBELTHOLD
+
+Belt-hold - Single candle reversal pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLBREAKAWAY
+
+Breakaway - Five candle reversal pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLCLOSINGMARUBOZU
+
+Closing Marubozu - No shadow on closing side.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLCONCEALBABYSWALL
+
+Concealing Baby Swallow - Rare bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLCOUNTERATTACK
+
+Counterattack - Two candle reversal with equal closes.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLDARKCLOUDCOVER
+
+Dark Cloud Cover - Bearish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLDOJISTAR
+
+Doji Star - Reversal pattern with doji.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLDRAGONFLYDOJI
+
+Dragonfly Doji - Bullish reversal doji with long lower shadow.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLEVENINGDOJISTAR
+
+Evening Doji Star - Bearish reversal with doji.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLGAPSIDESIDEWHITE
+
+Up/Down-gap side-by-side white lines - Continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLGRAVESTONEDOJI
+
+Gravestone Doji - Bearish reversal doji with long upper shadow.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHARAMICROSS
+
+Harami Cross - Harami with doji second candle.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHIGHWAVE
+
+High-Wave Candle - Indecision with long shadows.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHIKKAKE
+
+Hikkake Pattern - Inside bar breakout failure.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHIKKAKEMOD
+
+Modified Hikkake Pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLHOMINGPIGEON
+
+Homing Pigeon - Bullish harami-like pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLIDENTICAL3CROWS
+
+Identical Three Crows - Strong bearish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLINNECK
+
+In-Neck Pattern - Bearish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLKICKING
+
+Kicking - Strong reversal with marubozu gap.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLKICKINGBYLENGTH
+
+Kicking - bull/bear determined by the longer marubozu.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLLADDERBOTTOM
+
+Ladder Bottom - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLLONGLEGGEDDOJI
+
+Long Legged Doji - Doji with long shadows both sides.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLLONGLINE
+
+Long Line Candle - Strong directional candle.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLMATCHINGLOW
+
+Matching Low - Bullish reversal with equal lows.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLMATHOLD
+
+Mat Hold - Bullish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLMORNINGDOJISTAR
+
+Morning Doji Star - Bullish reversal with doji.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLONNECK
+
+On-Neck Pattern - Bearish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLPIERCING
+
+Piercing Pattern - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLRICKSHAWMAN
+
+Rickshaw Man - Doji with equal long shadows.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLRISEFALL3METHODS
+
+Rising/Falling Three Methods - Continuation pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSEPARATINGLINES
+
+Separating Lines - Continuation pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSHORTLINE
+
+Short Line Candle - Small body candle.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSPINNINGTOP
+
+Spinning Top - Small body with shadows.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSTALLEDPATTERN
+
+Stalled Pattern - Bearish weakening.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLSTICKSANDWICH
+
+Stick Sandwich - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLTAKURI
+
+Takuri (Dragonfly Doji with very long lower shadow).
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLTASUKIGAP
+
+Tasuki Gap - Continuation pattern.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLTHRUSTING
+
+Thrusting Pattern - Bearish continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLTRISTAR
+
+Tristar Pattern - Three doji reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLUNIQUE3RIVER
+
+Unique 3 River - Bullish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLUPSIDEGAP2CROWS
+
+Upside Gap Two Crows - Bearish reversal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+---
+
+## CDLXSIDEGAP3METHODS
+
+Upside/Downside Gap Three Methods - Continuation.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required |  |
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `close` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/indicator/patterns.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

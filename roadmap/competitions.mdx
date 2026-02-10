@@ -1,0 +1,105 @@
+---
+title: "Trading Competitions"
+description: "Hedge fund-style trading competitions on the Clypt platform"
+---
+
+## Overview
+
+Clypt will host **hedge fund-style trading competitions** where participants compete using ClyptQ strategies in tournament formats. Competitions serve as a proving ground for strategy development, community engagement, and a pipeline for discovering top trading talent.
+
+## Competition Format
+
+### Tournament Structure
+
+```
+Registration → Qualifying Round → Semi-Finals → Finals → Capital Allocation
+     │              │                  │            │           │
+  Submit         Backtest           Paper         Live     Top performers
+  strategy      validation        trading       trading    get AUM
+```
+
+### Qualifying Round (Backtest)
+
+Participants submit strategies via the platform. All strategies undergo:
+1. **Cross-exchange validation** — Same strategy tested on unseen exchange data
+2. **Scale testing** — Tested at 2x/5x/10x the declared capital
+3. **Cost model verification** — Realistic fees, slippage, funding rates applied
+4. **Lookahead bias check** — Structural verification via ClyptQ's RollingBuffer architecture
+
+Only strategies that pass all validation gates advance.
+
+### Semi-Finals (Paper Trading)
+
+Qualifying strategies run in **paper trading mode** for a fixed period (e.g., 30 days):
+- Real-time market data via WebSocket
+- Simulated execution with realistic fills
+- Same graph, same code — only the data source changes
+
+### Finals (Live Trading)
+
+Top performers receive small capital allocations for **live trading**:
+- Real execution on supported exchanges
+- Risk limits enforced by the platform
+- Performance tracked in real-time on public leaderboard
+
+## Scoring Methodology
+
+Competitions score strategies on risk-adjusted metrics, not raw returns:
+
+| Metric | Weight | Why |
+|--------|--------|-----|
+| **Sharpe Ratio** | 30% | Risk-adjusted returns |
+| **Max Drawdown** | 20% | Downside risk control |
+| **Calmar Ratio** | 15% | Return per unit of drawdown |
+| **Cross-Exchange Consistency** | 15% | Robustness across venues |
+| **Scale Stability** | 10% | Performance at larger capital |
+| **Turnover Efficiency** | 10% | Transaction cost awareness |
+
+Raw returns without risk adjustment are explicitly penalized — this prevents strategies that simply take maximum leverage.
+
+## Capital Allocation Pipeline
+
+Top competition performers become eligible for the **Marketplace Capital Program**:
+
+1. **Competition Winner** — Featured strategy listing on marketplace
+2. **Consistent Top 10** — Capital allocation from platform or partner funds
+3. **Multi-competition Winner** — Direct fund allocation opportunity
+
+This creates a hedge fund talent pipeline through the platform.
+
+## Anti-Gaming Measures
+
+| Measure | What It Prevents |
+|---------|-----------------|
+| **Cross-exchange validation** | Overfitting to single-exchange patterns |
+| **Randomized test periods** | Data-mining and curve-fitting |
+| **Scale testing** | Strategies that only work at tiny scale |
+| **Code parity enforcement** | Different backtest vs live logic |
+| **Position limit constraints** | Excessive concentration risk |
+
+## Revenue Model
+
+| Revenue Stream | Description |
+|---------------|-------------|
+| **Entry fees** | Per-competition entry fee |
+| **Sponsorships** | Exchange and data provider sponsorships |
+| **AUM fees** | Management/performance fees on allocated capital |
+| **Premium access** | Advanced analytics and custom competition creation |
+
+## Timeline
+
+Competitions launch in **Phase 4** of the roadmap, after:
+- Strategy marketplace is established (Phase 1-2)
+- Sufficient builder community exists
+- Cross-exchange validation is battle-tested
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    Strategy verification and listing process
+  </Card>
+  <Card title="Builder Guide" icon="hammer" href="/platform/builder-guide">
+    How to build strategies for competitions
+  </Card>
+</CardGroup>

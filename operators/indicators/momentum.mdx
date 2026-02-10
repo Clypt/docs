@@ -1,0 +1,580 @@
+---
+title: "Momentum Indicators"
+description: "RSI, MACD, MOM, ROC, CMO, APO, PPO, STOCH, STOCHRSI, WILLR, ULTOSC, BOP, TRIX, CCI"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **17 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **APO** | `INDICATOR` | `fast_period=12`, `slow_period=26` | No |
+| **BOP** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **CMO** | `INDICATOR` | `period=14` | No |
+| **MACD** | `INDICATOR` | `fast_period=12`, `slow_period=26`, `signal_period=9` | No |
+| **MOM** | `INDICATOR` | `period=10` | No |
+| **PPO** | `INDICATOR` | `fast_period=12`, `slow_period=26` | No |
+| **ROC** | `INDICATOR` | `period=10` | No |
+| **ROCP** | `INDICATOR` | `period=10` | No |
+| **ROCR** | `INDICATOR` | `period=10` | No |
+| **ROCR100** | `INDICATOR` | `period=10` | No |
+| **RSI** | `INDICATOR` | `period=14` | No |
+| **STOCH** | `INDICATOR` | `close`, `high`, `low` | No |
+| **STOCHF** | `INDICATOR` | `close`, `high`, `low` | No |
+| **STOCHRSI** | `INDICATOR` | `rsi_period=14`, `stoch_period=14`, `fastk_period=3` | No |
+| **TRIX** | `INDICATOR` | `period=30` | No |
+| **ULTOSC** | `INDICATOR` | `close`, `high`, `low` | No |
+| **WILLR** | `INDICATOR` | `close`, `high`, `low` | No |
+
+---
+
+## APO
+
+Absolute Price Oscillator indicator.
+
+APO is the difference between a fast and slow exponential moving average.
+APO = EMA(fast) - EMA(slow)
+
+Positive values indicate upward momentum, negative values indicate downward.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= slow_period) |
+| `fast_period` | `int` | `12` | Fast EMA period |
+| `slow_period` | `int` | `26` | Slow EMA period |
+
+### Usage
+
+```python
+graph.add_node("apo", APO(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    fast_period=12,
+    slow_period=26,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/apo.py`</sub>
+
+
+---
+
+## BOP
+
+Balance of Power indicator.
+
+BOP measures the strength of buyers vs sellers by assessing
+the ability of each to push price to extreme levels.
+
+BOP = (Close - Open) / (High - Low)
+
+Values range from -1 to +1.
+Positive = buyers in control, Negative = sellers in control.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required | Open price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `close` | `'Input'` | Required | Close price input |
+
+### Usage
+
+```python
+graph.add_node("bop", BOP(
+    open_=Input("FIELD:gateio:spot:open", timeframe="1h", lookback=1),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=1),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=1),
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=1),
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/bop.py`</sub>
+
+
+---
+
+## CMO
+
+Chande Momentum Oscillator indicator.
+
+CMO is a modified RSI that measures momentum.
+CMO = ((Sum of gains - Sum of losses) / (Sum of gains + Sum of losses)) * 100
+
+Values range from -100 to +100.
+Above 50 indicates overbought, below -50 indicates oversold.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period + 1) |
+| `period` | `int` | `14` | Number of periods |
+
+### Usage
+
+```python
+graph.add_node("cmo", CMO(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/cmo.py`</sub>
+
+
+---
+
+## MACD
+
+Moving Average Convergence/Divergence indicator.
+
+MACD shows the relationship between two EMAs of a security's price.
+MACD Line = EMA(fast) - EMA(slow)
+Signal Line = EMA(MACD Line, signal_period)
+Histogram = MACD Line - Signal Line
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= slow_period + signal_period) |
+| `fast_period` | `int` | `12` | Fast EMA period |
+| `slow_period` | `int` | `26` | Slow EMA period |
+| `signal_period` | `int` | `9` | Signal line EMA period |
+| `output` | `str` | `'macd'` | Which output to return: "macd", "signal", or "histogram" |
+
+### Usage
+
+```python
+graph.add_node("macd", MACD(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=40),
+    fast_period=12,
+    slow_period=26,
+    signal_period=9,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/macd.py`</sub>
+
+
+---
+
+## MOM
+
+Momentum indicator.
+
+Momentum measures the rate of change of a security's price.
+MOM = Price_today - Price_n_periods_ago
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Number of periods |
+
+### Usage
+
+```python
+graph.add_node("mom", MOM(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=15),
+    period=10,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/mom.py`</sub>
+
+
+---
+
+## PPO
+
+Percentage Price Oscillator indicator.
+
+PPO is similar to MACD but expressed as a percentage.
+PPO = ((EMA(fast) - EMA(slow)) / EMA(slow)) * 100
+
+This makes it easier to compare across different price levels.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= slow_period) |
+| `fast_period` | `int` | `12` | Fast EMA period |
+| `slow_period` | `int` | `26` | Slow EMA period |
+
+### Usage
+
+```python
+graph.add_node("ppo", PPO(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    fast_period=12,
+    slow_period=26,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/ppo.py`</sub>
+
+
+---
+
+## ROC
+
+Rate of Change indicator.
+
+ROC = ((Price_today - Price_n_periods_ago) / Price_n_periods_ago) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Number of periods |
+
+### Usage
+
+```python
+graph.add_node("roc", ROC(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=15),
+    period=10,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
+
+
+---
+
+## ROCP
+
+Rate of Change Percentage indicator.
+
+ROCP = (Price_today - Price_n_periods_ago) / Price_n_periods_ago
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Number of periods |
+
+<sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
+
+
+---
+
+## ROCR
+
+Rate of Change Ratio indicator.
+
+ROCR = Price_today / Price_n_periods_ago
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Number of periods |
+
+<sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
+
+
+---
+
+## ROCR100
+
+Rate of Change Ratio 100 scale indicator.
+
+ROCR100 = (Price_today / Price_n_periods_ago) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Number of periods |
+
+<sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
+
+
+---
+
+## RSI
+
+Relative Strength Index indicator.
+
+RSI measures the magnitude of recent price changes to evaluate overbought
+or oversold conditions.
+
+RSI = 100 - (100 / (1 + RS))
+where RS = Average Gain / Average Loss over the period
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period + 1) |
+| `period` | `int` | `14` | Number of periods |
+
+### Usage
+
+```python
+graph.add_node("rsi", RSI(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/rsi.py`</sub>
+
+
+---
+
+## STOCH
+
+Stochastic Oscillator indicator.
+
+Stochastic measures the close position relative to the high-low range.
+%K = ((Close - Lowest Low) / (Highest High - Lowest Low)) * 100
+%D = SMA(%K, slowd_period)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `fastk_period` | `int` | `14` | %K period |
+| `slowk_period` | `int` | `3` | %K smoothing period |
+| `slowd_period` | `int` | `3` | %D period |
+| `output` | `str` | `'slowk'` | "slowk" or "slowd" |
+
+### Usage
+
+```python
+graph.add_node("stoch", STOCH(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=20),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=20),
+    fastk_period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/stoch.py`</sub>
+
+
+---
+
+## STOCHF
+
+Stochastic Fast indicator.
+
+Fast Stochastic returns raw %K without smoothing.
+%K = ((Close - Lowest Low) / (Highest High - Lowest Low)) * 100
+%D = SMA(%K, fastd_period)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `fastk_period` | `int` | `14` | %K period |
+| `fastd_period` | `int` | `3` | %D period |
+| `output` | `str` | `'fastk'` | "fastk" or "fastd" |
+
+<sub>Source: `apps/trading/operators/indicator/stoch.py`</sub>
+
+
+---
+
+## STOCHRSI
+
+Stochastic RSI indicator.
+
+StochRSI applies the Stochastic formula to RSI values instead of prices.
+StochRSI = (RSI - Lowest RSI) / (Highest RSI - Lowest RSI)
+
+Values range from 0 to 1 (or 0 to 100 when multiplied).
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= rsi_period + stoch_period) |
+| `rsi_period` | `int` | `14` | RSI period |
+| `stoch_period` | `int` | `14` | Stochastic period |
+| `fastk_period` | `int` | `3` | Fast %K smoothing |
+| `fastd_period` | `int` | `3` | Fast %D smoothing |
+| `output` | `str` | `'fastk'` | "fastk" or "fastd" |
+
+### Usage
+
+```python
+graph.add_node("stochrsi", STOCHRSI(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=35),
+    rsi_period=14,
+    stoch_period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/stochrsi.py`</sub>
+
+
+---
+
+## TRIX
+
+TRIX - 1-day Rate-Of-Change (ROC) of a Triple Smooth EMA.
+
+TRIX = 100 * (EMA3_today - EMA3_yesterday) / EMA3_yesterday
+where EMA3 = EMA(EMA(EMA(price)))
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `30` | EMA period |
+
+### Usage
+
+```python
+graph.add_node("trix", TRIX(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=50),
+    period=30,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/trix.py`</sub>
+
+
+---
+
+## ULTOSC
+
+Ultimate Oscillator indicator.
+
+The Ultimate Oscillator uses weighted averages of three different periods
+to reduce volatility and false trading signals.
+
+UO = 100 * [(4 * Avg7) + (2 * Avg14) + Avg28] / (4 + 2 + 1)
+where Avg = Sum(BP) / Sum(TR)
+BP (Buying Pressure) = Close - Min(Low, PrevClose)
+TR (True Range) = Max(High, PrevClose) - Min(Low, PrevClose)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period1` | `int` | `7` | First period |
+| `period2` | `int` | `14` | Second period |
+| `period3` | `int` | `28` | Third period |
+
+### Usage
+
+```python
+graph.add_node("ultosc", ULTOSC(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=35),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=35),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=35),
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/ultosc.py`</sub>
+
+
+---
+
+## WILLR
+
+Williams %R indicator.
+
+Williams %R is a momentum indicator that measures overbought/oversold levels.
+%R = ((Highest High - Close) / (Highest High - Lowest Low)) * -100
+
+Values range from -100 to 0.
+-20 to 0 = overbought, -100 to -80 = oversold.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+### Usage
+
+```python
+graph.add_node("willr", WILLR(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=20),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=20),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/willr.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

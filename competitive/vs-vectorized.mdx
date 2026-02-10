@@ -1,0 +1,266 @@
+---
+title: "ClyptQ vs Vectorized Frameworks"
+description: "Why tick-by-tick backtesting beats vectorized approaches like Freqtrade, Zipline, and Backtrader"
+---
+
+## What Is Vectorized Backtesting?
+
+Vectorized backtesting processes **entire arrays of historical data at once** using NumPy/pandas operations. This is how most popular frameworks work:
+
+```python
+# Vectorized approach: entire history in memory
+df = pd.read_csv("prices.csv")  # All data loaded
+df["sma"] = df["close"].rolling(20).mean()  # Computed over ALL rows
+df["signal"] = np.where(df["close"] > df["sma"], 1, -1)  # ALL signals at once
+df["pnl"] = (df["signal"].shift(1) * df["close"].pct_change()).cumsum()
+```
+
+This feels natural to Python developers. It's fast. It's concise. And it produces **fundamentally unreliable results**.
+
+## The Four Structural Flaws
+
+### Flaw 1: Lookahead Bias Is One Typo Away
+
+In vectorized code, the **entire price history exists as a single array**. Accidentally using future data is trivially easy:
+
+```python
+# Spot the bug (hint: missing .shift(1))
+df["signal"] = np.where(df["close"] > df["sma"], 1, -1)
+df["pnl"] = df["signal"] * df["close"].pct_change()  # Uses today's signal for today's return!
+
+# This strategy "knows the future" — it decides to buy/sell
+# based on a signal computed from data it shouldn't have yet
+```
+
+**In ClyptQ, this is structurally impossible.** Each operator receives a `RollingBuffer` containing only `[t-lookback : t]`. There is no array of future prices to accidentally reference:
+
+```python
+class MyAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def compute(self, inputs, timestamp, context):
+        close = inputs[0]  # TaggedArray: only lookback ticks, nothing more
+        # You literally cannot access future data — it doesn't exist in the buffer
+```
+
+### Flaw 2: No Real State Management
+
+Vectorized backtests compute positions as arrays:
+
+```python
+# Position "state" is just a shifted signal array
+df["position"] = df["signal"].shift(1)
+df["equity"] = initial_cash + (df["position"] * df["close"].diff()).cumsum()
+```
+
+This misses critical real-world state:
+- **Partial fills**: What if your order only partially fills?
+- **Margin requirements**: Do you have enough margin for this position?
+- **Cash constraints**: You can't buy $10,000 of BTC with $5,000 cash
+- **Funding rate costs**: Perpetual futures charge funding every 8 hours
+- **Liquidation risk**: Over-leveraged positions get liquidated
+
+ClyptQ tracks all of this through the STATE protocol:
+
+```python
+# Real state, updated after every fill
+Input("STATE:binance:futures:cash", "1m", lookback=1)           # Actual cash
+Input("STATE:binance:futures:pos_quantity", "1m", lookback=1)   # Actual positions
+Input("STATE:binance:futures:available_margin", "1m", lookback=1)  # Actual margin
+```
+
+### Flaw 3: Order Execution Is Fantasy
+
+Vectorized backtests assume every order fills instantly at the exact close price:
+
+```python
+# Vectorized: perfect execution assumed
+df["fill_price"] = df["close"]  # Always fills at close
+df["fee"] = df["fill_price"] * 0.001  # Flat fee (not how exchanges work)
+```
+
+Real execution involves:
+- **Slippage**: Large orders move the market
+- **Tiered fees**: Maker/taker rates differ, VIP levels change fees
+- **Minimum order sizes**: Exchanges have lot size and notional minimums
+- **Rate limits**: You can't send 1,000 orders per second
+- **Network latency**: Orders arrive milliseconds after you decide
+
+ClyptQ models exchange-specific execution:
+
+```python
+CostModelSpec(
+    exchange="binance",          # Auto-fetches Binance fee schedule
+    maker_fee_override=0.0002,   # Optional VIP override
+    taker_fee_override=0.0004,
+    slippage_model="fixed_bps",
+    slippage_bps=2.0,
+)
+```
+
+### Flaw 4: Research Code ≠ Live Code
+
+The most fundamental flaw: vectorized backtest code **cannot run live**. A pandas DataFrame doesn't exist in live trading — you have a stream of ticks. So you must rewrite everything:
+
+```python
+# Backtest (vectorized)
+df["sma"] = df["close"].rolling(20).mean()
+df["signal"] = np.where(df["close"] > df["sma"], 1, -1)
+
+# Live (streaming) — completely different code
+class LiveStrategy:
+    def __init__(self):
+        self.prices = deque(maxlen=20)
+
+    def on_tick(self, price):
+        self.prices.append(price)
+        sma = sum(self.prices) / len(self.prices)
+        if price > sma:
+            self.exchange.buy(...)
+```
+
+Two codebases. Two potential sources of bugs. Two systems that can drift apart silently.
+
+**ClyptQ has one codebase.** The same operator code, the same graph, the same execution path — in backtest and live.
+
+## Framework-by-Framework Analysis
+
+### Freqtrade
+
+**What it is**: Open-source crypto trading bot with backtesting. Python-based, primarily for single-exchange strategies.
+
+**Architecture**: Hybrid — uses vectorized pandas for some calculations with an event-driven loop on top. Strategies inherit from `IStrategy` class.
+
+| Aspect | Freqtrade | ClyptQ |
+|---|---|---|
+| **Backtesting model** | Candle-level simulation (entry/exit per candle) | Tick-by-tick state machine |
+| **Multi-symbol** | Sequential (one pair at a time) | Parallel (all symbols per tick) |
+| **Multi-exchange** | Single exchange per bot instance | Native multi-exchange in one graph |
+| **Portfolio state** | Limited (no proper equity tracking) | Full STATE protocol (cash, positions, margin) |
+| **Futures support** | Basic (no funding rate sim, no liquidation) | Full (funding, liquidation, cross/isolated margin) |
+| **Custom indicators** | Pandas-based (lookahead risk) | Operator-based (structurally safe) |
+| **Code parity** | Strategy class differs between backtest/live | Identical code in all modes |
+| **Marketplace** | No | Verified marketplace |
+
+**Freqtrade's strengths**: Easy to get started for single-pair strategies. Large community. Good documentation.
+
+**Freqtrade's limitations**: Candle-level granularity means you can't model intra-candle events. No proper multi-asset portfolio management. No institutional-grade cost modeling. Research code eventually diverges from live.
+
+### Zipline / Zipline-Reloaded
+
+**What it is**: Originally developed by Quantopian (now defunct). The community-maintained fork "Zipline-Reloaded" has limited activity.
+
+| Aspect | Zipline | ClyptQ |
+|---|---|---|
+| **Status** | Minimally maintained | Actively developed |
+| **Asset class** | US equities only | Crypto (multi-exchange), stocks planned |
+| **Backtesting model** | Event-driven (daily bars) | Tick-by-tick (1-minute bars) |
+| **Data** | Quandl bundles (often stale) | Live exchange data + historical |
+| **Futures** | No | Full support |
+| **Multi-exchange** | No | Native |
+| **Python version** | Compatibility issues common | Modern Python |
+
+**Zipline's legacy**: Pioneered cloud-hosted quant trading via Quantopian. The architecture was sound for daily equity strategies but never adapted to crypto, futures, or intraday trading.
+
+### Backtrader
+
+**What it is**: Feature-rich Python backtesting library. Event-driven architecture, but with significant complexity.
+
+| Aspect | Backtrader | ClyptQ |
+|---|---|---|
+| **Architecture** | Event-driven (cerebro engine) | DAG-based (StatefulGraph) |
+| **State management** | Implicit (broker object) | Explicit (STATE protocol) |
+| **Composability** | Monolithic strategy class | Composable operator graph |
+| **Multi-asset** | Supported but complex | Native (FIELD protocol handles routing) |
+| **Maintenance** | Sporadic updates | Active development |
+| **Deployment** | Self-hosted only | SaaS (Jupyter) |
+| **Data** | BYO data feeds | Included |
+
+**Backtrader's strength**: Flexible and feature-rich. Good for educational purposes.
+
+**Backtrader's limitation**: Strategies are monolithic classes that mix signal generation, position sizing, and order management. This makes them hard to test, compose, and maintain. The implicit broker state creates the research-live gap.
+
+### VectorBT
+
+**What it is**: High-performance vectorized backtesting using NumPy. Designed for speed — can test millions of parameter combinations.
+
+| Aspect | VectorBT | ClyptQ |
+|---|---|---|
+| **Speed** | Extremely fast (pure NumPy) | Slower per-backtest (but accurate) |
+| **Accuracy** | Low (all vectorized flaws apply) | High (tick-by-tick state machine) |
+| **Use case** | Parameter scanning, initial screening | Strategy validation, production deployment |
+| **Live trading** | No (research only) | Yes (same code) |
+| **State management** | None (array operations) | Full STATE protocol |
+| **Portfolio modeling** | Simplified | Exchange-specific (fees, margin, funding) |
+
+**VectorBT's niche**: Fast initial screening of parameter spaces. Useful for exploration, but results need validation in an event-driven framework before trusting them.
+
+**Important**: VectorBT and ClyptQ are not substitutes — they serve different purposes. VectorBT is for rapid exploration. ClyptQ is for validated execution. Some traders use VectorBT for initial screening, then validate promising strategies in ClyptQ.
+
+## The Speed vs Accuracy Trade-off
+
+Vectorized frameworks are fast because they skip the hard parts:
+
+| What They Skip | Impact on Accuracy |
+|---|---|
+| Per-tick state updates | Positions, cash, margin are approximations |
+| Order fill simulation | Assumes perfect execution |
+| Exchange-specific fees | Flat fee (not tiered maker/taker) |
+| Funding rate costs | Ignored (can be 20%+ annualized) |
+| Liquidation logic | Impossible in vectorized model |
+| Partial fills | Assumes 100% fill rate |
+| Multi-asset correlation | Each symbol processed independently |
+
+ClyptQ is slower per backtest because it does all of these. But **an accurate slow backtest is worth more than a fast inaccurate one**:
+
+```
+Vectorized backtest: 2.1 Sharpe (computed in 3 seconds)
+                     Live result: 0.3 Sharpe
+
+ClyptQ backtest:     1.4 Sharpe (computed in 30 seconds)
+                     Live result: 1.2 Sharpe
+```
+
+The "fast" backtest lost you money. The "slow" backtest made you money.
+
+## Migration Path
+
+If you're currently using a vectorized framework, migrating to ClyptQ means:
+
+1. **Extract your signal logic** into ClyptQ operators (most `ta-lib` indicators have direct equivalents in ClyptQ's 213+ operator library)
+2. **Define your data and execution** in a `TradingSpec`
+3. **Connect operators in a graph** instead of chaining pandas operations
+4. **Run the same code live** — no production rewrite needed
+
+```python
+# Before (Freqtrade/pandas)
+df["rsi"] = ta.RSI(df["close"], timeperiod=14)
+df["signal"] = np.where(df["rsi"] < 30, 1, np.where(df["rsi"] > 70, -1, 0))
+
+# After (ClyptQ)
+close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=15)
+graph.add_node("rsi", RSI(period=14), inputs=[close])
+graph.add_node("signal", RSIAlpha(oversold=30, overbought=70),
+    inputs=[Input("rsi", "1m", lookback=1)])
+```
+
+The ClyptQ version is slightly more verbose, but it **runs identically in backtest and live** — no rewrite needed.
+
+## Summary
+
+| | Vectorized (Freqtrade, Zipline, VectorBT) | ClyptQ |
+|---|---|---|
+| **Execution model** | Array operations on full history | Tick-by-tick state machine |
+| **Lookahead bias** | One typo away | Structurally impossible |
+| **State management** | Ad-hoc or none | FIELD/STATE protocol |
+| **Cost modeling** | Flat fees | Exchange-specific (fees, funding, liquidation) |
+| **Research → Live** | Complete rewrite needed | Same code, change `mode` |
+| **Multi-exchange** | Limited or none | Native |
+| **Best for** | Quick exploration | Validated, production-ready strategies |
+
+## Relationship to Other Concepts
+
+- **[Research = Backtest = Live](/competitive/code-parity)**: The code parity guarantee that vectorized frameworks cannot provide
+- **[Lookback Buffers](/engine/lookback-buffers)**: How RollingBuffer prevents lookahead by design
+- **[STATE Principle](/engine/state-principle)**: Portfolio state management missing from vectorized frameworks
+- **[Backtesting Accuracy](/backtesting/overview)**: The full picture of what makes backtests reliable

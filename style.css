@@ -1,0 +1,24 @@
+/* Clypt Docs — Global Overrides */
+
+/* Force black text on CTA button (light cyan #94F1E8 background needs dark text) */
+nav a[href="https://clypt.ai"],
+header a[href="https://clypt.ai"],
+a[href="https://clypt.ai"] {
+  color: #000000 !important;
+}
+
+/* Target Mintlify topbar CTA button generically */
+[class*="TopbarCta"],
+[class*="topbar-cta"],
+[class*="CtaButton"],
+[class*="cta-button"],
+nav [role="button"],
+header [role="button"] {
+  color: #000000 !important;
+}
+
+/* Override primary-colored buttons to have black text */
+button[style*="94F1E8"],
+a[style*="94F1E8"] {
+  color: #000000 !important;
+}

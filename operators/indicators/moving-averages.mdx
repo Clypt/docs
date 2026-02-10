@@ -1,0 +1,410 @@
+---
+title: "Moving Averages"
+description: "SMA, EMA, DEMA, TEMA, WMA, TRIMA, T3, KAMA, MAMA, MA"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **12 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **DEMA** | `INDICATOR` | `period=14` | No |
+| **EMA** | `UNKNOWN` | `self_input`, `span=None`, `alpha=None` | No |
+| **KAMA** | `INDICATOR` | `period=10`, `fast_period=2`, `slow_period=30` | No |
+| **MA** | `INDICATOR` | `period=30`, `ma_type=0` | No |
+| **MACDEXT** | `INDICATOR` | `fast_period=12`, `fast_ma_type=1`, `slow_period=26` | No |
+| **MACDFIX** | `INDICATOR` | `signal_period=9`, `output='macd'` | No |
+| **MAMA** | `INDICATOR` | `fast_limit=0.5`, `slow_limit=0.05` | No |
+| **SMA** | `INDICATOR` | `period=14` | No |
+| **T3** | `INDICATOR` | `period=5`, `volume_factor=0.7` | No |
+| **TEMA** | `INDICATOR` | `period=14` | No |
+| **TRIMA** | `INDICATOR` | `period=14` | No |
+| **WMA** | `INDICATOR` | `period=14` | No |
+
+---
+
+## DEMA
+
+Double Exponential Moving Average indicator.
+
+DEMA reduces the lag compared to a traditional EMA by applying the formula:
+DEMA = 2 * EMA(price) - EMA(EMA(price))
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `14` | Number of periods for EMA calculation |
+
+### Usage
+
+```python
+graph.add_node("dema", DEMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/dema.py`</sub>
+
+
+---
+
+## EMA
+
+Exponential Moving Average for signal smoothing.
+
+Applies EMA smoothing across time to reduce signal noise and turnover.
+Uses the formula: EMA_t = alpha * x_t + (1 - alpha) * EMA_{t-1}
+
+This operator uses self-reference: it receives its own previous output
+via the Graph's lookback buffer, making it stateless.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal to smooth (lookback=1 for current value) |
+| `self_input` | `'Input'` | Required | Self-reference input for previous EMA (lookback=1) |
+| `span` | `Optional[int]` | `None` | EMA span (number of periods). alpha = 2 / (span + 1) |
+| `alpha` | `Optional[float]` | `None` | Direct alpha value (overrides span if provided) |
+
+### Usage
+
+```python
+# In Graph setup:
+graph.add_node("alpha_ema", EMA(
+    Input("raw_alpha", timeframe="1h", lookback=1),
+    Input("alpha_ema", timeframe="1h", lookback=1),  # Self-reference
+    span=6,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/ema.py`</sub>
+
+
+---
+
+## KAMA
+
+Kaufman Adaptive Moving Average indicator.
+
+KAMA adapts to market volatility by adjusting its smoothing constant.
+When the market is trending, KAMA responds quickly; when it's ranging, it slows down.
+
+Efficiency Ratio (ER) = Change / Volatility
+Smoothing Constant (SC) = [ER * (fast_sc - slow_sc) + slow_sc]^2
+KAMA_t = KAMA_{t-1} + SC * (Price_t - KAMA_{t-1})
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `10` | Efficiency ratio period |
+| `fast_period` | `int` | `2` | Fast EMA period |
+| `slow_period` | `int` | `30` | Slow EMA period |
+
+### Usage
+
+```python
+graph.add_node("kama", KAMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    period=10,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/kama.py`</sub>
+
+
+---
+
+## MA
+
+Generic Moving Average indicator.
+
+Supports multiple MA types via ma_type parameter.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `30` | MA period |
+| `ma_type` | `int` | `0` | Type of MA: 0=SMA, 1=EMA, 2=WMA, 3=DEMA, 4=TEMA |
+
+### Usage
+
+```python
+graph.add_node("ma", MA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=35),
+    period=30,
+    ma_type=0,  # SMA
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/ma.py`</sub>
+
+
+---
+
+## MACDEXT
+
+MACD with controllable MA type.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `fast_period` | `int` | `12` | Fast MA period |
+| `fast_ma_type` | `int` | `1` | Fast MA type |
+| `slow_period` | `int` | `26` | Slow MA period |
+| `slow_ma_type` | `int` | `1` | Slow MA type |
+| `signal_period` | `int` | `9` | Signal MA period |
+| `signal_ma_type` | `int` | `1` | Signal MA type |
+| `output` | `str` | `'macd'` | "macd", "signal", or "histogram" |
+
+<sub>Source: `apps/trading/operators/indicator/ma.py`</sub>
+
+
+---
+
+## MACDFIX
+
+MACD Fix 12/26 - MACD with fixed periods.
+
+Uses fixed 12/26/9 periods like traditional MACD.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `signal_period` | `int` | `9` | Signal period |
+| `output` | `str` | `'macd'` | "macd", "signal", or "histogram" |
+
+<sub>Source: `apps/trading/operators/indicator/ma.py`</sub>
+
+
+---
+
+## MAMA
+
+MESA Adaptive Moving Average indicator.
+
+MAMA adapts to price movement based on the rate of change of phase (from Hilbert Transform).
+It provides both MAMA and FAMA (Following Adaptive Moving Average) values.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= 32) |
+| `fast_limit` | `float` | `0.5` | Fast limit for alpha |
+| `slow_limit` | `float` | `0.05` | Slow limit for alpha |
+
+### Usage
+
+```python
+graph.add_node("mama", MAMA(
+        Input("FIELD:gateio:spot:close", timeframe="1h", lookback=50),
+        fast_limit=0.5,
+        slow_limit=0.05,
+    ))
+
+Note:
+    This implementation returns MAMA value. For FAMA, use a separate FAMA operator
+    or access via context.
+```
+
+<sub>Source: `apps/trading/operators/indicator/mama.py`</sub>
+
+
+---
+
+## SMA
+
+Simple Moving Average indicator.
+
+Calculates the arithmetic mean of a given set of values over a specified period.
+SMA_t = (x_t + x_{t-1} + ... + x_{t-n+1}) / n
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `14` | Number of periods to average |
+
+### Usage
+
+```python
+graph.add_node("sma", SMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    period=20,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/sma.py`</sub>
+
+
+---
+
+## T3
+
+Triple Exponential Moving Average (T3) indicator.
+
+T3 is a smoother version of TEMA using a volume factor.
+T3 = c1*e6 + c2*e5 + c3*e4 + c4*e3
+where:
+    e1 = EMA(price), e2 = EMA(e1), ..., e6 = EMA(e5)
+    c1 = -a^3, c2 = 3*a^2 + 3*a^3, c3 = -6*a^2 - 3*a - 3*a^3, c4 = 1 + 3*a + a^3 + 3*a^2
+    a = volume_factor (default 0.7)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period * 3) |
+| `period` | `int` | `5` | Number of periods for EMA calculation |
+| `volume_factor` | `float` | `0.7` | Smoothing factor |
+
+### Usage
+
+```python
+graph.add_node("t3", T3(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    period=5,
+    volume_factor=0.7,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/t3.py`</sub>
+
+
+---
+
+## TEMA
+
+Triple Exponential Moving Average indicator.
+
+TEMA further reduces lag by applying the formula:
+TEMA = 3 * EMA - 3 * EMA(EMA) + EMA(EMA(EMA))
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period * 2) |
+| `period` | `int` | `14` | Number of periods for EMA calculation |
+
+### Usage
+
+```python
+graph.add_node("tema", TEMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/tema.py`</sub>
+
+
+---
+
+## TRIMA
+
+Triangular Moving Average indicator.
+
+TRIMA is a double-smoothed SMA that gives more weight to middle values.
+For odd periods: TRIMA = SMA(SMA(price, (n+1)/2), (n+1)/2)
+For even periods: TRIMA = SMA(SMA(price, n/2+1), n/2)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `14` | Number of periods |
+
+### Usage
+
+```python
+graph.add_node("trima", TRIMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/trima.py`</sub>
+
+
+---
+
+## WMA
+
+Weighted Moving Average indicator.
+
+WMA assigns linearly increasing weights to more recent data points.
+WMA = (n*P_n + (n-1)*P_{n-1} + ... + 1*P_1) / (n + (n-1) + ... + 1)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
+| `period` | `int` | `14` | Number of periods to average |
+
+### Usage
+
+```python
+graph.add_node("wma", WMA(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/wma.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

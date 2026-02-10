@@ -1,392 +1,291 @@
 ---
 title: "Data System"
-description: "Multi-asset data integration and management"
+description: "Data sources, observation specs, storage, and the warmup pipeline"
 ---
 
 ## Overview
 
-ClyptQ Data System integrates **multi-asset class** data and provides consistent data access from development to production through **environment-based automatic routing**.
+ClyptQ's data system handles everything from historical Parquet files to live WebSocket streams, with automatic environment-based routing and warmup computation. Data is declared in `TradingDataSpec` and consumed as FIELD inputs in the graph.
 
-## Data Sources
+## Data Flow
 
-**Supported Asset Classes**:
-- **Crypto**: Binance, Coinbase, Gate.io (spot & futures)
-- **Stocks**: Yahoo Finance, Tiingo
-- **Macro**: FRED (economic indicators)
-- **On-Chain**: CryptoQuant (on-chain data)
+```
+TradingDataSpec                          StatefulGraph
+┌───────────────────────┐    ┌─────────────────────────────────┐
+│ symbol_source_map     │    │                                 │
+│ observations          │───▶│  FIELD:binance:futures:ohlcv:   │
+│   └─ OHLCVSpec        │    │    close, open, high, low, vol  │
+│ start / end           │    │                                 │
+└───────────────────────┘    │  → RollingBuffer → Operator     │
+                             └─────────────────────────────────┘
+```
 
-**Data Types**:
-- **OHLCV**: Price candles (1m, 5m, 1h, 1d, etc.)
-- **Orderbook**: L2 order book snapshots
-- **Tick**: Trade execution data
-- **Fundamentals**: Financial data
-- **Alternative**: News, social media
+## ObservationSpec
 
-## Observation Specs
-
-Data is **defined with Specs**:
+Data sources are defined with `ObservationSpec` objects:
 
 ```python
-from clyptq.apps.trading.spec.observation import OHLCVSpec, OrderBookSpec
+from clyptq.apps.trading.spec.observation.crypto import OHLCVSpec
 
-# OHLCV data
-ohlcv_spec = OHLCVSpec(
-    identifier="ohlcv_1m",
-    venue="binance",
+# OHLCV candle data from Binance futures
+ohlcv = OHLCVSpec(
+    exchange="binance",
     market_type="futures",
     timeframe="1m",
-    fields=["open", "high", "low", "close", "volume"]
-)
-
-# Orderbook data
-orderbook_spec = OrderBookSpec(
-    identifier="orderbook",
-    venue="binance",
-    market_type="futures",
-    depth=20  # Top 20 levels
-)
-
-# Include in TradingSpec
-spec = TradingSpec(
-    observations=[ohlcv_spec, orderbook_spec],
-    ...
 )
 ```
+
+### Available fields
+
+An `OHLCVSpec` provides these FIELD inputs to the graph:
+
+| FIELD | Description | Example Usage |
+|-------|------------|--------------|
+| `FIELD:binance:futures:ohlcv:close` | Close price | Most indicator inputs |
+| `FIELD:binance:futures:ohlcv:open` | Open price | Gap analysis |
+| `FIELD:binance:futures:ohlcv:high` | High price | ATR, Bollinger, TP/SL check |
+| `FIELD:binance:futures:ohlcv:low` | Low price | ATR, Bollinger, TP/SL check |
+| `FIELD:binance:futures:ohlcv:volume` | Volume | Liquidity filters, volume indicators |
+
+### Multi-exchange observations
+
+```python
+# Load from multiple exchanges in a single spec
+observations = [
+    OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+    OHLCVSpec(exchange="bybit", market_type="futures", timeframe="1m"),
+]
+```
+
+Or use the list shorthand:
+
+```python
+OHLCVSpec(exchange=["binance", "bybit"], market_type="futures", timeframe="1m")
+```
+
+### Supported timeframes
+
+All exchanges support: `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`
+
+## TradingDataSpec
+
+The data spec defines what data to load and for what period:
+
+```python
+from clyptq.apps.trading.spec.data import TradingDataSpec
+from clyptq.apps.trading.spec.symbol_source_map import SymbolSourceMap
+
+data = TradingDataSpec(
+    symbol_source_map=SymbolSourceMap({
+        "binance:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
+    }),
+    observations=[
+        OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+    ],
+    start=datetime(2024, 1, 1, tzinfo=timezone.utc),   # Backtest only
+    end=datetime(2024, 12, 31, tzinfo=timezone.utc),    # Backtest only
+)
+```
+
+| Field | Required | Description |
+|-------|---------|------------|
+| `symbol_source_map` | Yes | Which symbols trade on which exchange |
+| `observations` | Yes | Data sources (OHLCVSpec, etc.) |
+| `start` | Backtest only | Start of backtest period |
+| `end` | Backtest only | End of backtest period |
+
+**Paper/live modes**: Omit `start`/`end`. The driver automatically handles warmup from historical data and then switches to live WebSocket feeds.
+
+## SymbolSourceMap
+
+Maps symbols to exchange-market pairs for data routing and execution:
+
+```python
+symbol_source_map = SymbolSourceMap({
+    "binance:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
+    "gateio:futures": ["SOL/USDT:USDT"],
+})
+
+# Helper methods
+symbol_source_map.axis_keys_for("binance:futures")
+# → ['binance:futures:BTC/USDT:USDT', 'binance:futures:ETH/USDT:USDT']
+
+symbol_source_map.execution_routing
+# → {'binance:futures:BTC/USDT:USDT': 'binance:futures', ...}
+```
+
+**`axis_keys`** are the canonical identifiers for each symbol on each venue. They're used by:
+- `EquityCalculator` — to align prices with positions
+- `FuturesTargetPositionIntention` — to route orders to the correct exchange
+- `TaggedArray` columns — each column maps to an axis_key
 
 ## Storage Architecture
 
-**Environment-based Automatic Routing**:
+### Environment-based routing
 
-| Environment | Storage Backend | Path |
-|-------------|-----------------|------|
-| dev | Local Parquet | ./data |
-| prod | EFS Parquet | /efs/data |
-| kernel | Backend API | HTTP |
+| Environment | Storage | Path |
+|-------------|---------|------|
+| **dev** | Local Parquet | `./data` or `CLYPTQ_DATA_ROOT` |
+| **prod** | EFS Parquet | `/efs/data` or `CLYPTQ_STORAGE_ROOT` |
+| **kernel** | Backend API | `CLYPTQ_BACKEND_URL` |
 
-**Configuration**:
-```bash
-# Dev (default)
-export CLYPTQ_ENV=dev
-export CLYPTQ_DATA_ROOT=./data
+The storage backend is selected automatically based on `CLYPTQ_ENV`. The same code works across all environments — only the data path changes.
 
-# Prod
-export CLYPTQ_ENV=prod
-export CLYPTQ_STORAGE_ROOT=/efs/data
+### Parquet format
 
-# Kernel (Jupyter, Web)
-export CLYPTQ_ENV=kernel
-export CLYPTQ_BACKEND_URL=http://backend:8000
+Data is stored as Parquet files, organized by:
+```
+data/
+  binance/
+    futures/
+      ohlcv/
+        1m/
+          BTC_USDT_USDT.parquet
+          ETH_USDT_USDT.parquet
 ```
 
-**Automatic Routing**:
-```python
-from clyptq.data.storage import get_storage
+Benefits: Columnar compression, fast reads, efficient date range filtering.
 
-# Auto-select based on environment
-storage = get_storage("binance/futures/ohlcv")
-# dev → ParquetStore(./data)
-# prod → ParquetStore(/efs/data)
-# kernel → APIStore(backend_url)
-```
+### Data discovery
 
-## Data Loading
-
-**Backtest Mode**:
-```python
-driver = TradingDriver.from_spec(spec)
-
-driver.load_data(
-    items=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-    start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-    end=datetime(2024, 12, 31, tzinfo=timezone.utc)
-)
-
-# Pre-load and validate all data
-# → ValidationReport auto-generated
-```
-
-**Live Mode**:
-```python
-driver.load_data(
-    items=["BTC/USDT:USDT"],
-    mode="live",
-    warmup_ticks=100  # Historical data for initialization
-)
-
-# Historical warmup + Live streaming
-# → Gaps auto-filled
-```
-
-## Data Validation
-
-**ValidationReport**:
-
-Automatic validation on all data loading:
+Use `Helper.data_catalog()` to check what's available locally:
 
 ```python
-# Coverage check
-if provider._validation_report.has_errors:
-    provider._validation_report.print_summary()
-    # ERROR: No data for BTC/USDT:USDT
-    # WARNING: Low coverage 50% (5/10 symbols)
+from clyptq import Helper
+
+# List all locally cached data
+Helper.data_catalog()
+# Shows: exchange, market_type, symbol, timeframe, date_range, file_size
+
+# Check specific data availability
+Helper.data_info("binance", "futures", "BTC/USDT:USDT", "1m")
+# → start: 2023-01-01, end: 2024-12-31, rows: 1,051,200
 ```
 
-**Validation Items**:
-- **Coverage**: All requested symbols loaded
-- **NaN Ratio**: Ratio of invalid data
-- **Time Range**: Covers requested period
-- **Timestamps**: Sufficient data points
+## Data Pipeline Per Mode
 
-**Quality Criteria**:
-```python
-report = ValidationReport(
-    fail_on_no_data=True,           # Error if no data
-    fail_on_zero_coverage=True,     # Error if all symbols missing
-    warn_on_low_coverage=0.5,       # Warning if less than 50% coverage
-    warn_on_high_nan_ratio=0.9      # Warning if more than 90% NaN
-)
+### Backtest mode
+
+```
+TradingDataSpec(start, end)
+        │
+        ▼
+  Load Parquet files for [start, end] range
+        │
+        ▼
+  Validate: coverage, NaN ratio, time range
+        │
+        ▼
+  Forward-fill missing bars
+        │
+        ▼
+  Feed into RollingBuffers → Graph
 ```
 
-## Data Preprocessing
+All data is loaded upfront. The driver iterates through bars sequentially.
 
-**Forward-Fill (FFill)**:
+### Paper/Live mode
 
-Missing data is automatically FFilled:
-
-```python
-# Tracked with TaggedArray
-TaggedArray(
-    value=42000.0,
-    exists=True,
-    valid=True,
-    updated=False  # FFilled value (updated=False)
-)
+```
+TradingDataSpec (no start/end)
+        │
+        ▼
+  1. Historical warmup
+     Load last N bars from Parquet
+     (N = max lookback across graph)
+        │
+        ▼
+  2. Gap fill (if needed)
+     If historical data doesn't reach current time,
+     fetch missing bars from exchange REST API
+        │
+        ▼
+  3. Clock sync
+     Align to next bar boundary
+        │
+        ▼
+  4. Live stream
+     WebSocket feed from exchange
+     Each new bar → tick through graph
 ```
 
-**FFill Behavior**:
-1. First missing: `valid=False` (cannot FFill)
-2. Subsequent missing: FFill with last valid value → `valid=True, updated=False`
-3. New value: `valid=True, updated=True`
-
-**Timestamp Synchronization**:
-
-Align data from multiple sources to **common timestamps**:
-
-```python
-# Source 1: OHLCV (1-minute intervals)
-# Source 2: Orderbook (real-time)
-
-# → Synchronize to common timestamp set
-# → Create TaggedArray for each timestamp
-```
-
-## Live Data Handling
-
-**Warmup + Gap Filling**:
-
-```python
-# Warmup request: 100 ticks
-driver.load_data(
-    items=["BTC/USDT:USDT"],
-    mode="live",
-    warmup_ticks=100
-)
-
-# 1. Historical warmup attempt (50 ticks available)
-# 2. Fill remaining 50 ticks with live stream
-# 3. Store in gap buffer
-# 4. Switch to realtime after warmup complete
-```
-
-**Source Type Tracking**:
-
-Driver tracks data source:
+The `warmup_info` property tracks how data was sourced:
 
 ```python
-# driver._provider._last_source_type
-"history"   # Historical warmup
-"gap"       # Gap filling (warmup shortfall)
-"realtime"  # Live stream
+driver.warmup_info
+# → {
+#     "from_history": 450,     # Bars from Parquet
+#     "from_gap": 12,          # Bars from gap-fill
+#     "from_realtime": 0,      # Bars from WebSocket
+#     "total_warmup": 462,
+#     "required_warmup": 50,   # What the graph needs
+# }
 ```
 
-**Warmup Skip**:
+## Data Quality
 
-Gap data can skip warmup computation:
+### Forward-fill (FFill)
 
-```python
-def compute(self, data, timestamp, context):
-    if context.is_warmup:
-        # Don't treat gap data as warmup
-        return self._get_warmup_output(data)
+Missing bars are automatically forward-filled. This is tracked in `TaggedArray`:
+
+```
+Bar exists:     value=42000, exists=True, valid=True, updated=True
+Bar FFilled:    value=42000, exists=True, valid=True, updated=False
+No data yet:    value=NaN,   exists=False, valid=False, updated=False
 ```
 
-## Symbol-Source Mapping
+The `updated=False` flag tells operators "this is a stale value" — useful for strategies that need fresh data only.
 
-**SymbolSourceMap** maps symbols to specs:
+### Validation
 
-```python
-from clyptq.apps.trading.spec.unified import SymbolSourceMap
+Data loading includes automatic validation:
 
-symbol_map = SymbolSourceMap(
-    mappings={
-        "BTC/USDT:USDT": ["ohlcv_1m", "orderbook"],
-        "ETH/USDT:USDT": ["ohlcv_1m"],
-        "AAPL": ["stock_1d"]
-    }
-)
+| Check | What It Verifies |
+|-------|-----------------|
+| **Coverage** | All requested symbols have data |
+| **NaN ratio** | Less than threshold of missing values |
+| **Time range** | Data covers the requested period |
+| **Consistency** | Timestamps are regular and monotonic |
 
-spec = TradingSpec(
-    observations=[ohlcv_spec, orderbook_spec, stock_spec],
-    symbol_source_map=symbol_map
-)
-```
+## Live Data
 
-**Behavior**:
-- BTC loads from both ohlcv_1m + orderbook
-- ETH loads from ohlcv_1m only
-- AAPL loads from stock_1d only
+### WebSocket feeds
 
-## Redis Integration
+| Exchange | WebSocket | Typical Latency | Reconnection |
+|----------|-----------|----------------|-------------|
+| Binance | Yes | ~50-100ms | Automatic |
+| Bybit | Yes | ~50-100ms | Automatic |
+| OKX | Yes | ~50-100ms | Automatic |
+| Gateio | Yes | ~100-200ms | Automatic |
+| Coinbase | Yes | ~100-200ms | Automatic |
+| Kraken | Yes | ~100-200ms | Automatic |
 
-**Multi-Consumer Optimization**:
+Disconnections are handled automatically with exponential backoff and gap-fill on reconnection.
 
-When multiple strategies use the same data:
+### Warmup computation
 
-```python
-# Collector → Redis Pub/Sub
-collector = CollectorRegistry.create(
-    domain="binance.futures.ohlcv",
-    mode="live"
-)
+The driver automatically computes the minimum warmup ticks needed:
 
-redis_client = redis.Redis.from_url("redis://localhost:6379/0")
+1. Trace the graph backward from leaf nodes
+2. At each node, accumulate the `lookback` requirement
+3. Convert between timeframes if needed (e.g., 1h lookback=20 on a 1m graph = 1200 1m bars)
+4. Add 5% safety buffer
 
-def publish_to_redis(data):
-    channel = f"live:ohlcv_1m:{data['symbol']}"
-    redis_client.publish(channel, json.dumps(data))
+The graph's `Input` declarations drive this computation — no manual `warmup_ticks` parameter needed.
 
-collector.subscribe(items=symbols, callback=publish_to_redis)
+## Related Pages
 
-# Strategies → Redis Subscribe
-spec = TradingSpec(
-    data=TradingDataSpec(
-        redis_mode=True,
-        redis_url="redis://localhost:6379/0"
-    )
-)
-```
-
-**Benefits**:
-- Single WebSocket connection
-- Multiple strategies consume same data
-- Reduced collector load
-
-## Metadata Catalog
-
-**Pre-Execution Validation**:
-
-Check data availability before execution:
-
-```python
-from clyptq.data.storage import get_storage
-
-storage = get_storage("binance/futures/ohlcv")
-
-# Check metadata
-availability = storage.check_data_availability(
-    items=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-    category="binance/futures/ohlcv",
-    timeframe="1m",
-    start=datetime(2024, 1, 1),
-    end=datetime(2024, 12, 31)
-)
-
-for symbol, date_range in availability.items():
-    if date_range is None:
-        print(f"{symbol}: No data available")
-    else:
-        start, end = date_range
-        print(f"{symbol}: {start} to {end}")
-```
-
-**Gap Detection**:
-
-Find missing periods:
-
-```python
-all_meta = storage.list_metadata(
-    category="binance/futures/ohlcv",
-    timeframe="1m"
-)
-
-for meta in all_meta:
-    if meta.start > required_start:
-        print(f"{meta.item}: Gap before {meta.start}")
-    if meta.end < required_end:
-        print(f"{meta.item}: Gap after {meta.end}")
-```
-
-## Best Practices
-
-**1. Pre-Execution Validation**
-```python
-# Check data before execution
-availability = storage.check_data_availability(...)
-if any(v is None for v in availability.values()):
-    raise ValueError("Missing data for some symbols")
-```
-
-**2. Environment Awareness**
-```python
-# Use appropriate storage per environment
-# get_storage() handles this automatically
-storage = get_storage(category)
-```
-
-**3. Check Validation Report**
-```python
-driver.load_data(...)
-if driver._provider._validation_report.has_errors:
-    driver._provider._validation_report.print_summary()
-    # Handle errors
-```
-
-**4. Set Warmup Ticks Appropriately**
-```python
-# Base on indicators
-# SMA(50) → warmup_ticks=50 or more
-driver.load_data(mode="live", warmup_ticks=100)
-```
-
-**5. Use Redis**
-```python
-# When running multiple strategies
-# Share data via Redis
-spec = TradingSpec(
-    data=TradingDataSpec(redis_mode=True)
-)
-```
-
-## Performance
-
-**Typical Sizes**:
-- 1 month 1m OHLCV, 100 symbols: ~200 MB
-- 1 year 1d stock, 500 symbols: ~50 MB
-- Live orderbook, 20 symbols: ~5 MB cache
-
-**Loading Time**:
-- Backtest (1 month, 100 symbols): 2-5 seconds
-- Live warmup (100 ticks): 1-3 seconds
-- Redis subscribe: less than 100ms
-
-## Ecosystem Value
-
-**For Builders**:
-- Immediate access to diverse data sources
-- Production infrastructure provided
-- Identical to development environment
-
-**For Buyers**:
-- Data quality guaranteed
-- Transparent validation process
-- Reproducible results
+<CardGroup cols={2}>
+  <Card title="FIELD Data Principle" icon="database" href="/engine/field-data-principle">
+    How FIELD inputs work in the graph
+  </Card>
+  <Card title="Lookback Buffers" icon="clock-rotate-left" href="/engine/lookback-buffers">
+    RollingBuffer and warmup computation
+  </Card>
+  <Card title="Supported Exchanges" icon="building-columns" href="/platform/supported-exchanges">
+    Exchange matrix with data availability
+  </Card>
+  <Card title="TaggedArray" icon="table" href="/engine/tagged-array">
+    The 4-field data structure (value, exists, valid, updated)
+  </Card>
+</CardGroup>

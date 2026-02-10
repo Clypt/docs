@@ -1,0 +1,87 @@
+---
+title: "Roadmap Overview"
+description: "High-level timeline and priorities for ClyptQ platform development"
+---
+
+## Current State
+
+ClyptQ is live with **crypto trading** across 5 exchanges (Binance, Bybit, OKX, Gate.io, Coinbase), supporting spot and futures markets with 1-minute to 1-day OHLCV data. The platform includes 213+ operators, tick-by-tick backtesting, and backtest-to-live code parity.
+
+## Roadmap Timeline
+
+```
+2025 H1  ████████████████  Current: Crypto OHLCV (5 exchanges)
+         ████████████████  Documentation & operator catalog
+
+2025 H2  ████████████░░░░  US Equities (IBKR, Alpaca)
+         ████████░░░░░░░░  Forex (OANDA, Dukascopy)
+         ████████░░░░░░░░  Rust Phase 1 (TaggedArray + RollingBuffer)
+         ████░░░░░░░░░░░░  On-chain data (Glassnode, CryptoQuant)
+
+2026 H1  ░░░░░░░░░░░░░░░░  Global equities + Futures + Commodities
+         ░░░░░░░░░░░░░░░░  Rust Phase 2-3 (Graph engine + built-in operators)
+         ░░░░░░░░░░░░░░░░  Data marketplace v1 (news, fundamentals)
+         ░░░░░░░░░░░░░░░░  Hedge fund competitions
+
+2026 H2  ░░░░░░░░░░░░░░░░  Options trading
+         ░░░░░░░░░░░░░░░░  Rust Phase 4 (Order matching + risk engine)
+         ░░░░░░░░░░░░░░░░  Prediction markets
+         ░░░░░░░░░░░░░░░░  Alternative data integrations
+
+2027+    ░░░░░░░░░░░░░░░░  Rust Phase 5 (Data I/O)
+         ░░░░░░░░░░░░░░░░  Enterprise data (Bloomberg, Refinitiv)
+         ░░░░░░░░░░░░░░░░  B2B quant infrastructure
+```
+
+## Feature Categories
+
+### Market Expansion
+
+Expand from crypto-only to all tradable asset classes.
+
+<CardGroup cols={2}>
+  <Card title="Multi-Asset Expansion" icon="chart-line" href="/roadmap/us-stocks">
+    Stocks, forex, ETFs, futures, commodities, options. 130+ planned data vendor and broker integrations.
+  </Card>
+  <Card title="Data Marketplace" icon="database" href="/roadmap/data-marketplace">
+    Third-party data as FIELD inputs. News, fundamentals, on-chain, alternative data via vendor licensing.
+  </Card>
+</CardGroup>
+
+### Infrastructure
+
+Performance and scalability improvements.
+
+<CardGroup cols={2}>
+  <Card title="Rust Core Engine" icon="bolt" href="/roadmap/rust-conversion">
+    PyTorch-style architecture: Rust core with Python research interface. 60x backtesting speedup target.
+  </Card>
+</CardGroup>
+
+### Community & Business
+
+Ecosystem growth and revenue expansion.
+
+<CardGroup cols={3}>
+  <Card title="Competitions" icon="trophy" href="/roadmap/competitions">
+    Hedge fund-style trading competitions for strategy discovery and builder acquisition.
+  </Card>
+  <Card title="Prediction Markets" icon="crystal-ball" href="/roadmap/prediction-markets">
+    Extend the operator framework to prediction market platforms.
+  </Card>
+  <Card title="B2B Quant" icon="building" href="/roadmap/b2b-quant">
+    Quant database infrastructure and LLM agent teams for institutional clients.
+  </Card>
+</CardGroup>
+
+## Priorities
+
+| Priority | Feature | Impact |
+|---|---|---|
+| **P0** | US Equities + Forex | TAM expansion from crypto to traditional markets |
+| **P0** | Rust engine (Phase 1-2) | 60x backtest speed → better builder experience |
+| **P1** | Data marketplace | Revenue diversification + builder retention |
+| **P1** | Competitions | Builder acquisition + strategy discovery |
+| **P2** | Global markets + futures | Full multi-asset coverage |
+| **P2** | Prediction markets | New market vertical |
+| **P3** | B2B quant infrastructure | Enterprise revenue stream |

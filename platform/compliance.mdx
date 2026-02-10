@@ -1,0 +1,167 @@
+---
+title: "Compliance"
+description: "Regulatory compliance, per-country exchange rules, and KYC requirements"
+---
+
+<Warning>
+**Placeholder — Pending Legal Review.**
+The information below is a preliminary draft and has NOT been reviewed by legal counsel. Do not rely on this page for compliance decisions. Always consult your own legal advisor for jurisdiction-specific guidance.
+</Warning>
+
+## Overview
+
+Clypt operates as a **strategy development and marketplace platform**, not as a broker, exchange, or custodian. Users connect their own exchange accounts and execute trades through their own API keys. Clypt never holds, transfers, or custodies user funds.
+
+This page outlines the general regulatory landscape for cryptocurrency trading across jurisdictions and the compliance responsibilities shared between the platform and its users.
+
+## Platform Responsibility vs User Responsibility
+
+| Area | Clypt's Role | User's Role |
+|------|-------------|------------|
+| **Fund custody** | Never holds user funds | Maintains own exchange accounts |
+| **API keys** | Zero storage — API keys are NOT retained in Clypt databases | Manages own API key permissions |
+| **KYC/AML** | Does not perform KYC (not a financial intermediary) | Completes KYC on each exchange directly |
+| **Trade execution** | Routes orders via user's exchange API | Responsible for complying with local laws |
+| **Tax reporting** | Provides trade history export | Files own taxes per local requirements |
+| **Exchange selection** | Lists supported exchanges | Ensures exchange is legal in their jurisdiction |
+
+## Per-Country Exchange Availability
+
+### Tier 1: Broadly Accessible
+
+| Exchange | US | EU | UK | Japan | Singapore | Australia |
+|----------|----|----|----|----|-----------|-----------|
+| **Binance** | Restricted (Binance.US only) | Yes | Yes | No | Yes | Yes |
+| **Coinbase** | Yes | Yes | Yes | No | Yes | Yes |
+| **Kraken** | Yes | Yes | Yes | Yes | Yes | Yes |
+
+### Tier 2: Regional Restrictions
+
+| Exchange | US | EU | UK | Japan | Singapore | Australia |
+|----------|----|----|----|----|-----------|-----------|
+| **Bybit** | No | Yes | Restricted | No | Restricted | Yes |
+| **OKX** | No | Yes | Yes | No | Yes | Yes |
+| **Gate.io** | No | Yes | Restricted | No | Restricted | Yes |
+
+### Key Restrictions by Region
+
+**United States**
+- Futures/derivatives trading restricted on most non-US exchanges
+- Binance.US is the only Binance entity serving US customers
+- Coinbase and Kraken offer limited futures products via CFTC-regulated entities
+- State-level regulations vary (e.g., New York BitLicense)
+
+**European Union (MiCA)**
+- Markets in Crypto-Assets (MiCA) regulation effective 2024-2025
+- Exchanges must register with national competent authorities
+- Stablecoin-specific requirements for issuers
+- Travel Rule compliance for transfers
+
+**United Kingdom (FCA)**
+- FCA regulates crypto asset promotions
+- Derivatives trading banned for retail consumers (2021)
+- Spot trading permitted through FCA-registered firms
+
+**Japan (FSA)**
+- Only FSA-registered exchanges permitted
+- Strict leverage limits (2x for crypto derivatives)
+- Comprehensive reporting requirements
+
+**Singapore (MAS)**
+- Payment Services Act licensing required for exchanges
+- Restrictions on marketing crypto to retail investors
+- Travel Rule compliance required
+
+## KYC Requirements
+
+All supported exchanges require KYC verification. Clypt does not bypass or substitute for exchange-level KYC.
+
+| Verification Level | Typical Requirements | Typical Limits |
+|-------------------|---------------------|---------------|
+| **Basic** | Email, phone | Low withdrawal limits |
+| **Intermediate** | Government ID, selfie | Standard trading limits |
+| **Advanced** | Proof of address, source of funds | Full access, higher limits |
+
+### Clypt's KYC Approach
+
+Clypt itself may implement user verification in the future for:
+- **Marketplace sellers** — Identity verification for strategy builders listing on the marketplace
+- **Competition participants** — Verification for competition prize eligibility
+- **Enterprise clients** — Standard B2B onboarding
+
+## Leverage and Margin Restrictions
+
+| Jurisdiction | Max Retail Leverage | Notes |
+|-------------|-------------------|-------|
+| **US** | Varies by product | CFTC-regulated futures only |
+| **EU** | 2x (crypto CFDs under ESMA) | Higher for professional clients |
+| **UK** | Banned (retail crypto derivatives) | Professional clients exempt |
+| **Japan** | 2x | FSA regulation |
+| **Australia** | Restricted | ASIC limits on retail |
+| **Singapore** | No specific cap | MAS guidance applies |
+
+Clypt's `AccountSpec` allows configuring leverage per account. Users are responsible for setting leverage within their jurisdiction's legal limits.
+
+## Tax Considerations
+
+Clypt provides tools to help with tax reporting but does not provide tax advice:
+
+- **Trade history export** — CSV/JSON export of all backtest and live trades
+- **P&L calculation** — Per-strategy and aggregate profit/loss tracking
+- **Cost basis methods** — Support for FIFO, LIFO, and specific identification
+
+Users should consult tax professionals for jurisdiction-specific guidance on:
+- Capital gains treatment of crypto assets
+- Reporting thresholds and requirements
+- Cross-border tax implications
+- Staking/funding rate income classification
+
+## Security & Infrastructure
+
+Clypt follows strict security design principles:
+
+| Principle | Implementation |
+|-----------|---------------|
+| **No custody** | Clypt never holds, transfers, or accesses user funds |
+| **Zero storage** | API keys are NOT retained in Clypt databases |
+| **End-to-end encryption** | TLS + AES-256 for all communication |
+| **SOC 2 & ISO 27001** | In progress — operational and data security compliance |
+| **GDPR & CCPA aligned** | User data limited to what is essential for service delivery |
+
+## Privacy Policy
+
+Clypt respects user privacy and data protection:
+
+- **Minimal data collection** — Email and account credentials for login only
+- **No access to exchange data** — Clypt does not access exchange balances, trade history, or keys
+- **Optional analytics** — Aggregated anonymously, never sold to third parties
+- **User-owned strategy code** — Builder-owned, encrypted, not visible to platform staff
+- **Full compliance** — GDPR, CCPA, and U.S. Privacy Shield Framework
+
+## Risk Disclosure
+
+Cryptocurrency trading involves **high volatility and potential loss of principal**.
+
+Clypt provides tools and analytics only — **not financial advice or brokerage services**. Users retain full responsibility for their trades and strategies executed through their linked exchange accounts.
+
+## Disclaimer
+
+This page is for **informational purposes only** and does not constitute legal, tax, or financial advice. Cryptocurrency regulations vary by jurisdiction and change frequently. Users are solely responsible for:
+
+1. Determining whether their use of Clypt complies with applicable laws
+2. Completing required KYC/AML verification on exchanges
+3. Complying with local tax obligations
+4. Understanding leverage and margin restrictions in their jurisdiction
+
+Clypt makes no representations regarding the legality of cryptocurrency trading in any jurisdiction.
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Supported Exchanges" icon="building-columns" href="/platform/supported-exchanges">
+    Exchange matrix with data availability and features
+  </Card>
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    Strategy marketplace verification and trust mechanisms
+  </Card>
+</CardGroup>
