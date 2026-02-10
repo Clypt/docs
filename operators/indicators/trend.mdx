@@ -1,0 +1,368 @@
+---
+title: "Trend Indicators"
+description: "ADX, DI, AROON, SAR, ICHIMOKU"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **12 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **ADX** | `INDICATOR` | `close`, `high`, `low` | No |
+| **ADXR** | `INDICATOR` | `close`, `high`, `low` | No |
+| **DX** | `INDICATOR` | `close`, `high`, `low` | No |
+| **AROON** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **AROONOSC** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **PLUS_DI** | `INDICATOR` | `close`, `high`, `low` | No |
+| **MINUS_DI** | `INDICATOR` | `close`, `high`, `low` | No |
+| **PLUS_DM** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **MINUS_DM** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **ICHIMOKU** | `INDICATOR` | `high`, `low`, `close` | No |
+| **SAR** | `INDICATOR` | `high`, `low`, `acceleration=0.02` | No |
+| **SAREXT** | `INDICATOR` | `high`, `low`, `start_value=0.0` | No |
+
+---
+
+## ADX
+
+Average Directional Movement Index indicator.
+
+ADX measures the strength of a trend, regardless of direction.
+Values above 25 indicate a strong trend.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+### Usage
+
+```python
+graph.add_node("adx", ADX(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=30),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=30),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=30),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
+
+
+---
+
+## ADXR
+
+Average Directional Movement Index Rating indicator.
+
+ADXR is the average of current ADX and ADX from period days ago.
+ADXR = (ADX_today + ADX_period_days_ago) / 2
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
+
+
+---
+
+## DX
+
+Directional Movement Index indicator.
+
+DX = (|+DI - -DI| / (+DI + -DI)) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
+
+
+---
+
+## AROON
+
+Aroon indicator.
+
+Aroon measures the time since the highest high and lowest low.
+Aroon Up = ((period - periods since highest high) / period) * 100
+Aroon Down = ((period - periods since lowest low) / period) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+| `output` | `str` | `'up'` | "up" or "down" |
+
+### Usage
+
+```python
+graph.add_node("aroon_up", AROON(
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=20),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=20),
+    period=14,
+    output="up",
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/aroon.py`</sub>
+
+
+---
+
+## AROONOSC
+
+Aroon Oscillator indicator.
+
+Aroon Oscillator = Aroon Up - Aroon Down
+
+Values range from -100 to +100.
+Positive values indicate uptrend, negative values indicate downtrend.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/aroon.py`</sub>
+
+
+---
+
+## PLUS_DI
+
+Plus Directional Indicator (+DI).
+
++DI measures upward price movement strength.
++DI = (Smoothed +DM / ATR) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/di.py`</sub>
+
+
+---
+
+## MINUS_DI
+
+Minus Directional Indicator (-DI).
+
+-DI measures downward price movement strength.
+-DI = (Smoothed -DM / ATR) * 100
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/di.py`</sub>
+
+
+---
+
+## PLUS_DM
+
+Plus Directional Movement (+DM).
+
++DM = High - Previous High (if is greater than 0 and > -DM, else 0)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period for smoothing |
+
+<sub>Source: `apps/trading/operators/indicator/di.py`</sub>
+
+
+---
+
+## MINUS_DM
+
+Minus Directional Movement (-DM).
+
+-DM = Previous Low - Low (if is greater than 0 and > +DM, else 0)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period for smoothing |
+
+<sub>Source: `apps/trading/operators/indicator/di.py`</sub>
+
+
+---
+
+## ICHIMOKU
+
+Ichimoku Kinko Hyo (Ichimoku Cloud) indicator.
+
+Components:
+- Tenkan-sen (Conversion Line): (9-period high + 9-period low) / 2
+- Kijun-sen (Base Line): (26-period high + 26-period low) / 2
+- Senkou Span A (Leading Span A): (Tenkan-sen + Kijun-sen) / 2, plotted 26 periods ahead
+- Senkou Span B (Leading Span B): (52-period high + 52-period low) / 2, plotted 26 periods ahead
+- Chikou Span (Lagging Span): Close plotted 26 periods back
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `close` | `'Input'` | Required | Close price input |
+| `tenkan_period` | `int` | `9` | Tenkan-sen period |
+| `kijun_period` | `int` | `26` | Kijun-sen period |
+| `senkou_b_period` | `int` | `52` | Senkou Span B period |
+| `output` | `str` | `'tenkan'` | Which line to output: "tenkan", "kijun", "senkou_a", "senkou_b", "chikou" |
+
+### Usage
+
+```python
+graph.add_node("ichimoku_tenkan", ICHIMOKU(
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=60),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=60),
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=60),
+    output="tenkan",
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/ichimoku.py`</sub>
+
+
+---
+
+## SAR
+
+Parabolic SAR (Stop and Reverse) indicator.
+
+SAR provides potential entry and exit points.
+When price is above SAR, it's a bullish signal.
+When price is below SAR, it's a bearish signal.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `acceleration` | `float` | `0.02` | Initial acceleration factor |
+| `maximum` | `float` | `0.2` | Maximum acceleration factor |
+
+### Usage
+
+```python
+graph.add_node("sar", SAR(
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=30),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=30),
+    acceleration=0.02,
+    maximum=0.2,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/sar.py`</sub>
+
+
+---
+
+## SAREXT
+
+Parabolic SAR - Extended indicator.
+
+Extended version of SAR with more configurable parameters.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `start_value` | `float` | `0.0` | Initial SAR value |
+| `offset_on_reverse` | `float` | `0.0` | SAR offset on reversal |
+| `accel_init_long` | `float` | `0.02` | Initial AF for long |
+| `accel_long` | `float` | `0.02` | AF increment for long |
+| `accel_max_long` | `float` | `0.2` | Max AF for long |
+| `accel_init_short` | `float` | `0.02` | Initial AF for short |
+| `accel_short` | `float` | `0.02` | AF increment for short |
+| `accel_max_short` | `float` | `0.2` | Max AF for short |
+
+<sub>Source: `apps/trading/operators/indicator/sar.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

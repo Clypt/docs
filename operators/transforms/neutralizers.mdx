@@ -1,0 +1,192 @@
+---
+title: "Neutralizers"
+description: "Demean, Neutralize, GroupNeutralize, BetaNeutralize, FactorNeutralize, BarraNeutralizer"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **7 operators** (role: various).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **Demean** | `UNKNOWN` | — | No |
+| **Neutralize** | `UNKNOWN` | `scale=True` | No |
+| **GroupNeutralize** | `UNKNOWN` | `group_mapping`, `symbol_order` | No |
+| **BetaNeutralize** | `UNKNOWN` | `betas`, `symbol_order` | No |
+| **FactorNeutralize** | `UNKNOWN` | `factor_exposures`, `symbol_order` | No |
+| **Normalize** | `UNKNOWN` | — | No |
+| **BarraNeutralizer** | `UNKNOWN` | `alpha_input`, `returns_input`, `factor_inputs` | No |
+
+---
+
+## Demean
+
+Remove cross-sectional mean.
+
+Example:
+    demean = Demean(Input("zscore", timeframe="1m", lookback=1))
+    graph.add_node("weights", demean)
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## Neutralize
+
+Neutralize to zero mean and unit exposure.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `scale` | `bool` | `True` |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## GroupNeutralize
+
+Neutralize within groups (e.g., sectors).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `group_mapping` | `Dict[str, str]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## BetaNeutralize
+
+Neutralize market beta exposure.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `betas` | `Dict[str, float]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## FactorNeutralize
+
+Remove factor exposures via OLS regression.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `factor_exposures` | `Dict[str, Dict[str, float]]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## Normalize
+
+Combined normalization: demean + scale to sum(abs) = 1.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+---
+
+## BarraNeutralizer
+
+BARRA-style 2-stage factor neutralization.
+
+Full BARRA process:
+1. Estimate factor loading matrix B via time-series regression
+   R_i,t = Σ(β_i,k × F_k,t) + ε_i,t
+
+2. Neutralize alpha via cross-sectional regression
+   α_raw = B × γ + α_pure
+   Result: α_pure (residual) = pure alpha with factor exposure removed
+
+This operator maintains rolling history for loading estimation.
+
+Example:
+    graph.add_node("neutral_alpha", BarraNeutralizer(
+        alpha_input=Input("momentum", timeframe="1d", lookback=1),
+        returns_input=Input("returns", timeframe="1d", lookback=60),
+        factor_inputs=[
+            Input("volatility", timeframe="1d", lookback=60),
+            Input("size", timeframe="1d", lookback=60),
+        ],
+        factor_names=["VOL", "SIZE"],
+        estimation_window=60,
+    ))
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `alpha_input` | `'Input'` | Required |  |
+| `returns_input` | `'Input'` | Required |  |
+| `factor_inputs` | `List['Input']` | Required |  |
+| `factor_names` | `Optional[List[str]]` | `None` |  |
+| `estimation_window` | `int` | `60` |  |
+| `min_obs` | `int` | `30` |  |
+| `include_market` | `bool` | `True` |  |
+| `output_timeframe` | `Optional[str]` | `None` |  |
+
+<sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

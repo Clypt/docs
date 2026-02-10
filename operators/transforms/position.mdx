@@ -1,0 +1,298 @@
+---
+title: "Position Operators"
+description: "WeightsToPositions, TurnoverConstraint, LotRounder, PositionLimits"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **7 operators** (role: various).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **WeightsToPositions** | `UNKNOWN` | `book_size=None`, `book_size_key='equity'`, `min_position=0.0` | No |
+| **TurnoverConstraint** | `UNKNOWN` | `max_turnover=0.5`, `current_weights_key='current_weights'` | No |
+| **TradeBarrier** | `UNKNOWN` | `target_weights`, `positions`, `prices` | No |
+| **AdaptiveTradeBarrier** | `UNKNOWN` | `target_weights`, `positions`, `prices` | No |
+| **TCOptimizedWeights** | `UNKNOWN` | `target_weights`, `positions`, `prices` | No |
+| **PositionLimits** | `UNKNOWN` | `max_position=None`, `max_concentration=None`, `book_size_key='equity'` | No |
+| **NotionalToQuantity** | `UNKNOWN` | `prices_key='prices'`, `lot_size=1e-08` | No |
+
+---
+
+## WeightsToPositions
+
+Convert L1-normalized weights to target notional positions.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `book_size` | `Optional[float]` | `None` |  |
+| `book_size_key` | `str` | `'equity'` |  |
+| `min_position` | `float` | `0.0` |  |
+
+### Usage
+
+```python
+transform = WeightsToPositions(
+    Input("weights", timeframe="1m", lookback=1),
+    book_size=100000,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## TurnoverConstraint
+
+Constrain target weights to maximum turnover.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `max_turnover` | `float` | `0.5` |  |
+| `current_weights_key` | `str` | `'current_weights'` |  |
+
+### Usage
+
+```python
+transform = TurnoverConstraint(
+    Input("weights", timeframe="1m", lookback=1),
+    max_turnover=0.5,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## TradeBarrier
+
+Apply trade barrier to reduce turnover - skip small weight changes.
+
+For each symbol, if the weight change from current position is smaller than
+the threshold, keep the current weight instead of updating.
+
+This operator computes current weights from STATE positions:
+    current_weight[i] = (position[i] * price[i]) / book_size
+
+Inputs (4 required):
+    1. target_weights: New target weights from signal (L1Norm output)
+    2. positions: Current positions (STATE:venue:pos_quantity)
+    3. prices: Current prices (FIELD:close)
+    4. book_size: Current book size (BookSize output)
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `target_weights` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `book_size` | `'Input'` | Required |  |
+| `threshold_pct` | `float` | `0.0` |  |
+| `threshold_abs` | `float` | `0.0` |  |
+
+### Usage
+
+```python
+barrier = TradeBarrier(
+    target_weights=Input("weights_raw", timeframe="1h", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", timeframe="1h", lookback=0),
+    prices=Input("FIELD:binance:futures:close", timeframe="1h", lookback=0),
+    book_size=Input("book_size", timeframe="1h", lookback=0),
+    threshold_pct=0.5,  # Don't trade if weight change < 0.5%
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## AdaptiveTradeBarrier
+
+Apply adaptive trade barrier based on volatility (ATR or rolling std).
+
+Instead of a fixed threshold, the barrier adapts to market conditions:
+    threshold[i] = k * volatility[i]
+
+In low volatility: small moves are noise → high barrier → fewer trades
+In high volatility: larger moves expected → can afford to trade more
+
+Inputs (5 required):
+    1. target_weights: New target weights from signal (L1Norm output)
+    2. positions: Current positions (STATE:venue:pos_quantity)
+    3. prices: Current prices (FIELD:close)
+    4. book_size: Current book size (BookSize output)
+    5. volatility: Per-symbol volatility (ATR or rolling std of returns)
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `target_weights` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `book_size` | `'Input'` | Required |  |
+| `volatility` | `'Input'` | Required |  |
+| `k` | `float` | `2.0` |  |
+| `min_threshold` | `float` | `0.005` |  |
+| `max_threshold` | `float` | `0.1` |  |
+
+### Usage
+
+```python
+barrier = AdaptiveTradeBarrier(
+    target_weights=Input("weights_raw", timeframe="1h", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", timeframe="1h", lookback=0),
+    prices=Input("FIELD:binance:futures:close", timeframe="1h", lookback=0),
+    book_size=Input("book_size", timeframe="1h", lookback=0),
+    volatility=Input("atr", timeframe="1h", lookback=1),  # or rolling_std
+    k=2.0,  # threshold = k * volatility
+    min_threshold=0.005,  # minimum 0.5% barrier
+    max_threshold=0.10,   # maximum 10% barrier
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## TCOptimizedWeights
+
+Compute transaction-cost aware optimal weights using L1 penalty.
+
+Solves: maximize α'w - λ_tc * ||w - w_prev||_1
+
+This is equivalent to: only update weight if |α_i - α_prev_i| > λ_tc
+(the alpha gain exceeds the transaction cost penalty)
+
+The solution has closed form:
+    If target_w[i] > current_w[i] + λ_tc: w[i] = target_w[i] - λ_tc
+    If target_w[i] < current_w[i] - λ_tc: w[i] = target_w[i] + λ_tc
+    Otherwise: w[i] = current_w[i]  (no trade)
+
+After adjustment, weights are re-normalized to sum to 1 (L1 norm).
+
+Inputs (4 required):
+    1. target_weights: Raw target weights from signal (before L1Norm)
+    2. positions: Current positions (STATE:venue:pos_quantity)
+    3. prices: Current prices (FIELD:close)
+    4. book_size: Current book size (BookSize output)
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `target_weights` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `book_size` | `'Input'` | Required |  |
+| `lambda_tc` | `float` | `0.01` |  |
+
+### Usage
+
+```python
+tc_weights = TCOptimizedWeights(
+    target_weights=Input("demeaned", timeframe="1h", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", timeframe="1h", lookback=0),
+    prices=Input("FIELD:binance:futures:close", timeframe="1h", lookback=0),
+    book_size=Input("book_size", timeframe="1h", lookback=0),
+    lambda_tc=0.02,  # Transaction cost penalty (2%)
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## PositionLimits
+
+Apply position limits to target positions.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `max_position` | `Optional[float]` | `None` |  |
+| `max_concentration` | `Optional[float]` | `None` |  |
+| `book_size_key` | `str` | `'equity'` |  |
+
+### Usage
+
+```python
+transform = PositionLimits(
+    Input("positions", timeframe="1m", lookback=1),
+    max_position=10000,
+    max_concentration=0.1,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+---
+
+## NotionalToQuantity
+
+Convert notional positions to quantities using prices.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `prices_key` | `str` | `'prices'` |  |
+| `lot_size` | `float` | `1e-08` |  |
+
+### Usage
+
+```python
+transform = NotionalToQuantity(
+    Input("notional", timeframe="1m", lookback=1),
+    prices_key="prices",
+    lot_size=1e-8,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/position.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

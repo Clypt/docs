@@ -1,156 +1,198 @@
 ---
-title: "Quick Start"
-description: "Get started with ClyptQ Trading Engine in 5 minutes"
+title: "Quickstart"
+description: "Build and backtest your first strategy in 5 minutes"
 ---
 
-## Welcome
+## 1. Explore What's Available
 
-Get up and running with ClyptQ Trading Engine quickly. This guide will help you set up your development environment and run your first backtest.
+```python
+from clyptq import Helper
 
-<Steps>
-  <Step title="Install ClyptQ">
-    Install the ClyptQ package using pip:
+# What exchanges and market types are supported?
+Helper.exchanges()
 
-    ```bash
-    pip install clyptq
-    ```
+# What symbols can I trade on Binance futures?
+symbols = Helper.symbols("binance", "futures", quote="USDT", limit=20)
+print(symbols)
+# → ['BTC/USDT:USDT', 'ETH/USDT:USDT', 'SOL/USDT:USDT', ...]
 
-    <Info>
-    Requires Python 3.9+ and pip. We recommend using a virtual environment.
-    </Info>
-  </Step>
+# What data do I have locally?
+Helper.data_catalog()
+```
 
-  <Step title="Set up environment variables">
-    Create a `.env` file in your project directory:
+## 2. Build the Graph
 
-    ```bash
-    # Environment
-    CLYPTQ_ENV=dev  # dev, prod, kernel
+Every ClyptQ strategy is a **directed acyclic graph (DAG)** of operators. Data flows from FIELD inputs through operators to intentions:
 
-    # API Keys (optional for getting started)
-    BINANCE_API_KEY=your_api_key
-    BINANCE_API_SECRET=your_api_secret
-    ```
+```python
+from clyptq.system.graph import StatefulGraph, Input
+from clyptq.apps.trading.operators.indicator import SMA
+from clyptq.apps.trading.operators.signal import CrossoverAlpha
+from clyptq.apps.trading.operators.transform import EqualWeight
+from clyptq.apps.trading.operators.balance import EquityCalculator, BookSize
+from clyptq.apps.trading.operators.order import FuturesTargetPositionIntention
+from clyptq.apps.trading.spec.symbol_source_map import SymbolSourceMap
 
-    <Note>
-    For local development, you can start without API keys using sample data.
-    </Note>
-  </Step>
+# --- Symbol mapping ---
+symbol_source_map = SymbolSourceMap({
+    "binance:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
+})
 
-  <Step title="Create your first strategy">
-    Create a simple momentum crossover strategy:
+# --- Build graph ---
+graph = StatefulGraph()
 
-    ```python
-    from clyptq.system.graph import ComputeGraph, Input
-    from clyptq.operators.indicator import SMA
-    from clyptq.operators.signal import CrossoverAlpha
+# FIELD input: 1-minute close prices from Binance futures
+close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
 
-    # Create compute graph
-    graph = ComputeGraph()
+# Indicators: fast and slow SMA
+graph.add_node("sma_fast", SMA(span=10), inputs=[close])
+graph.add_node("sma_slow", SMA(span=50), inputs=[close])
 
-    # Add indicators
-    sma_fast = graph.add_node("sma_fast",
-        SMA(Input("close", lookback=10), span=10)
-    )
-    sma_slow = graph.add_node("sma_slow",
-        SMA(Input("close", lookback=50), span=50)
-    )
+# Signal: crossover alpha (fast > slow = bullish)
+graph.add_node("signal", CrossoverAlpha(),
+    inputs=[
+        Input("sma_fast", "1m", lookback=2),
+        Input("sma_slow", "1m", lookback=2),
+    ])
 
-    # Generate signal
-    signal = graph.add_node("signal",
-        CrossoverAlpha(
-            Input("sma_fast", lookback=1),
-            Input("sma_slow", lookback=1)
-        )
-    )
-    ```
-  </Step>
+# Transform: equal weight allocation
+graph.add_node("weights", EqualWeight(),
+    inputs=[Input("signal", "1m", lookback=1)])
 
-  <Step title="Run a backtest">
-    Configure and run your first backtest:
+# Portfolio: equity calculation
+graph.add_node("equity", EquityCalculator(
+    cash=Input("STATE:binance:futures:cash", "1m", lookback=0),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    entry_prices=Input("STATE:binance:futures:pos_entry_price", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+))
 
-    ```python
-    from clyptq.apps.trading.spec import TradingSpec, StrategySpec
-    from clyptq.apps.trading import TradingDriver
+# Book size: 100% of equity for trading
+graph.add_node("book", BookSize(min_book_size=100.0),
+    inputs=[Input("equity", "1m", lookback=1)])
 
-    # Create trading spec
-    spec = TradingSpec(
-        strategy=StrategySpec(
-            graph=graph,
-            signal_node="signal"
-        ),
-        execution=TradingExecutionSpec(
-            mode="backtest",
-            venue="binance",
-            market_type="futures",
-            latency_mode="INSTANT"
-        )
-    )
+# Intention: convert weights to futures orders
+graph.add_node("intention", FuturesTargetPositionIntention(
+    weights=Input("weights", "1m", lookback=1),
+    book_size=Input("book", "1m", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    execution_routing=symbol_source_map.execution_routing,
+    leverage=3.0,
+))
+```
 
-    # Run backtest
-    driver = TradingDriver.from_spec(spec)
-    driver.load_data(
-        items=["BTC/USDT:USDT"],
-        start="2024-01-01",
-        end="2024-12-31"
-    )
+## 3. Configure the Spec
 
-    for result in driver.run():
-        print(f"PnL: {result.pnl:.2f} USDT")
-    ```
+`TradingSpec` combines data, strategy, and execution into one configuration:
 
-    <Success>
-    Your strategy is now running! You should see PnL results printed for each trading period.
-    </Success>
-  </Step>
+```python
+from datetime import datetime, timezone
+from clyptq.apps.trading.spec.unified import TradingSpec
+from clyptq.apps.trading.spec.data import TradingDataSpec
+from clyptq.apps.trading.spec.strategy import TradingStrategySpec
+from clyptq.apps.trading.spec.execution import TradingExecutionSpec, AccountSpec
+from clyptq.apps.trading.spec.observation.crypto import OHLCVSpec
 
-  <Step title="Analyze results">
-    View performance metrics:
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbol_source_map=symbol_source_map,
+        observations=[
+            OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+        ],
+        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2024, 6, 30, tzinfo=timezone.utc),
+    ),
+    strategy=TradingStrategySpec(
+        graph=graph,
+        output_nodes=["equity"],  # Nodes to track for analysis
+    ),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[
+            AccountSpec(
+                exchange="binance",
+                market_type="futures",
+                initial_cash=10_000.0,
+                max_leverage=3.0,
+            ),
+        ],
+        execution_price_source="ohlcv",
+    ),
+    debug=True,  # Store results for to_dataframe()
+)
+```
 
-    ```python
-    # Get final metrics
-    metrics = driver.get_metrics()
+## 4. Run the Backtest
 
-    print(f"Total Return: {metrics.total_return:.2%}")
-    print(f"Sharpe Ratio: {metrics.sharpe_ratio:.2f}")
-    print(f"Max Drawdown: {metrics.max_drawdown:.2%}")
-    print(f"Win Rate: {metrics.win_rate:.2%}")
-    ```
-  </Step>
-</Steps>
+```python
+from clyptq.apps.trading.driver import TradingDriver
+
+driver = TradingDriver.from_spec(spec)
+
+# The driver iterator runs tick by tick — same loop for backtest, paper, and live
+equity_curve = []
+for result in driver:
+    if "equity" in result.outputs:
+        equity_curve.append(result.outputs["equity"].value[0])
+```
+
+## 5. Analyze Results
+
+```python
+# Convert any node's output to DataFrame (requires debug=True)
+df_equity = driver.to_dataframe("equity")
+df_equity.plot(title="Equity Curve")
+
+df_sma = driver.to_dataframe("sma_fast")
+print(df_sma.tail())
+
+# Or export all output_nodes at once
+results = driver.export_results(output_dir="./results", format="parquet")
+print(results["state"])  # Account summary
+```
+
+## 6. Go Live (Same Code)
+
+Change one parameter to switch from backtest to live:
+
+```python
+spec = TradingSpec(
+    data=data_config,
+    strategy=TradingStrategySpec(graph=graph),  # ← Same graph
+    execution=TradingExecutionSpec(
+        mode="live",                             # ← Only this changes
+        accounts=[
+            AccountSpec(
+                exchange="binance",
+                market_type="futures",
+                api_key="your_api_key",
+                api_secret="your_api_secret",
+            ),
+        ],
+    ),
+)
+
+driver = TradingDriver.from_spec(spec)
+for result in driver:  # ← Same loop, now trading real money
+    print(f"{result.timestamp} | equity: {result.outputs['equity']}")
+```
 
 ## What's Next?
 
 <CardGroup cols={2}>
-  <Card title="Learn Core Concepts" icon="book" href="/ecosystem/overview">
-    Understand the ClyptQ architecture and ecosystem
+  <Card title="FIELD/STATE Principles" icon="database" href="/engine/field-data-principle">
+    Understand how data flows through the graph
   </Card>
-
-  <Card title="Build Strategies" icon="code" href="/ecosystem/builder-guide">
-    Dive deeper into strategy development
+  <Card title="Operator Reference" icon="book" href="/operators/overview">
+    Browse 213+ operators: indicators, signals, transforms, AI
   </Card>
-
-  <Card title="Operator Protocol" icon="gears" href="/engine/operator-protocol">
-    Learn about the core execution infrastructure
+  <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
+    Cost models, funding rates, liquidation simulation
   </Card>
-
-  <Card title="Trading System" icon="chart-line" href="/engine/trading-system">
-    Understand execution and risk management
-  </Card>
-</CardGroup>
-
-## Need Help?
-
-<CardGroup cols={2}>
-  <Card title="Documentation" icon="book-open" href="/ecosystem/overview">
-    Browse the complete documentation
-  </Card>
-
-  <Card title="LinkedIn" icon="linkedin" href="https://www.linkedin.com/company/clypt-ai">
-    Connect with us on LinkedIn
-  </Card>
-
-  <Card title="Support" icon="life-ring" href="mailto:jaden@clypt.ai">
-    Contact our support team
+  <Card title="First Strategy Tutorial" icon="graduation-cap" href="/tutorials/first-strategy">
+    Extended tutorial with detailed explanations
   </Card>
 </CardGroup>

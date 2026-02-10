@@ -1,0 +1,182 @@
+---
+title: "Portfolio Optimizers"
+description: "MeanVarianceOptimizer, RiskParityOptimizer, EqualWeight, ClipWeights, MaxPositions"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **5 operators** (role: various).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **MeanVarianceOptimizer** | `UNKNOWN` | `expected_returns`, `cov_matrix`, `symbol_order` | No |
+| **RiskParityOptimizer** | `UNKNOWN` | `volatilities`, `symbol_order`, `min_vol=0.01` | No |
+| **ClipWeights** | `UNKNOWN` | `lower=-1.0`, `upper=1.0`, `renormalize=True` | No |
+| **MaxPositions** | `UNKNOWN` | `n=20`, `renormalize=True` | No |
+| **EqualWeight** | `UNKNOWN` | `long_only=False` | No |
+
+---
+
+## MeanVarianceOptimizer
+
+Mean-Variance Optimization (Markowitz).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `expected_returns` | `Dict[str, float]` | Required |  |
+| `cov_matrix` | `Dict[str, Dict[str, float]]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+| `risk_aversion` | `float` | `1.0` |  |
+| `regularize` | `float` | `1e-06` |  |
+
+### Usage
+
+```python
+optimizer = MeanVarianceOptimizer(
+    Input("signals", timeframe="1m", lookback=1),
+    expected_returns={"BTC": 0.1, "ETH": 0.15},
+    cov_matrix={"BTC": {"BTC": 0.04, "ETH": 0.02}, "ETH": {"BTC": 0.02, "ETH": 0.09}},
+    symbol_order=["BTC", "ETH"],
+    risk_aversion=1.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+---
+
+## RiskParityOptimizer
+
+Risk Parity weights (proportional to inverse volatility).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `volatilities` | `Dict[str, float]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+| `min_vol` | `float` | `0.01` |  |
+
+### Usage
+
+```python
+optimizer = RiskParityOptimizer(
+    Input("signals", timeframe="1m", lookback=1),
+    volatilities={"BTC": 0.5, "ETH": 0.6},
+    symbol_order=["BTC", "ETH"],
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+---
+
+## ClipWeights
+
+Clip weights to bounds and optionally renormalize.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `lower` | `float` | `-1.0` |  |
+| `upper` | `float` | `1.0` |  |
+| `renormalize` | `bool` | `True` |  |
+
+### Usage
+
+```python
+transform = ClipWeights(
+    Input("weights", timeframe="1m", lookback=1),
+    lower=-0.5,
+    upper=0.5,
+    renormalize=True,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+---
+
+## MaxPositions
+
+Limit number of positions to top K by absolute weight.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `n` | `int` | `20` |  |
+| `renormalize` | `bool` | `True` |  |
+
+### Usage
+
+```python
+transform = MaxPositions(
+    Input("weights", timeframe="1m", lookback=1),
+    n=20,
+    renormalize=True,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+---
+
+## EqualWeight
+
+Equal weight allocation.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `long_only` | `bool` | `False` |  |
+
+### Usage
+
+```python
+transform = EqualWeight(
+    Input("signals", timeframe="1m", lookback=1),
+    long_only=False,
+)
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

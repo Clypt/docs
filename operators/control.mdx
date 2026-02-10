@@ -1,0 +1,279 @@
+---
+title: "Control Operators"
+description: "Conditional gates and boolean combinators for flow control in the operator graph"
+---
+
+## Overview
+
+Control operators provide **conditional execution** within the operator graph. They output gate values (`1.0` = open, `0.0` = closed) that control downstream operators — particularly [semantic operators](/operators/semantic) that make expensive API calls.
+
+## Operators
+
+### ConditionalGate
+
+Create a gate that opens or closes based on a condition.
+
+**Role**: `CONTROL`
+
+```python
+gate = ConditionalGate(
+    condition_input=Input("atr", "1h", lookback=1),
+    threshold=0.02,
+    comparison="gt",       # gt, lt, ge, le, eq, ne
+    per_symbol=True,       # Per-symbol or aggregated
+)
+
+graph.add_node("vol_gate", gate, inputs=[
+    Input("atr", "1h", lookback=1),
+])
+```
+
+**Output**: `1.0` (gate open) or `0.0` (gate closed) per symbol.
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `condition_input` | `Input` | Required | The value to compare against threshold |
+| `threshold` | `float` | Required | Comparison threshold |
+| `comparison` | `str` | `"gt"` | Comparison operator: `gt`, `lt`, `ge`, `le`, `eq`, `ne` |
+| `per_symbol` | `bool` | `True` | Per-symbol gate values |
+| `any_symbol` | `bool` | `True` | When `per_symbol=False`: any vs all |
+
+#### Aggregation Modes
+
+| `per_symbol` | `any_symbol` | Behavior |
+|---|---|---|
+| `True` | — | Each symbol gets its own gate value |
+| `False` | `True` | Gate opens if **any** symbol meets condition |
+| `False` | `False` | Gate opens only if **all** symbols meet condition |
+
+#### Examples
+
+```python
+# Gate opens when ATR > 2% (per symbol)
+high_vol_gate = ConditionalGate(
+    condition_input=Input("atr_pct", "1h", lookback=1),
+    threshold=0.02,
+    comparison="gt",
+    per_symbol=True,
+)
+
+# Gate opens when RSI < 30 (any symbol)
+oversold_gate = ConditionalGate(
+    condition_input=Input("rsi", "1h", lookback=1),
+    threshold=30.0,
+    comparison="lt",
+    per_symbol=False,
+    any_symbol=True,
+)
+
+# Gate opens when ALL symbols have volume > 1M
+all_liquid_gate = ConditionalGate(
+    condition_input=Input("volume", "1h", lookback=1),
+    threshold=1_000_000,
+    comparison="gt",
+    per_symbol=False,
+    any_symbol=False,
+)
+```
+
+---
+
+### GateOr
+
+Combine multiple gates with **OR logic** (open if any gate is open).
+
+**Role**: `CONTROL`
+
+```python
+gate_or = GateOr(
+    gate_inputs=[
+        Input("oversold_gate", "1h", lookback=1),
+        Input("overbought_gate", "1h", lookback=1),
+    ]
+)
+
+graph.add_node("extreme_gate", gate_or, inputs=[
+    Input("oversold_gate", "1h", lookback=1),
+    Input("overbought_gate", "1h", lookback=1),
+])
+```
+
+**Logic**: Per-symbol `max()` of all gate inputs. If any gate is `1.0`, the output is `1.0`.
+
+```
+oversold_gate:    [1.0, 0.0, 0.0]
+overbought_gate:  [0.0, 0.0, 1.0]
+-----------------------------------
+GateOr output:    [1.0, 0.0, 1.0]  <- BTC oversold OR SOL overbought
+```
+
+---
+
+### GateAnd
+
+Combine multiple gates with **AND logic** (open only if all gates are open).
+
+**Role**: `CONTROL`
+
+```python
+gate_and = GateAnd(
+    gate_inputs=[
+        Input("high_vol_gate", "1h", lookback=1),
+        Input("trend_gate", "1h", lookback=1),
+    ]
+)
+
+graph.add_node("trade_gate", gate_and, inputs=[
+    Input("high_vol_gate", "1h", lookback=1),
+    Input("trend_gate", "1h", lookback=1),
+])
+```
+
+**Logic**: Per-symbol `min()` of all gate inputs. All gates must be `1.0` for the output to be `1.0`.
+
+```
+high_vol_gate:  [1.0, 1.0, 0.0]
+trend_gate:     [1.0, 0.0, 1.0]
+--------------------------------
+GateAnd output: [1.0, 0.0, 0.0]  <- Only BTC passes both conditions
+```
+
+## Common Patterns
+
+### Pattern 1: Gated API Calls
+
+Control when expensive semantic operators fire:
+
+```python
+# Gate: only search during high volatility
+graph.add_node("vol_gate", ConditionalGate(
+    condition_input=Input("atr_pct", "1h", lookback=1),
+    threshold=0.02,
+    comparison="gt",
+))
+
+# WebSearch only fires when gate is open
+graph.add_node("news", WebSearchOperator(
+    query_template="{symbol} market news",
+    gate_input=Input("vol_gate", "1h", lookback=1),
+))
+```
+
+### Pattern 2: Multi-Condition Trading Filter
+
+Only trade when multiple conditions are met:
+
+```python
+# Individual conditions
+graph.add_node("liquidity_gate", ConditionalGate(
+    condition_input=Input("volume", "1h", lookback=1),
+    threshold=1_000_000,
+    comparison="gt",
+))
+
+graph.add_node("volatility_gate", ConditionalGate(
+    condition_input=Input("atr_pct", "1h", lookback=1),
+    threshold=0.01,
+    comparison="gt",
+))
+
+graph.add_node("trend_gate", ConditionalGate(
+    condition_input=Input("adx", "1h", lookback=1),
+    threshold=25.0,
+    comparison="gt",
+))
+
+# ALL conditions must be met
+graph.add_node("trade_gate", GateAnd(
+    gate_inputs=[
+        Input("liquidity_gate", "1h", lookback=1),
+        Input("volatility_gate", "1h", lookback=1),
+        Input("trend_gate", "1h", lookback=1),
+    ]
+))
+
+# Apply gate to signal (multiply signal × gate)
+graph.add_node("filtered_signal", Multiply(
+    Input("raw_signal", "1m", lookback=1),
+    Input("trade_gate", "1h", lookback=1),
+))
+```
+
+### Pattern 3: RSI Extreme Detection
+
+Trigger on oversold OR overbought:
+
+```python
+graph.add_node("oversold", ConditionalGate(
+    condition_input=Input("rsi", "1h", lookback=1),
+    threshold=30.0,
+    comparison="lt",
+))
+
+graph.add_node("overbought", ConditionalGate(
+    condition_input=Input("rsi", "1h", lookback=1),
+    threshold=70.0,
+    comparison="gt",
+))
+
+graph.add_node("extreme_rsi", GateOr(
+    gate_inputs=[
+        Input("oversold", "1h", lookback=1),
+        Input("overbought", "1h", lookback=1),
+    ]
+))
+```
+
+### Pattern 4: Market Regime Gate
+
+Gate the entire strategy based on market regime:
+
+```python
+# Macro gate: only trade in trending markets (any symbol)
+graph.add_node("regime_gate", ConditionalGate(
+    condition_input=Input("adx", "4h", lookback=1),
+    threshold=20.0,
+    comparison="gt",
+    per_symbol=False,   # Aggregate across symbols
+    any_symbol=False,   # ALL symbols must be trending
+))
+```
+
+## Gate Arithmetic
+
+Gates output `1.0` or `0.0`, which makes them natural **multipliers**:
+
+```python
+# Signal × Gate = Filtered signal
+filtered = signal * gate
+
+# When gate = 1.0: filtered = signal (pass through)
+# When gate = 0.0: filtered = 0.0 (blocked)
+```
+
+This works naturally with the `Multiply` operator or within custom operator `compute()` methods:
+
+```python
+class GatedAlpha(Operator):
+    def compute(self, data, timestamp, context):
+        signal = data["signal"]
+        gate = data["gate"]
+
+        # Gate filters the signal
+        gated_signal = signal.value * gate.value
+
+        return TaggedArray(
+            value=gated_signal,
+            exists=signal.exists & gate.exists,
+            valid=signal.valid & gate.valid,
+            updated=signal.updated | gate.updated,
+        )
+```
+
+## Relationship to Other Concepts
+
+- **[Semantic Operators](/operators/semantic)**: Primary consumers of gate outputs for cost control
+- **[Strategy Framework](/engine/strategy-framework)**: Gate patterns in strategy composition
+- **[TaggedArray](/engine/tagged-array)**: Merge rules for exists/valid/updated when combining gates with signals

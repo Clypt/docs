@@ -1,0 +1,186 @@
+---
+title: "ClyptQ vs QuantConnect"
+description: "How ClyptQ improves on QuantConnect's pioneering cloud-based quant trading platform"
+---
+
+## Respect Where It's Due
+
+QuantConnect (and its open-source engine LEAN) pioneered cloud-hosted quant trading. They made event-driven backtesting accessible to retail traders. Their multi-asset coverage and community are impressive.
+
+ClyptQ builds on the lessons learned from QuantConnect's approach while addressing its core limitations.
+
+## The Five Key Differences
+
+### 1. Research = Live Code (Not Just "Similar")
+
+**QuantConnect** provides Jupyter research notebooks (`QuantBook`) and algorithm classes (`QCAlgorithm`). These are **two different APIs**:
+
+```python
+# QuantConnect Research Notebook
+qb = QuantBook()
+history = qb.History(qb.AddEquity("SPY").Symbol, 30, Resolution.Daily)
+sma = history["close"].rolling(20).mean()
+# Great for research, but this code doesn't run live
+
+# QuantConnect Algorithm (must rewrite for live)
+class MyAlgorithm(QCAlgorithm):
+    def Initialize(self):
+        self.AddEquity("SPY", Resolution.Daily)
+
+    def OnData(self, data):
+        history = self.History(self.Symbol("SPY"), 20, Resolution.Daily)
+        sma = history["close"].mean()
+        # Different API, different data access, different execution context
+```
+
+There is a **translation step** between research and production. The data access API is similar (`qb.History` vs `self.History`), but the execution logic, scheduling, universe selection, and order management must be rewritten in the algorithm framework.
+
+**ClyptQ** has one path:
+
+```python
+# Same code in research, backtest, and live
+graph = StatefulGraph()
+graph.add_node("sma", SMA(span=20),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)])
+
+spec = TradingSpec(
+    strategy=TradingStrategySpec(graph=graph, initial_cash=10_000.0),
+    execution=TradingExecutionSpec(mode="backtest"),  # Change to "live"
+    ...
+)
+```
+
+No `QuantBook` vs `QCAlgorithm` distinction. No rewrite. The graph IS the strategy, in every mode.
+
+### 2. Python Freedom vs C# Heritage
+
+QuantConnect's LEAN engine is **written in C#**. Python support works through PythonNet (a C#-to-Python bridge):
+
+| Aspect | QuantConnect | ClyptQ |
+|---|---|---|
+| **Engine language** | C# (LEAN) | Python |
+| **Python support** | Via PythonNet bridge | Native |
+| **Performance overhead** | Python → PythonNet → C# → back | Pure Python (Rust core planned) |
+| **Library access** | Limited by PythonNet compatibility | Any Python library, no restrictions |
+| **Custom data types** | Must follow C# type system | Standard Python objects |
+
+**What this means in practice**: Some Python libraries don't work well through PythonNet. Complex NumPy/pandas operations can have unexpected behavior when crossing the C#-Python bridge. PyTorch, HuggingFace, and other ML libraries may have compatibility issues.
+
+ClyptQ operators are pure Python. If it runs in a Jupyter cell, it runs in ClyptQ.
+
+### 3. Crypto-Native with Institutional Accuracy
+
+QuantConnect covers multiple asset classes (equities, forex, futures, options, crypto). But its crypto support treats crypto as "another asset class" without modeling the unique complexities:
+
+| Feature | QuantConnect | ClyptQ |
+|---|---|---|
+| **Exchanges** | Limited crypto exchange support | Binance, Gate.io, Bybit, OKX, Coinbase |
+| **Perpetual futures** | Basic support | Full: funding rates, cross/isolated margin, liquidation |
+| **Funding rate simulation** | Not modeled in backtest | 8-hour settlement, historical rates |
+| **Liquidation logic** | Simplified | Exchange-specific maintenance margin |
+| **Fee model** | Flat rate or basic tiered | Auto-fetched exchange fee schedules, VIP overrides |
+| **Multi-exchange** | Supported but complex | Native FIELD protocol (`FIELD:binance:...`, `FIELD:gateio:...`) |
+| **Cross-exchange arbitrage** | Manual implementation | `ArbitrageIntention` operator with paired orders |
+
+For crypto trading specifically, ClyptQ models the details that matter: funding rates (which can cost 20%+ annualized), tiered fee structures, minimum order sizes, and liquidation mechanics.
+
+### 4. Backtesting Speed and Resource Model
+
+QuantConnect's cloud backtesting uses shared nodes with memory and time limits:
+
+| Aspect | QuantConnect | ClyptQ |
+|---|---|---|
+| **Free tier limits** | Memory and time caps | Jupyter-based (scales with allocation) |
+| **Large backtests** | Require paid nodes, can take hours | Efficient memory via pre-allocated RollingBuffers |
+| **Options backtesting** | Resource-intensive, common complaint | N/A (crypto focus) |
+| **Memory model** | Event history can accumulate | Fixed-size buffers (no memory growth) |
+
+ClyptQ's `RollingBuffer` architecture means memory usage is **constant** regardless of backtest length. A 1-year backtest uses the same memory as a 1-day backtest for the same strategy. QuantConnect's event-driven model can accumulate history in memory, requiring larger nodes for longer backtests.
+
+### 5. Marketplace Model
+
+| Aspect | QuantConnect Alpha Streams | ClyptQ Marketplace |
+|---|---|---|
+| **What's sold** | Alpha signals (not strategies) | Complete strategies |
+| **Verification** | Platform-run backtests | Cross-exchange verification |
+| **Buyer experience** | Signal subscription | One-click deployment |
+| **Builder control** | Limited (signals extracted) | Source code never revealed |
+| **Status** | Restructured (reduced activity) | Active development |
+
+QuantConnect's Alpha Streams sells **signals**, not strategies. The buyer receives alpha values and must build their own execution. ClyptQ sells **complete strategies** that buyers deploy directly.
+
+## Feature Comparison
+
+| Feature | ClyptQ | QuantConnect |
+|---|---|---|
+| **Code parity** | Structural (one codebase) | Partial (notebook ≠ algorithm) |
+| **Primary language** | Python (native) | C# (Python via bridge) |
+| **Backtesting model** | Tick-by-tick state machine | Event-driven (similar) |
+| **Data included** | Yes (5 crypto exchanges) | Yes (US equities, forex, some crypto) |
+| **Asset classes** | Crypto (stocks planned) | Multi-asset (equities, options, futures, crypto, forex) |
+| **Futures support** | Full (funding, margin, liquidation) | Basic for crypto perpetuals |
+| **Multi-exchange** | Native (FIELD protocol) | Supported but manual routing |
+| **Custom operators** | `BaseOperator` inheritance, 213+ built-in | `QCAlgorithm` class, indicator library |
+| **AI operators** | LLMScorer, WebSearch, Sentiment | None built-in |
+| **Deployment** | Jupyter SaaS | Cloud IDE + local (LEAN) |
+| **Marketplace** | Verified strategies | Alpha Streams (signals) |
+| **Pricing** | SaaS subscription | Free tier + paid nodes |
+| **Open source** | No (SaaS) | Yes (LEAN is Apache 2.0) |
+
+## When to Choose QuantConnect
+
+QuantConnect may be a better fit if you:
+
+- **Trade US equities or options** — QuantConnect has deeper equity/options data and modeling
+- **Need C# performance** — LEAN's native C# is faster than PythonNet
+- **Want open-source** — LEAN is Apache 2.0; you can run it fully self-hosted
+- **Trade multiple traditional asset classes** — Equities + forex + futures in one platform
+
+## When to Choose ClyptQ
+
+ClyptQ is the better choice if you:
+
+- **Trade crypto** — Purpose-built for crypto with exchange-specific modeling
+- **Want true code parity** — Same code in research, backtest, and live
+- **Use Python ML/AI libraries** — Native Python, no bridge limitations
+- **Need accurate crypto backtests** — Funding rates, liquidation, tiered fees
+- **Want to sell strategies** — Verified marketplace with cross-exchange validation
+- **Want AI-powered trading** — LLMScorer, WebSearch as first-class operators
+- **Trade across exchanges** — FIELD protocol makes multi-exchange native
+
+## The Architectural Difference
+
+The deepest difference is philosophical:
+
+**QuantConnect** is an **algorithm-centric** platform. You write an `Algorithm` class with methods like `OnData()`, `OnOrderEvent()`, `OnSecuritiesChanged()`. The algorithm is a monolithic unit that contains signals, position sizing, and order management.
+
+**ClyptQ** is a **graph-centric** platform. You compose a DAG of independent operators. Signal generation, position sizing, risk management, and order intentions are separate nodes connected by data flow. This makes strategies:
+
+- **More composable** — swap out the risk management node without touching the signal
+- **More testable** — test each operator in isolation
+- **More maintainable** — clear separation of concerns
+- **More reusable** — the same alpha operator works in any strategy
+
+```python
+# QuantConnect: monolithic algorithm
+class MyAlgo(QCAlgorithm):
+    def OnData(self, data):
+        # Signal logic, position sizing, order management — all mixed together
+        price = data["SPY"].Close
+        if self.sma.Current.Value < price:
+            self.SetHoldings("SPY", 0.5)  # Signal + sizing + order in one line
+
+# ClyptQ: composable graph
+graph.add_node("signal", MomentumAlpha(), inputs=[close])
+graph.add_node("weights", EqualWeight(), inputs=[signal])
+graph.add_node("risk", MaxExposure(ratio=0.5), inputs=[weights, equity])
+graph.add_node("intention", TargetPositionIntention(...), inputs=[risk, book_size])
+# Each concern is a separate, testable, reusable node
+```
+
+## Relationship to Other Concepts
+
+- **[Why ClyptQ?](/competitive/why-clyptq)**: Complete overview of all competitive advantages
+- **[Research = Backtest = Live](/competitive/code-parity)**: The code parity guarantee in detail
+- **[StatefulGraph](/engine/stateful-graph)**: The DAG architecture that enables composable strategies
+- **[FIELD Protocol](/engine/field-data-principle)**: How multi-exchange data routing works natively

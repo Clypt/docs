@@ -1,0 +1,253 @@
+---
+title: "Jupyter Notebook Workflow"
+description: "Research, backtest, paper trade, and go live — all from Jupyter cells"
+---
+
+## The Jupyter-Native Workflow
+
+ClyptQ is designed for the Jupyter notebook workflow that quant traders already use. Each notebook cell maps to a stage of the strategy lifecycle:
+
+```
+Cell 1: Explore → Cell 2: Build Graph → Cell 3: Configure Spec →
+Cell 4: Run Backtest → Cell 5: Analyze → Cell 6: Go Paper/Live
+```
+
+No compilation step. No deployment pipeline. No separate "production" environment. The same Python objects you create in Cell 2 are the same objects that trade live in Cell 6.
+
+## Cell-by-Cell Walkthrough
+
+### Cell 1: Discovery
+
+```python
+from clyptq import Helper
+
+# What exchanges and symbols are available?
+Helper.exchanges()
+symbols = Helper.symbols("binance", "futures", quote="USDT", limit=30)
+
+# What data do I have locally?
+Helper.data_catalog()
+
+# What are the margin parameters for Binance?
+Helper.margin_info("binance")
+```
+
+### Cell 2: Build the Strategy Graph
+
+```python
+from clyptq.system.graph import StatefulGraph, Input
+from clyptq.apps.trading.operators.indicator import SMA, RSI
+from clyptq.apps.trading.operators.signal import CrossoverAlpha
+from clyptq.apps.trading.operators.transform import EqualWeight
+from clyptq.apps.trading.operators.balance import EquityCalculator, BookSize
+from clyptq.apps.trading.operators.order import FuturesTargetPositionIntention
+from clyptq.apps.trading.spec.symbol_source_map import SymbolSourceMap
+
+symbol_source_map = SymbolSourceMap({
+    "binance:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
+})
+
+graph = StatefulGraph()
+
+close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
+graph.add_node("sma_fast", SMA(span=10), inputs=[close])
+graph.add_node("sma_slow", SMA(span=50), inputs=[close])
+
+graph.add_node("signal", CrossoverAlpha(),
+    inputs=[
+        Input("sma_fast", "1m", lookback=2),
+        Input("sma_slow", "1m", lookback=2),
+    ])
+
+graph.add_node("weights", EqualWeight(),
+    inputs=[Input("signal", "1m", lookback=1)])
+
+# ... equity, book_size, intention nodes (see Quickstart for full example)
+```
+
+### Cell 3: Configure and Run Backtest
+
+```python
+from datetime import datetime, timezone
+from clyptq.apps.trading.spec.unified import TradingSpec
+from clyptq.apps.trading.spec.data import TradingDataSpec
+from clyptq.apps.trading.spec.strategy import TradingStrategySpec
+from clyptq.apps.trading.spec.execution import TradingExecutionSpec, AccountSpec
+from clyptq.apps.trading.spec.observation.crypto import OHLCVSpec
+from clyptq.apps.trading.driver import TradingDriver
+
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbol_source_map=symbol_source_map,
+        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
+        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2024, 6, 30, tzinfo=timezone.utc),
+    ),
+    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        execution_price_source="ohlcv",
+    ),
+    debug=True,
+)
+
+driver = TradingDriver.from_spec(spec)
+for result in driver:
+    pass  # Run through all ticks
+```
+
+### Cell 4: Analyze Results
+
+```python
+import matplotlib.pyplot as plt
+
+# Convert node outputs to DataFrames
+df_equity = driver.to_dataframe("equity")
+df_signal = driver.to_dataframe("signal")
+
+# Plot
+fig, axes = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+df_equity.plot(ax=axes[0], title="Equity Curve")
+df_signal.plot(ax=axes[1], title="Signal Strength")
+plt.tight_layout()
+plt.show()
+
+# Export for deeper analysis
+results = driver.export_results()
+print(results["state"])  # Account summary
+```
+
+### Cell 5: Iterate
+
+Modify the graph, re-run the backtest, compare results. The graph object is mutable — add/remove nodes, change parameters, test different operator combinations:
+
+```python
+# Try a different signal
+from clyptq.apps.trading.operators.indicator import RSI
+
+graph.add_node("rsi", RSI(period=14),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=14)])
+
+# Re-run with same spec (just recreate driver)
+driver = TradingDriver.from_spec(spec)
+for result in driver:
+    pass
+```
+
+### Cell 6: Go Paper → Live
+
+Change `mode` to switch from backtest to paper or live. The graph, operators, and analysis code stay identical:
+
+```python
+# Paper trading (live data, simulated fills)
+spec_paper = TradingSpec(
+    data=TradingDataSpec(
+        symbol_source_map=symbol_source_map,
+        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
+    ),
+    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
+    execution=TradingExecutionSpec(
+        mode="paper",  # ← Only this changes
+        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        execution_price_source="ohlcv",
+    ),
+)
+
+driver = TradingDriver.from_spec(spec_paper)
+for result in driver:
+    # Same monitoring code as backtest
+    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
+```
+
+<Warning>
+Paper and live trading in **Kernel mode** (ClyptQ cloud Jupyter) have a 30-minute idle timeout. For long-running strategies, deploy via the Trading Service. The driver sends periodic heartbeats to prevent premature timeouts during active execution.
+</Warning>
+
+## Python Ecosystem Freedom
+
+ClyptQ operators are pure Python. Use any library inside `compute()`:
+
+```python
+import torch
+import xgboost as xgb
+from sklearn.preprocessing import StandardScaler
+from transformers import pipeline
+
+class MLAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def __init__(self, model_path: str):
+        self.model = xgb.Booster()
+        self.model.load_model(model_path)
+
+    def compute(self, inputs, timestamp, context):
+        features = inputs[0].value[-1]  # Latest tick
+        prediction = self.model.predict(xgb.DMatrix([features]))
+        return TaggedArray(values=prediction, ...)
+```
+
+Common integrations:
+
+| Library | Use Case | Example |
+|---------|----------|---------|
+| **pandas** | Post-analysis via `to_dataframe()` | `driver.to_dataframe("equity")` |
+| **matplotlib/plotly** | Visualization | Equity curves, signal plots |
+| **scikit-learn** | Feature engineering, preprocessing | `StandardScaler`, `PCA` |
+| **PyTorch** | Neural network inference | LSTM, Transformer models |
+| **XGBoost/LightGBM** | Tree-based prediction | Gradient boosted alpha signals |
+| **HuggingFace** | NLP sentiment | `LLMScorer` operator (ephemeral) |
+| **scipy** | Optimization | Portfolio optimization constraints |
+
+## ML/DL Integration Pattern
+
+Train models externally, deploy inside operators:
+
+```python
+# Training (separate notebook or script)
+model = train_xgboost_model(historical_features, historical_returns)
+model.save_model("models/alpha_v1.bst")
+
+# Deployment (ClyptQ operator)
+class XGBAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def __init__(self, model_path: str, feature_lookback: int = 20):
+        self.model = xgb.Booster()
+        self.model.load_model(model_path)
+        self.feature_lookback = feature_lookback
+
+    def compute(self, inputs, timestamp, context):
+        # inputs[0] = close prices, shape (lookback, n_symbols)
+        close = inputs[0].value
+        features = self._extract_features(close)
+        predictions = self.model.predict(xgb.DMatrix(features))
+        return TaggedArray(values=predictions, ...)
+
+# Use in graph
+graph.add_node("ml_signal", XGBAlpha("models/alpha_v1.bst", feature_lookback=20),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)])
+```
+
+This pattern works because:
+- **Model training** happens outside ClyptQ (any framework, any method)
+- **Model inference** happens inside a `BaseOperator.compute()` call
+- The operator is **stateless** — same inputs produce same outputs
+- The graph handles **lookback, warmup, and data routing** automatically
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Full quickstart with complete code
+  </Card>
+  <Card title="Operator Protocol" icon="gears" href="/engine/operator-protocol">
+    How to write custom operators with BaseOperator
+  </Card>
+  <Card title="First Strategy Tutorial" icon="graduation-cap" href="/tutorials/first-strategy">
+    Step-by-step SMA crossover with explanations
+  </Card>
+  <Card title="Backtest to Live" icon="arrow-right" href="/tutorials/backtest-to-live">
+    Full deployment lifecycle tutorial
+  </Card>
+</CardGroup>

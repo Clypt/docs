@@ -1,0 +1,291 @@
+---
+title: "AI-Powered Trading Logic"
+description: "LLM scoring, web search, and sentiment analysis as first-class operators"
+---
+
+## A New Category of Trading Primitive
+
+Traditional quant trading uses two types of inputs: **price data** and **fundamental data**. ClyptQ adds a third: **AI-generated signals** — produced by language models, web searches, and sentiment analysis.
+
+These aren't bolt-on integrations or external scripts. They're **first-class operators** in the same DAG that runs your technical indicators:
+
+```python
+graph = StatefulGraph()
+
+# Traditional: Technical indicator
+graph.add_node("rsi", RSI(period=14),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=15)])
+
+# AI-powered: LLM scoring
+graph.add_node("llm_signal", LLMScorer(
+    prompt="Rate crypto market sentiment from -1 (bearish) to 1 (bullish)...",
+    call_interval=60,
+), inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=1)])
+
+# Both outputs flow through the same graph
+graph.add_node("combined", WeightedCombine(weights=[0.7, 0.3]),
+    inputs=[
+        Input("rsi", "1m", lookback=1),
+        Input("llm_signal", "1m", lookback=1),
+    ])
+```
+
+RSI and LLM output are both `TaggedArray`s. Both flow through `RollingBuffer`s. Both participate in topological execution. The graph doesn't care that one comes from a math formula and the other from GPT-4.
+
+## Why This Is Unique
+
+**No other trading platform treats AI as a composable operator.**
+
+| Platform | AI Integration |
+|---|---|
+| **ClyptQ** | First-class operators: LLMScorer, WebSearch, SentimentParser — same DAG as indicators |
+| QuantConnect | No built-in AI operators. Must use external API calls with manual plumbing |
+| Nautilus | No AI support. Rust-focused architecture makes LLM integration non-trivial |
+| Freqtrade | No built-in. Community plugins exist but are outside the strategy framework |
+| Custom code | You build everything: API calls, caching, rate limiting, fallback logic, cost control |
+
+With ClyptQ, AI capabilities are **declarative**. You add an LLMScorer to your graph, and the framework handles caching, rate limiting, cost control, and mode-dependent execution.
+
+## The Three AI Operators
+
+### LLMScorer
+
+Converts language model output into quantitative trading signals.
+
+```python
+llm = LLMScorer(
+    prompt="Analyze the following crypto market data and rate sentiment "
+           "from -1.0 (extremely bearish) to 1.0 (extremely bullish)...",
+    call_interval=60,           # Call LLM every 60 ticks (not every tick)
+    model="gpt-4",              # Or any OpenAI-compatible endpoint
+    temperature=0.1,            # Low temperature for consistency
+    dedup_input=True,           # Skip duplicate prompts
+)
+```
+
+**Output**: `TaggedArray` with values in `[-1.0, 1.0]` — same format as any other alpha signal. Downstream operators (scalers, optimizers, order intentions) consume it identically.
+
+### WebSearchOperator
+
+Fetches and analyzes real-time web information as a trading input.
+
+```python
+web = WebSearchOperator(
+    query_template="latest news {symbol} crypto market impact",
+    gate_input=Input("volatility_spike", "1m", lookback=1),  # Only search when vol spikes
+    aggregate_open=True,         # Aggregate open trades for context
+    cache_ttl=300,               # Cache results for 5 minutes
+)
+```
+
+**Gate pattern**: The `gate_input` parameter means the web search only executes when a condition is met (e.g., volatility spike). This controls costs — you don't search Google 1,440 times per day for each symbol.
+
+### SentimentParser
+
+Extracts structured sentiment from text using LLM or rule-based parsing.
+
+```python
+# LLM-based mode (paper/live only)
+sentiment = SentimentParser(
+    mode="llm",
+    model="gpt-4",
+    output_fields=["bullish_score", "confidence", "event_type"],
+)
+
+# Rule-based mode (works in backtest)
+sentiment = SentimentParser(
+    mode="rules",
+    keywords_positive=["bullish", "breakout", "upgrade"],
+    keywords_negative=["bearish", "crash", "downgrade"],
+)
+```
+
+## The Ephemeral Pattern
+
+AI operators are **ephemeral** — they only execute in paper and live modes:
+
+| Mode | AI Operator Behavior |
+|---|---|
+| **Backtest** | Skipped. Returns `valid=False` in TaggedArray |
+| **Paper** | Executed. Real API calls with real costs |
+| **Live** | Executed. Real API calls with real costs |
+
+**Why?** AI operators are non-deterministic. The same prompt sent twice to GPT-4 can produce different results. This makes backtesting unreliable — you can't reproduce results.
+
+**How the graph handles it**: When an ephemeral operator returns `valid=False`, downstream operators see the invalid mask and can:
+- Fall back to a non-AI signal path
+- Skip the tick entirely
+- Use the last valid AI signal (forward-fill)
+
+```python
+# Backtest-safe pattern: gate with fallback
+graph.add_node("llm_signal", LLMScorer(...), inputs=[close])
+graph.add_node("technical_signal", RSIAlpha(), inputs=[close])
+
+# ConditionalGate checks if LLM signal is valid
+graph.add_node("gate", ConditionalGate(
+    condition="valid",  # Check TaggedArray.valid mask
+    fallback=Input("technical_signal", "1m", lookback=1),
+), inputs=[
+    Input("llm_signal", "1m", lookback=1),
+    Input("technical_signal", "1m", lookback=1),
+])
+```
+
+In backtest: uses `technical_signal` (deterministic). In live: uses `llm_signal` when available, falls back to `technical_signal` when the LLM call fails.
+
+## Cost Control Strategies
+
+AI API calls cost money. ClyptQ provides multiple mechanisms to control costs:
+
+### 1. Call Interval
+
+```python
+LLMScorer(
+    call_interval=60,  # Only call every 60 ticks
+    # Between calls, forward-fills the last result
+)
+```
+
+At 1-minute ticks, `call_interval=60` means one API call per hour instead of 60.
+
+### 2. Gate-Based Activation
+
+```python
+# Only call AI when volatility exceeds threshold
+graph.add_node("vol_gate", ConditionalGate(
+    threshold=2.0, operator="gt"
+), inputs=[Input("zscore_vol", "1m", lookback=1)])
+
+graph.add_node("web_search", WebSearchOperator(
+    gate_input=Input("vol_gate", "1m", lookback=1),
+))
+```
+
+AI operator only fires when market conditions warrant it.
+
+### 3. Input Deduplication
+
+```python
+LLMScorer(
+    dedup_input=True,  # Skip if input hasn't changed
+)
+```
+
+If the prompt context is identical to the last call, skip the API call and reuse the previous result.
+
+### 4. Caching
+
+```python
+WebSearchOperator(
+    cache_ttl=300,  # Cache for 5 minutes
+)
+```
+
+Same query within the cache window returns cached results.
+
+## Common Patterns
+
+### Pattern 1: News-Augmented Momentum
+
+Combine traditional momentum with LLM-analyzed news:
+
+```python
+# Technical momentum
+graph.add_node("momentum", MomentumAlpha(period=20), inputs=[close])
+
+# LLM news analysis (paper/live only)
+graph.add_node("news_score", LLMScorer(
+    prompt="Rate the impact of recent news on {symbol}: -1 to 1",
+    call_interval=60,
+), inputs=[close])
+
+# Combine: momentum drives, news confirms/rejects
+graph.add_node("final_signal", GatedCombine(
+    base_weight=0.8,
+    ai_weight=0.2,
+), inputs=[
+    Input("momentum", "1m", lookback=1),
+    Input("news_score", "1m", lookback=1),
+])
+```
+
+### Pattern 2: Event-Driven Trading
+
+Search for market-moving events, trade on their impact:
+
+```python
+# Detect volatility regime change
+graph.add_node("vol_zscore", ZScore(lookback=100),
+    inputs=[Input("realized_vol", "1m", lookback=100)])
+
+# Gate: only search when vol Z-score > 2
+graph.add_node("vol_spike", ConditionalGate(threshold=2.0, operator="gt"),
+    inputs=[Input("vol_zscore", "1m", lookback=1)])
+
+# Conditional web search
+graph.add_node("event_search", WebSearchOperator(
+    query_template="{symbol} breaking news market event",
+    gate_input=Input("vol_spike", "1m", lookback=1),
+), inputs=[close])
+
+# Sentiment analysis of search results
+graph.add_node("event_sentiment", SentimentParser(mode="llm"),
+    inputs=[Input("event_search", "1m", lookback=1)])
+
+# Trade based on event sentiment
+graph.add_node("signal", EventSignal(),
+    inputs=[
+        Input("event_sentiment", "1m", lookback=1),
+        Input("vol_zscore", "1m", lookback=1),
+    ])
+```
+
+### Pattern 3: Rule-Based Backtest, AI Live
+
+Use rule-based approximation for backtesting, AI for live:
+
+```python
+# Rule-based (deterministic — works in backtest)
+graph.add_node("rule_sentiment", SentimentParser(
+    mode="rules",
+    keywords_positive=["bullish", "upgrade", "breakout"],
+    keywords_negative=["bearish", "crash", "liquidation"],
+), inputs=[Input("news_feed", "1m", lookback=1)])
+
+# LLM-based (ephemeral — paper/live only)
+graph.add_node("llm_sentiment", SentimentParser(
+    mode="llm",
+    model="gpt-4",
+), inputs=[Input("news_feed", "1m", lookback=1)])
+
+# Auto-switch: uses llm_sentiment when valid, falls back to rule_sentiment
+graph.add_node("sentiment", ConditionalGate(
+    condition="valid",
+    fallback=Input("rule_sentiment", "1m", lookback=1),
+), inputs=[
+    Input("llm_sentiment", "1m", lookback=1),
+    Input("rule_sentiment", "1m", lookback=1),
+])
+```
+
+## What This Enables
+
+AI operators unlock strategy categories that were previously impossible to implement systematically:
+
+| Strategy Type | Traditional Approach | With ClyptQ AI Operators |
+|---|---|---|
+| **News trading** | Manual monitoring, discretionary | Automated web search + LLM scoring |
+| **Sentiment overlay** | Third-party sentiment data (delayed) | Real-time LLM analysis |
+| **Event detection** | Keyword alerts | Contextual LLM understanding |
+| **Macro analysis** | Scheduled research reports | Continuous web search + analysis |
+| **Risk narration** | Post-hoc analysis | Real-time narrative generation |
+
+The key insight: these AI capabilities are **composable**. They aren't standalone systems — they're operators that combine with technical indicators, portfolio state, and risk management in the same graph.
+
+## Relationship to Other Concepts
+
+- **[Semantic Operators Reference](/operators/semantic)**: Full API reference for LLMScorer, WebSearchOperator, SentimentParser
+- **[Control Operators](/operators/control)**: ConditionalGate, GateOr, GateAnd for controlling AI operator activation
+- **[Operator Protocol](/engine/operator-protocol)**: How ephemeral operators fit in the operator lifecycle
+- **[Research = Backtest = Live](/competitive/code-parity)**: How the ephemeral pattern maintains code parity

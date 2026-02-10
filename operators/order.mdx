@@ -1,0 +1,426 @@
+---
+title: "Order Operators"
+description: "Generate order intentions from portfolio targets — spot, futures, and arbitrage"
+---
+
+## Overview
+
+Order operators translate **portfolio targets** into **order intentions**. They bridge the gap between portfolio construction (what positions do I want?) and execution (what orders should I send?).
+
+The flow:
+```
+Signal → Weights → BookSize → Order Operator → TradingIntention → Executor
+```
+
+Order operators output `TradingIntention` objects — not actual orders. The execution engine converts intentions into orders, applies risk checks, and routes to the exchange.
+
+## Operators
+
+### TargetPositionIntention
+
+Generate order intentions for **spot/equity** positions.
+
+**Role**: `ORDER`
+
+**Two input modes:**
+
+1. **Weight-based** — Provide portfolio weights + book size. The operator computes target notional.
+2. **Target-based** — Provide target notional directly.
+
+#### Weight-Based Mode
+
+```python
+intention = TargetPositionIntention(
+    weights=Input("signal_weights", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    execution_routing=symbol_source_map.execution_routing,
+    # Safety guards
+    max_exposure_ratio=1.0,     # Max total exposure as ratio of equity
+    max_delta_notional=5000.0,  # Max order value per tick
+)
+```
+
+**Logic:**
+```
+target_notional = weights × book_size
+target_qty = target_notional / price
+delta = target_qty - current_qty
+→ Create TradingIntention(symbol, order_amount=delta)
+```
+
+#### Target-Based Mode
+
+```python
+intention = TargetPositionIntention(
+    target_notional=Input("sizing_output", "1m", lookback=1),
+    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    execution_routing=symbol_source_map.execution_routing,
+)
+```
+
+**Spot constraint**: `TargetPositionIntention` rejects negative `target_notional` — spot markets don't support shorting.
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `weights` | `Input` | None | Portfolio weights (weight-based mode) |
+| `book_size` | `Input` | None | Tradeable capital (weight-based mode) |
+| `target_notional` | `Input` | None | Target notional directly (target-based mode) |
+| `positions` | `Input` | Required | Current positions from STATE |
+| `prices` | `Input` | Required | Current prices from FIELD |
+| `axis_keys` | `Tuple[str]` | Required | Symbol axis keys for this venue |
+| `execution_routing` | `Dict` | None | Axis key → execution venue mapping |
+| `max_exposure_ratio` | `float` | None | Max total exposure / equity |
+| `max_delta_notional` | `float` | None | Max order size per tick |
+| `tp_pct` | `float` or `Input` | None | Take-profit percentage (static or dynamic) |
+| `sl_pct` | `float` or `Input` | None | Stop-loss percentage (static or dynamic) |
+
+---
+
+### FuturesTargetPositionIntention
+
+Generate order intentions for **futures** positions with leverage, margin, and directional support.
+
+**Role**: `ORDER`
+
+```python
+intention = FuturesTargetPositionIntention(
+    target_notional=Input("sizing_output", "1m", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    execution_routing=symbol_source_map.execution_routing,
+    # Futures-specific
+    leverage=3.0,                # Static leverage (or Input for dynamic)
+    margin_type="CROSS",         # CROSS or ISOLATED
+    position_side="BOTH",        # LONG, SHORT, or BOTH
+    reduce_only=False,           # Only reduce existing positions
+    # Safety guards
+    max_exposure_ratio=1.5,
+    max_delta_notional=10000.0,
+)
+```
+
+**Key differences from spot:**
+- Supports both **long and short** positions
+- **Leverage amplification**: `target_notional = weights × book_size × leverage`
+- **TP/SL direction**: LONG → TP above entry / SL below. SHORT → TP below / SL above
+
+#### Futures-Specific Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `leverage` | `float` or `Input` | 1.0 | Static or per-symbol dynamic leverage |
+| `margin_type` | `str` | `"CROSS"` | `"CROSS"` or `"ISOLATED"` |
+| `position_side` | `str` | `"BOTH"` | `"LONG"`, `"SHORT"`, or `"BOTH"` |
+| `reduce_only` | `bool` | `False` | Only reduce, never increase positions |
+
+---
+
+### DynamicUniverseIntention
+
+**Dynamic universe** support — handles symbols entering and exiting the tradeable universe during execution.
+
+**Role**: `ORDER`
+
+```python
+intention = DynamicUniverseIntention(
+    weights=Input("signal_weights", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    warmup_ticks=50,  # Ticks before trading a new symbol
+)
+```
+
+**Symbol lifecycle:**
+
+| State | Behavior |
+|---|---|
+| **WARMING_UP** | Symbol just entered universe. Skip trading, accumulate data for `warmup_ticks` |
+| **ACTIVE** | Normal delta trading (same as TargetPositionIntention) |
+| **EXITED** | Symbol left universe (`exists=False`). Generate close order if position exists |
+
+**Use case**: Strategies with rotating universes (e.g., top-50 by volume, refreshed daily).
+
+---
+
+### ArbitrageIntention
+
+Cross-exchange or cross-market **paired trading**.
+
+**Role**: `ORDER`
+
+```python
+intention = ArbitrageIntention(
+    spread=Input("spread_signal", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    long_positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
+    short_positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    long_prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
+    short_prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    long_axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    short_axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+)
+```
+
+**Logic:**
+- `spread > 0` → Long on long_venue, Short on short_venue
+- `spread < 0` → Short on long_venue, Long on short_venue
+- Output: **Paired orders** (long leg + short leg) linked by `pair_id`
+
+**Use cases:**
+- **Spot-futures basis trade**: Buy spot, sell perpetual futures
+- **Cross-exchange arbitrage**: Buy on Exchange A, sell on Exchange B
+- **Calendar spread**: Buy near-month, sell far-month futures
+
+---
+
+### VenueAwareSizing
+
+Compute `target_notional` across **multiple venues** with configurable allocation.
+
+**Role**: `ORDER`
+
+```python
+sizing = VenueAwareSizing(
+    weights=Input("signal_weights", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    all_axis_keys=symbol_source_map.axis_keys,
+    allocation_mode="proportional",  # "equal", "proportional", "inverse_hedge"
+    venue_weights={
+        "binance:spot": 0.6,
+        "binance:futures": 0.4,
+    },
+)
+```
+
+**Allocation modes:**
+
+| Mode | Description |
+|---|---|
+| `"equal"` | Equal split across all venues |
+| `"proportional"` | Weighted by `venue_weights` dict |
+| `"inverse_hedge"` | Spot long + Futures short (for arbitrage) |
+
+**Output**: Single array aligned to `all_axis_keys`. Each downstream intention operator extracts its venue's portion via axis indices.
+
+## Data Flow
+
+### Single-Venue (Typical)
+
+```mermaid
+flowchart TB
+    A["Signal"] --> B["ZScore (normalize)"]
+    B --> C["EqualWeight (optimize)"]
+    C --> D["BookSize"]
+    D --> E["TargetPositionIntention"]
+    C --> E
+    E --> F["TradingIntention"]
+    F --> G["Executor"]
+    G --> H["Exchange"]
+```
+
+### Multi-Venue (Arbitrage)
+
+```mermaid
+flowchart TB
+    A["Spread Signal"] --> B["VenueAwareSizing"]
+    B --> C["target_notional (all venues)"]
+    A --> D["FuturesTargetPositionIntention<br>(futures leg)<br>STATE:binance:futures:*"]
+    A --> E["TargetPositionIntention<br>(spot leg)<br>STATE:binance:spot:*"]
+```
+
+### With ArbitrageIntention
+
+```mermaid
+flowchart TB
+    A["Spread Signal"] --> B["ArbitrageIntention"]
+    B --> C["Long leg (spot)"]
+    B --> D["Short leg (futures)"]
+    C --> E["Paired TradingIntention"]
+    D --> F["Paired TradingIntention"]
+    E --> G["Executor<br>(routes to correct venue)"]
+    F --> G
+```
+
+## Safety Guards
+
+Order operators include built-in safety mechanisms:
+
+| Guard | Parameter | Description |
+|---|---|---|
+| **Max exposure** | `max_exposure_ratio` | Total exposure cannot exceed X× equity |
+| **Delta capping** | `max_delta_notional` | Single tick order size limit |
+| **Spot no-short** | (automatic) | TargetPositionIntention rejects negative targets |
+| **Reduce-only** | `reduce_only` | Only close positions, never open new ones |
+| **Dynamic TP/SL** | `tp_pct`, `sl_pct` | Static percentages or dynamic Input arrays |
+
+## Common Patterns
+
+### Simple Long-Only Spot
+
+```python
+graph.add_node("intention", TargetPositionIntention(
+    weights=Input("signal", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    max_exposure_ratio=1.0,  # Never exceed 100% of equity
+))
+```
+
+### Leveraged Futures with TP/SL
+
+```python
+graph.add_node("intention", FuturesTargetPositionIntention(
+    weights=Input("signal", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    execution_routing=symbol_source_map.execution_routing,
+    leverage=3.0,
+    tp_pct=0.05,   # 5% take-profit
+    sl_pct=0.02,   # 2% stop-loss
+    max_exposure_ratio=1.5,
+))
+```
+
+### Spot-Futures Basis Trade
+
+```python
+# Spread = futures_price / spot_price - 1.0
+graph.add_node("spread", SpreadCalculator(
+    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=1),
+    Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=1),
+))
+
+graph.add_node("intention", ArbitrageIntention(
+    spread=Input("spread", "1m", lookback=1),
+    book_size=Input("book_size", "1m", lookback=1),
+    long_positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
+    short_positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+    long_prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
+    short_prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    long_axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    short_axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+))
+```
+
+## TP/SL Configuration
+
+Both `TargetPositionIntention` and `FuturesTargetPositionIntention` support take-profit and stop-loss — either **static** (fixed percentages) or **dynamic** (computed by another operator).
+
+### Static TP/SL
+
+Fixed percentages applied uniformly to all symbols:
+
+```python
+intention = FuturesTargetPositionIntention(
+    ...,
+    tp_pct=0.05,   # 5% take-profit from entry price
+    sl_pct=0.02,   # 2% stop-loss from entry price
+)
+```
+
+**Direction-aware for futures:**
+- **LONG**: TP price = entry × (1 + tp_pct), SL price = entry × (1 - sl_pct)
+- **SHORT**: TP price = entry × (1 - tp_pct), SL price = entry × (1 + sl_pct)
+
+### Dynamic TP/SL
+
+Per-symbol TP/SL computed by upstream operators (e.g., ATR-based):
+
+```python
+# Dynamic SL based on ATR
+graph.add_node("atr", ATR(period=14), inputs=[high, low, close])
+
+graph.add_node("dynamic_sl", AtrBasedStopLoss(multiplier=2.0),
+    inputs=[Input("atr", "1m", lookback=1)])
+
+graph.add_node("dynamic_tp", AtrBasedTakeProfit(multiplier=3.0),
+    inputs=[Input("atr", "1m", lookback=1)])
+
+# Pass as Input instead of float
+intention = FuturesTargetPositionIntention(
+    ...,
+    tp_pct=Input("dynamic_tp", "1m", lookback=1),  # Dynamic: per-symbol array
+    sl_pct=Input("dynamic_sl", "1m", lookback=1),  # Dynamic: per-symbol array
+)
+```
+
+When `tp_pct` or `sl_pct` is an `Input`, the operator reads per-symbol values from the upstream node each tick. This enables:
+- **ATR-based stops**: Wider stops in volatile markets, tighter in calm
+- **Volatility-scaled targets**: Larger TP when volatility is high
+- **Regime-dependent risk**: Different SL in trending vs mean-reverting regimes
+
+## Leverage Configuration
+
+`FuturesTargetPositionIntention` supports both **static** and **dynamic** leverage.
+
+### Static Leverage
+
+Fixed multiplier for all symbols:
+
+```python
+intention = FuturesTargetPositionIntention(
+    ...,
+    leverage=3.0,  # 3x leverage for all symbols
+)
+```
+
+### Dynamic Leverage
+
+Per-symbol leverage computed by an upstream operator:
+
+```python
+# Dynamic leverage based on volatility (lower vol → higher leverage)
+graph.add_node("vol_leverage", InverseVolLeverage(
+    max_leverage=5.0,
+    min_leverage=1.0,
+    target_vol=0.02,
+), inputs=[Input("realized_vol", "1m", lookback=1)])
+
+intention = FuturesTargetPositionIntention(
+    ...,
+    leverage=Input("vol_leverage", "1m", lookback=1),  # Per-symbol dynamic
+)
+```
+
+### Leverage Clipping
+
+Dynamic leverage values are **clipped** to safe bounds:
+
+```
+effective_leverage = min(dynamic_leverage, AccountSpec.max_leverage, venue_max_leverage)
+```
+
+| Source | Limit | Example |
+|---|---|---|
+| `venue_max_leverage` | Exchange maximum | Binance futures: 125x |
+| `AccountSpec.max_leverage` | User-configured cap | `max_leverage=10.0` in spec |
+| Dynamic operator output | Per-symbol computed | `InverseVolLeverage` output |
+
+```python
+# AccountSpec.max_leverage = 10.0, Binance venue max = 125x
+# Dynamic leverage output: [2.0, 15.0, 5.0, 200.0]
+# After clipping:          [2.0, 10.0, 5.0, 10.0]
+#                                 ↑              ↑
+#                          Clipped to AccountSpec max
+```
+
+## Relationship to Other Concepts
+
+- **[Balance Operators](/operators/balance)**: BookSize and equity feed into order operators
+- **[STATE Principle](/engine/state-principle)**: Position and cash data from execution engine
+- **[Execution Pipeline](/engine/execution-pipeline)**: How intentions become actual orders
+- **[TradingSpec](/engine/trading-spec)**: AccountSpec defines venues and execution routing

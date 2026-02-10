@@ -1,0 +1,1088 @@
+---
+title: "Performance Metrics"
+description: "Rolling and accumulated performance metrics for strategy evaluation"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+ClyptQ provides **17 rolling** and **16 accumulated** performance metrics.
+All metrics have **Role**: `METRIC` and read from `STATE:` inputs.
+
+## Rolling Metrics
+
+Computed over a sliding window of recent data.
+
+| Metric | Key Parameters | Description |
+|--------|----------------|-------------|
+| **RollingCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Compound Annual Growth Rate (CAGR) metric. |
+| **RollingCVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Conditional Value at Risk (Expected Shortfall) metric. |
+| **RollingCalmar** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Calmar Ratio metric (CAGR / Max Drawdown). |
+| **RollingCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Current Drawdown (from peak to now). |
+| **RollingDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Downside Volatility (only negative returns). |
+| **RollingDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Drawdown Duration (periods since peak). |
+| **RollingIC** | `lag=1`, `method='spearman'`, `min_periods=10` | Rolling IC between lagged signal and current returns. |
+| **RollingMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Maximum Drawdown metric. |
+| **RollingProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Profit Factor metric (gross profit / gross loss). |
+| **RollingSharpe** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sharpe Ratio metric. |
+| **RollingSortino** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sortino Ratio metric (uses downside deviation). |
+| **RollingTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Total Return metric. |
+| **RollingTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Rolling total turnover (sum) over a lookback window. |
+| **RollingTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Rolling average turnover over a lookback window. |
+| **RollingVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Value at Risk metric. |
+| **RollingVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Annualized Volatility metric. |
+| **RollingWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Win Rate metric (% of positive returns). |
+
+## Accumulated Metrics
+
+Computed over the entire strategy history (since inception).
+
+| Metric | Key Parameters | Description |
+|--------|----------------|-------------|
+| **AccumCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Accumulative CAGR (incremental, O(1) per tick). |
+| **AccumCalmar** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Calmar Ratio (incremental, O(1) per tick). |
+| **AccumCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Current Drawdown (incremental, O(1) per tick). |
+| **AccumDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Downside Volatility (incremental, O(1) per tick). |
+| **AccumDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Drawdown Duration (incremental, O(1) per tick). |
+| **AccumMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Maximum Drawdown (incremental, O(1) per tick). |
+| **AccumNumTrades** | `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative Number of Trades (incremental, O(1) per tick). |
+| **AccumProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Profit Factor (incremental, O(1) per tick). |
+| **AccumSharpe** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sharpe Ratio (incremental, O(1) per tick). |
+| **AccumSortino** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sortino Ratio (incremental, O(1) per tick). |
+| **AccumTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Total Return (incremental, O(1) per tick). |
+| **AccumTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Accumulative total turnover (incremental, O(1) per tick). |
+| **AccumTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative average turnover (incremental, O(1) per tick). |
+| **AccumVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Annualized Volatility (incremental, O(1) per tick). |
+| **AccumWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Win Rate (incremental, O(1) per tick). |
+| **Turnover** | `weights_input`, `level=MetricLevel.PORTFOLIO` | Single-tick portfolio turnover (incremental, O(1) per tick). |
+
+---
+
+## Detailed Reference
+
+---
+
+## AccumCAGR
+
+Accumulative CAGR (incremental, O(1) per tick).
+
+CAGR = (current/first)^(periods_per_year/n_periods) - 1
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+cagr = AccumCAGR(
+        Input("STATE:equity", timeframe="1m", lookback=1),
+        periods_per_year=252,
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - Stores first_value and n_periods
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/returns.py`</sub>
+
+
+---
+
+## AccumCalmar
+
+Accumulative Calmar Ratio (incremental, O(1) per tick).
+
+Calmar = CAGR / |MaxDrawdown|
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `timeframe` | `Optional[str]` | `None` |  |
+| `periods_per_year` | `Optional[int]` | `None` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+calmar = AccumCalmar(
+        Input("STATE:equity", timeframe="1h", lookback=1),
+        timeframe="1h",
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - Combines incremental CAGR and MaxDrawdown
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/calmar.py`</sub>
+
+
+---
+
+## AccumCurrentDrawdown
+
+Accumulative Current Drawdown (incremental, O(1) per tick).
+
+Tracks peak and computes current drawdown from peak.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+current_dd = AccumCurrentDrawdown(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
+
+
+---
+
+## AccumDownsideVolatility
+
+Accumulative Downside Volatility (incremental, O(1) per tick).
+
+Only tracks negative returns for downside deviation.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `timeframe` | `Optional[str]` | `None` |  |
+| `periods_per_year` | `Optional[int]` | `None` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+downside_vol = AccumDownsideVolatility(
+    Input("STATE:equity", timeframe="1h", lookback=1),
+    timeframe="1h",
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/volatility.py`</sub>
+
+
+---
+
+## AccumDrawdownDuration
+
+Accumulative Drawdown Duration (incremental, O(1) per tick).
+
+Tracks periods since peak.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+dd_duration = AccumDrawdownDuration(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
+
+
+---
+
+## AccumMaxDrawdown
+
+Accumulative Maximum Drawdown (incremental, O(1) per tick).
+
+Tracks peak and max drawdown incrementally.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+# Only needs lookback=1
+    mdd = AccumMaxDrawdown(
+        Input("STATE:equity", timeframe="1m", lookback=1),
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - Internal state maintains peak and max_dd
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
+
+
+---
+
+## AccumNumTrades
+
+Accumulative Number of Trades (incremental, O(1) per tick).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `1` |  |
+
+### Usage
+
+```python
+num_trades = AccumNumTrades(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
+
+
+---
+
+## AccumProfitFactor
+
+Accumulative Profit Factor (incremental, O(1) per tick).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+pf = AccumProfitFactor(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
+
+
+---
+
+## AccumSharpe
+
+Accumulative Sharpe Ratio (incremental, O(1) per tick).
+
+Uses Welford's online algorithm for numerically stable incremental
+mean and variance calculation.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `timeframe` | `Optional[str]` | `None` |  |
+| `periods_per_year` | `Optional[int]` | `None` |  |
+| `rf` | `float` | `0.0` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+# Only needs lookback=1 (previous tick for return calculation)
+    sharpe = AccumSharpe(
+        Input("STATE:equity", timeframe="1h", lookback=1),
+        timeframe="1h",
+    )
+
+Note:
+    - lookback=-1 is no longer required (and will be ignored)
+    - Internal state maintains running statistics
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/sharpe.py`</sub>
+
+
+---
+
+## AccumSortino
+
+Accumulative Sortino Ratio (incremental, O(1) per tick).
+
+Uses Welford's algorithm for mean and tracks downside deviation.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `timeframe` | `Optional[str]` | `None` |  |
+| `periods_per_year` | `Optional[int]` | `None` |  |
+| `rf` | `float` | `0.0` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+sortino = AccumSortino(
+        Input("STATE:equity", timeframe="1h", lookback=1),
+        timeframe="1h",
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/sortino.py`</sub>
+
+
+---
+
+## AccumTotalReturn
+
+Accumulative Total Return (incremental, O(1) per tick).
+
+Stores first value and computes (current - first) / first.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+total_ret = AccumTotalReturn(
+        Input("STATE:equity", timeframe="1m", lookback=1),
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - Stores only first_value
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/returns.py`</sub>
+
+
+---
+
+## AccumTotalTurnover
+
+Accumulative total turnover (incremental, O(1) per tick).
+
+Tracks sum of all turnovers since inception.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `turnover_input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+
+### Usage
+
+```python
+total_turnover = AccumTotalTurnover(
+        Input("turnover", timeframe="1h", lookback=1),
+    )
+
+Note:
+    - Only needs lookback=1 (current tick)
+    - Uses internal state to track running total
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
+
+
+---
+
+## AccumTurnover
+
+Accumulative average turnover (incremental, O(1) per tick).
+
+Tracks cumulative turnover and count to compute average turnover
+per rebalance.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `turnover_input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `1` |  |
+
+### Usage
+
+```python
+avg_turnover = AccumTurnover(
+        Input("turnover", timeframe="1h", lookback=1),
+    )
+
+Note:
+    - Only needs lookback=1 (current tick)
+    - Uses internal state to track running average
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
+
+
+---
+
+## AccumVolatility
+
+Accumulative Annualized Volatility (incremental, O(1) per tick).
+
+Uses Welford's algorithm for numerically stable variance.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `timeframe` | `Optional[str]` | `None` |  |
+| `periods_per_year` | `Optional[int]` | `None` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+vol = AccumVolatility(
+        Input("STATE:equity", timeframe="1h", lookback=1),
+        timeframe="1h",
+    )
+
+Note:
+    - lookback=-1 is no longer required
+    - O(1) time and space complexity per tick
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/volatility.py`</sub>
+
+
+---
+
+## AccumWinRate
+
+Accumulative Win Rate (incremental, O(1) per tick).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+win_rate = AccumWinRate(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
+
+
+---
+
+## RollingCAGR
+
+Rolling Compound Annual Growth Rate (CAGR) metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+cagr = RollingCAGR(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/returns.py`</sub>
+
+
+---
+
+## RollingCVaR
+
+Rolling Conditional Value at Risk (Expected Shortfall) metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `alpha` | `float` | `0.05` |  |
+| `min_periods` | `int` | `10` |  |
+
+### Usage
+
+```python
+cvar = RollingCVaR(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    alpha=0.05,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/risk.py`</sub>
+
+
+---
+
+## RollingCalmar
+
+Rolling Calmar Ratio metric (CAGR / Max Drawdown).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+calmar = RollingCalmar(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/calmar.py`</sub>
+
+
+---
+
+## RollingCurrentDrawdown
+
+Rolling Current Drawdown (from peak to now).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+current_dd = RollingCurrentDrawdown(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
+
+
+---
+
+## RollingDownsideVolatility
+
+Rolling Downside Volatility (only negative returns).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+downside_vol = RollingDownsideVolatility(
+    Input("STATE:equity", timeframe="1m", lookback=20),
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/volatility.py`</sub>
+
+
+---
+
+## RollingDrawdownDuration
+
+Rolling Drawdown Duration (periods since peak).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+dd_duration = RollingDrawdownDuration(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
+
+
+---
+
+## RollingIC
+
+Rolling IC between lagged signal and current returns.
+
+Requires two inputs: signal and price data.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+| `lag` | `int` | `1` |  |
+| `method` | `str` | `'spearman'` |  |
+| `min_periods` | `int` | `10` |  |
+
+### Usage
+
+```python
+ic = RollingIC(
+    inputs=[
+        Input("signal", timeframe="1m", lookback=20),
+        Input("FIELD:close", timeframe="1m", lookback=20),
+    ],
+    lag=1,
+    method="spearman",
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/ic.py`</sub>
+
+
+---
+
+## RollingMaxDrawdown
+
+Rolling Maximum Drawdown metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+mdd = RollingMaxDrawdown(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
+
+
+---
+
+## RollingProfitFactor
+
+Rolling Profit Factor metric (gross profit / gross loss).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+pf = RollingProfitFactor(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/trade_stats.py`</sub>
+
+
+---
+
+## RollingSharpe
+
+Rolling Sharpe Ratio metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `rf` | `float` | `0.0` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+sharpe = RollingSharpe(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    periods_per_year=252,
+    rf=0.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/sharpe.py`</sub>
+
+
+---
+
+## RollingSortino
+
+Rolling Sortino Ratio metric (uses downside deviation).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `rf` | `float` | `0.0` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+sortino = RollingSortino(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    periods_per_year=252,
+    rf=0.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/sortino.py`</sub>
+
+
+---
+
+## RollingTotalReturn
+
+Rolling Total Return metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+total_ret = RollingTotalReturn(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/returns.py`</sub>
+
+
+---
+
+## RollingTotalTurnover
+
+Rolling total turnover (sum) over a lookback window.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values with lookback=N |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+
+### Usage
+
+```python
+graph.add_node("rolling_total_turnover", RollingTotalTurnover(
+    Input("turnover", timeframe="1h", lookback=20),
+))
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/turnover.py`</sub>
+
+
+---
+
+## RollingTurnover
+
+Rolling average turnover over a lookback window.
+
+Computes mean turnover within the rolling window. Requires single-tick
+turnover values as input (from Turnover operator).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values with lookback=N |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `1` |  |
+
+### Usage
+
+```python
+graph.add_node("rolling_turnover", RollingTurnover(
+    Input("turnover", timeframe="1h", lookback=20),
+    min_periods=5,
+))
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/turnover.py`</sub>
+
+
+---
+
+## RollingVaR
+
+Rolling Value at Risk metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `alpha` | `float` | `0.05` |  |
+| `min_periods` | `int` | `10` |  |
+
+### Usage
+
+```python
+var = RollingVaR(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+    alpha=0.05,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/risk.py`</sub>
+
+
+---
+
+## RollingVolatility
+
+Rolling Annualized Volatility metric.
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `periods_per_year` | `int` | `252` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+vol = RollingVolatility(
+    Input("STATE:equity", timeframe="1m", lookback=20),
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/volatility.py`</sub>
+
+
+---
+
+## RollingWinRate
+
+Rolling Win Rate metric (% of positive returns).
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `min_periods` | `int` | `2` |  |
+
+### Usage
+
+```python
+win_rate = RollingWinRate(
+    Input("STATE:equity", timeframe="1m", lookback=252),
+)
+```
+
+<sub>Source: `apps/trading/operators/metrics/rolling/trade_stats.py`</sub>
+
+
+---
+
+## Turnover
+
+Single-tick portfolio turnover (incremental, O(1) per tick).
+
+Computes turnover as sum of absolute weight changes between current
+and previous tick: turnover_t = sum(|w_t - w_{t-1}|) / 2
+
+**Role**: `METRIC` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `weights_input` | `'Input'` | Required |  |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+
+### Usage
+
+```python
+turnover = Turnover(
+        Input("weights", timeframe="1h", lookback=1),
+    )
+
+Note:
+    - Only needs lookback=1 (current tick)
+    - Stores previous weights internally for comparison
+```
+
+<sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="STATE Principle" icon="database" href="/engine/state-principle">
+    How metrics access portfolio state
+  </Card>
+  <Card title="Backtesting Overview" icon="flask" href="/backtesting/overview">
+    Using metrics to evaluate backtest results
+  </Card>
+</CardGroup>

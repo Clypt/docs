@@ -1,0 +1,241 @@
+---
+title: "Exchange Specifics"
+description: "Per-exchange details for Binance, Bybit, Gateio, OKX, Coinbase, and Kraken"
+---
+
+## Overview
+
+Each supported exchange has unique characteristics that ClyptQ models precisely. This page consolidates all exchange-specific parameters in one place.
+
+## Supported Exchanges
+
+### Market Type Support
+
+| Exchange | Spot | Futures (Linear) | Max Leverage | Quote Currency | Funding Rates |
+|----------|------|-------------------|--------------|----------------|---------------|
+| **Binance** | Yes | Yes | 125× | USDT, USDC | Full history |
+| **Bybit** | Yes | Yes | 100× | USDT, USDC | Full history |
+| **Gateio** | Yes | Yes | 100× | USDT | Full history |
+| **OKX** | Yes | Yes | 100× | USDT, USDC | Full history |
+| **Coinbase** | Yes | Yes (perpetual) | 10× (CFTC) | USDC | Limited (~42 days) |
+| **Kraken** | Yes | Yes | 50× | USD | Full history |
+
+### Default Fee Rates (Non-VIP)
+
+Fees are auto-fetched via CCXT. These are default tier rates — VIP rates are lower.
+
+| Exchange | Spot Maker | Spot Taker | Futures Maker | Futures Taker |
+|----------|-----------|-----------|---------------|---------------|
+| **Binance** | 0.10% | 0.10% | 0.02% | 0.04% |
+| **Bybit** | 0.10% | 0.10% | 0.02% | 0.055% |
+| **Gateio** | 0.20% | 0.20% | 0.015% | 0.05% |
+| **OKX** | 0.08% | 0.10% | 0.02% | 0.05% |
+| **Coinbase** | 0.40% | 0.60% | 0.02% | 0.06% |
+| **Kraken** | 0.25% | 0.40% | 0.02% | 0.05% |
+
+<Info>
+VIP rates can be 2-10× lower than default rates. Use `CostModelSpec` to override with your actual tier. See [Cost Models](/backtesting/cost-models) for details.
+</Info>
+
+### Margin & Liquidation Parameters
+
+| Exchange | Default MMR | Liquidation Fee | Threshold | Formula |
+|----------|-------------|-----------------|-----------|---------|
+| **Binance** | 1.3% | 0.75% | 100% | Inverted (MMR/Equity × 100) |
+| **Bybit** | 0.5% | 0.6% | 1.0 | Normal (Equity/MMR) |
+| **Gateio** | 1.0% | 0.5% | 1.5 | Normal (more conservative) |
+| **OKX** | 0.5% | 0.5% | 100% | Inverted (same as Binance) |
+| **Coinbase** | 6.67% | 1.0% | 1.0 | Normal (CFTC regulated) |
+| **Kraken** | 2.0% | 1.5% | 1.0 | Normal (regulated) |
+
+See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation examples.
+
+### Funding Rate Schedule
+
+| Exchange | Interval | Settlement Times (UTC) | Notes |
+|----------|----------|----------------------|-------|
+| **Binance** | 8 hours | 00:00, 08:00, 16:00 | Standard |
+| **Bybit** | 8 hours | 00:00, 08:00, 16:00 | Standard |
+| **Gateio** | 8 hours | 00:00, 08:00, 16:00 | Standard |
+| **OKX** | 8 hours | 00:00, 08:00, 16:00 | Standard |
+| **Coinbase** | 1 hour | Every hour | More frequent, smaller payments |
+| **Kraken** | 4 hours | 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 | 6× per day |
+
+## Per-Exchange Details
+
+### Binance
+
+The most liquid crypto exchange with the widest selection of perpetual futures.
+
+**Key characteristics:**
+- **Market types**: Spot, USDT-M Futures (linear), COIN-M Futures (inverse)
+- **Quote currencies**: USDT (primary), USDC
+- **Max leverage**: 125× (BTC/ETH), lower for altcoins
+- **Tiered MMR**: Position size determines MMR tier (1.3% → 50% across tiers)
+- **Insurance fund**: Largest in the industry
+
+**Configuration example:**
+```python
+AccountSpec(
+    exchange="binance",
+    market_type="futures",
+    initial_cash=50_000.0,
+    max_leverage=20.0,
+    cost_model=CostModelSpec(
+        maker_fee=0.0002,    # VIP 1
+        taker_fee=0.0004,    # VIP 1
+    ),
+)
+```
+
+### Bybit
+
+Known for derivatives trading with competitive fee structures.
+
+**Key characteristics:**
+- **Market types**: Spot, USDT Perpetual, Inverse Perpetual
+- **Quote currencies**: USDT, USDC
+- **Max leverage**: 100× (BTC/ETH)
+- **Lower MMR**: 0.5% default (more aggressive than Binance)
+- **Unified margin**: Cross-asset margin pool
+
+**Configuration example:**
+```python
+AccountSpec(
+    exchange="bybit",
+    market_type="futures",
+    initial_cash=30_000.0,
+    max_leverage=10.0,
+    # No cost_model → auto-fetched from Bybit API
+)
+```
+
+### Gateio
+
+Broad altcoin selection with higher liquidation threshold.
+
+**Key characteristics:**
+- **Market types**: Spot, USDT Futures
+- **Quote currencies**: USDT
+- **Max leverage**: 100×
+- **Higher threshold**: 1.5 margin ratio (more conservative than peers)
+- **Altcoin depth**: More small-cap perpetuals than other exchanges
+
+**Important note:** Gateio's 1.5× liquidation threshold means positions are liquidated **earlier** than on Binance or Bybit. A strategy that survives on Binance may get liquidated on Gateio with the same parameters.
+
+### OKX
+
+Professional-grade exchange with Binance-style margin calculation.
+
+**Key characteristics:**
+- **Market types**: Spot, USDT Perpetual, COIN Perpetual
+- **Quote currencies**: USDT, USDC
+- **Max leverage**: 100×
+- **Inverted margin ratio**: Same formula as Binance (MMR/Equity × 100)
+- **Low MMR**: 0.5% default (aggressive)
+
+### Coinbase
+
+US-regulated exchange with CFTC oversight and strict leverage limits.
+
+**Key characteristics:**
+- **Market types**: Spot, USDC Perpetual
+- **Quote currencies**: USDC (only)
+- **Max leverage**: 10× (CFTC limit)
+- **High MMR**: 6.67% (MM = IM × ⅔)
+- **Higher fees**: Liquidation fee at 1.0%
+- **Limited funding history**: ~42 days (insufficient for long backtests)
+
+<Warning>
+Coinbase funding rate data is limited to approximately 42 days of history. Long-term backtests on Coinbase perpetual will **not** include funding rate simulation. Consider using Binance or Bybit for historically accurate futures backtests.
+</Warning>
+
+### Kraken
+
+Regulated exchange with moderate leverage and higher liquidation costs.
+
+**Key characteristics:**
+- **Market types**: Spot, USD Futures
+- **Quote currencies**: USD
+- **Max leverage**: 50×
+- **Higher MMR**: 2.0%
+- **Higher liquidation fee**: 1.5%
+- **4-hour funding**: 6 settlements per day (vs standard 3)
+
+## Order Validation Limits
+
+ClyptQ fetches minimum order sizes and lot sizes from each exchange via CCXT and enforces them during backtest:
+
+### What Gets Validated
+
+| Check | Description | Example |
+|-------|-------------|---------|
+| **Min amount** | Minimum order quantity | 0.001 BTC on Binance |
+| **Min cost** | Minimum order notional value | $10 on Gateio |
+| **Lot size** | Quantity precision/step size | 0.001 BTC step on Binance |
+| **Price precision** | Tick size for limit orders | $0.10 for BTC on Binance |
+
+### What Happens on Rejection
+
+Orders that fail validation are **rejected** (not filled), matching live behavior:
+
+```python
+# After backtest, check rejection stats
+results = driver.export_results()
+rejection_stats = results.get("rejection_stats", {})
+# → {"below_min_amount": 5, "below_min_cost": 3, "rounds_to_zero": 2}
+```
+
+If many orders are rejected, consider:
+- Increasing book size (position sizing)
+- Reducing the number of symbols (concentrated portfolio)
+- Checking minimum requirements for your specific symbols
+
+## Multi-Exchange Configuration
+
+ClyptQ natively supports multi-exchange strategies. Each account has its own cost model, margin parameters, and order validation:
+
+```python
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbols=["BTC", "ETH", "SOL"],
+        observations=[
+            OHLCVSpec(exchange=["binance", "gateio"], market_type="futures", timeframe="1m"),
+        ],
+        symbol_source_map=SymbolSourceMap({
+            "binance:futures": ["BTC", "ETH"],
+            "gateio:futures": ["SOL"],
+        }),
+    ),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[
+            AccountSpec(exchange="binance", market_type="futures", initial_cash=30_000),
+            AccountSpec(exchange="gateio", market_type="futures", initial_cash=20_000),
+        ],
+    ),
+)
+```
+
+Each venue is independently simulated:
+- **Separate cost models** (Binance fees ≠ Gateio fees)
+- **Separate liquidation** (Binance 100% threshold ≠ Gateio 150% threshold)
+- **Separate funding** (each venue's historical rates)
+- **Separate order validation** (each venue's minimum requirements)
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Cost Models" icon="receipt" href="/backtesting/cost-models">
+    How to configure and override fee structures
+  </Card>
+  <Card title="Liquidation Logic" icon="triangle-exclamation" href="/backtesting/liquidation-logic">
+    Detailed liquidation calculation with formulas
+  </Card>
+  <Card title="Funding Rates" icon="clock" href="/backtesting/funding-rates">
+    Funding rate simulation and settlement timing
+  </Card>
+  <Card title="Supported Exchanges" icon="globe" href="/platform/supported-exchanges">
+    Platform-level exchange support overview
+  </Card>
+</CardGroup>

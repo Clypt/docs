@@ -1,0 +1,247 @@
+---
+title: "Scalers"
+description: "ZScore, Rank, MinMaxScale, L1Norm, L2Norm, Softmax, Clip, Winsorize"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **11 operators** (role: various).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **ZScore** | `UNKNOWN` | `min_std=1e-08` | No |
+| **MinMaxScale** | `UNKNOWN` | `feature_range=...` | No |
+| **Rank** | `UNKNOWN` | — | No |
+| **Percentile** | `UNKNOWN` | — | No |
+| **L1Norm** | `UNKNOWN` | `long_only=False` | No |
+| **L2Norm** | `UNKNOWN` | — | No |
+| **Softmax** | `UNKNOWN` | `temperature=1.0` | No |
+| **Clip** | `UNKNOWN` | `lower=None`, `upper=None` | No |
+| **Winsorize** | `UNKNOWN` | `std_mult=3.0` | No |
+| **Demean** | `UNKNOWN` | — | No |
+| **RollingStd** | `UNKNOWN` | `window=20` | No |
+
+---
+
+## ZScore
+
+Z-Score normalization: (x - mean) / std.
+
+Example:
+    zscore = ZScore(Input("momentum", timeframe="1m", lookback=1))
+    graph.add_node("zscore", zscore)
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `min_std` | `float` | `1e-08` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## MinMaxScale
+
+Min-Max scaling to [0, 1] range.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `feature_range` | `tuple` | `...` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Rank
+
+Rank transform to [0, 1] based on position.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Percentile
+
+Percentile rank (0-100).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## L1Norm
+
+L1 normalization - scale to sum to 1 (absolute values).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `long_only` | `bool` | `False` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## L2Norm
+
+L2 normalization - scale to unit norm.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Softmax
+
+Softmax normalization with temperature.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `temperature` | `float` | `1.0` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Clip
+
+Clip values to range.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `lower` | `float` | `None` |  |
+| `upper` | `float` | `None` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Winsorize
+
+Winsorize outliers using standard deviation bounds.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `std_mult` | `float` | `3.0` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## Demean
+
+Cross-sectional demeaning: subtract mean across symbols.
+
+Example:
+    demean = Demean(Input("alpha", timeframe="1m", lookback=1))
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+---
+
+## RollingStd
+
+Rolling standard deviation per symbol.
+
+Computes std of last `window` values for each symbol.
+
+Example:
+    volatility = RollingStd(
+        Input("returns", timeframe="1h", lookback=20),
+        window=20
+    )
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `window` | `int` | `20` |  |
+
+<sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

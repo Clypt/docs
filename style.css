@@ -1,0 +1,112 @@
+/* Clypt Docs — Global Overrides */
+
+/* ===== Mermaid Dark Theme ===== */
+
+/* Node — dark slate bg, thin muted teal border, rounded */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon {
+  fill: #1e293b !important;
+  stroke: #115e59 !important;
+  stroke-width: 1px !important;
+  rx: 8 !important;
+  ry: 8 !important;
+}
+
+/* Node text — soft white */
+.mermaid .node .label,
+.mermaid .node .label div,
+.mermaid .node .label span,
+.mermaid .node .label p,
+.mermaid .node .label foreignObject div {
+  color: #cbd5e1 !important;
+  fill: #cbd5e1 !important;
+}
+
+/* Subgraph (cluster) — near-black bg, subtle teal border */
+.mermaid .cluster rect {
+  fill: #0c1322 !important;
+  stroke: #134e4a !important;
+  stroke-width: 1px !important;
+  rx: 10 !important;
+  ry: 10 !important;
+}
+
+/* Subgraph label — lighter teal for readability */
+.mermaid .cluster .label,
+.mermaid .cluster span {
+  color: #5eead4 !important;
+  fill: #5eead4 !important;
+}
+
+/* Edge (arrow) lines — soft slate */
+.mermaid .edgePath .path {
+  stroke: #475569 !important;
+  stroke-width: 1px !important;
+}
+
+/* Edge arrowheads */
+.mermaid .edgePath marker path {
+  fill: #475569 !important;
+  stroke: #475569 !important;
+}
+
+/* Edge labels — transparent bg, muted text */
+.mermaid .edgeLabel,
+.mermaid .edgeLabel rect,
+.mermaid .edgeLabel span {
+  background-color: transparent !important;
+  fill: transparent !important;
+  color: #94a3b8 !important;
+}
+
+/* ===== Hide light/dark mode toggle ===== */
+[class*="ColorModeToggle"],
+[class*="colorModeToggle"],
+[class*="color-mode"],
+[class*="ThemeToggle"],
+[class*="theme-toggle"],
+[class*="DarkMode"],
+[class*="dark-mode"],
+[class*="mode-toggle"],
+[class*="ModeToggle"],
+button[aria-label*="mode"],
+button[aria-label*="theme"],
+button[aria-label*="dark"],
+button[aria-label*="light"] {
+  display: none !important;
+}
+
+/* ===== Force black text on CTA button ===== */
+header a,
+header button,
+nav a,
+nav button {
+  /* Only apply to elements with the primary background color */
+}
+
+a[href="https://clypt.ai"],
+a[href="https://clypt.ai"] *,
+a[href="https://clypt.ai"] span,
+a[href="https://clypt.ai"] p,
+a[href="https://clypt.ai"] div {
+  color: #000000 !important;
+}
+
+[style*="background"] a,
+[style*="background"] span {
+  color: inherit;
+}
+
+:root {
+  --primary-cta-text: #000000;
+}
+
+nav a[href="https://clypt.ai"],
+nav a[href="https://clypt.ai"] > *,
+header a[href="https://clypt.ai"],
+header a[href="https://clypt.ai"] > * {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}

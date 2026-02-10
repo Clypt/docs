@@ -1,0 +1,240 @@
+---
+title: "Multi-Asset Expansion"
+description: "Roadmap for expanding beyond crypto to stocks, forex, ETFs, commodities, and more"
+---
+
+## Vision
+
+ClyptQ currently supports **crypto markets** across 5 major exchanges. The next phase expands the platform to cover **all tradable asset classes** — enabling the same `TradingSpec` framework to trade stocks, forex, futures, commodities, ETFs, and options.
+
+The same operator graph that runs a crypto momentum strategy will run an equity factor model. Change the `TradingSpec`, not the code.
+
+## Asset Classes
+
+### US Equities
+
+**Priority: High** | **Target: 2025 H2**
+
+| Broker / Data | Type | Coverage |
+|---|---|---|
+| **Interactive Brokers** | Execution + Data | 170 markets in 40+ countries. Stocks, options, futures, forex, bonds, funds. TWS API + Client Portal API + FIX protocol |
+| **Alpaca** | Execution + Data | Commission-free US stocks and options. REST + WebSocket. Paper trading. Python/Go/.NET SDKs |
+| **Charles Schwab** | Execution | US stocks, options, futures (via thinkorswim). Schwab API replacing TDA API |
+| **Tradier** | Execution | Brokerage-as-a-service. Stocks and options. Developer-friendly REST API with sandbox |
+| **tastytrade** | Execution | Stocks and options focus. Typed async Python SDK |
+| **TradeStation** | Execution | Stocks, options, futures, crypto. Sub-millisecond FIX-based fills for futures |
+
+**Integration approach:**
+```python
+# Same TradingSpec, different venue
+spec = TradingSpec(
+    data=TradingDataSpec(
+        symbol_source_map=SymbolSourceMap({
+            "alpaca:stock": ["AAPL", "GOOG", "MSFT"],
+        }),
+        observations=[
+            EquityOHLCVSpec(exchange="alpaca", market_type="stock", timeframe="1m"),
+        ],
+    ),
+    execution=TradingExecutionSpec(
+        accounts=(
+            AccountSpec(exchange="alpaca", market_type="stock", base_currency="USD"),
+        ),
+    ),
+    mode="backtest",
+)
+```
+
+### Global Equities
+
+**Priority: Medium** | **Target: 2026 H1**
+
+| Broker | Coverage |
+|---|---|
+| **Interactive Brokers** | 170 markets, 40+ countries. Multi-currency |
+| **Saxo Bank** | 40+ exchanges. SaxoOpenAPI (REST + streaming). Denmark-based |
+| **IG Group** | 17,000+ markets. CFD/spread betting. FCA + ASIC regulated |
+| **Zerodha** | India. NSE/BSE stocks and F&O. Kite Connect API |
+
+### Forex (FX)
+
+**Priority: High** | **Target: 2025 H2**
+
+| Broker / Data | Type | Coverage |
+|---|---|---|
+| **OANDA** | Execution + Data | 70+ FX pairs. v20 REST + Streaming API. Order book data, sentiment analysis |
+| **FXCM** | Execution + Data | 3 free APIs (FIX, Java, ForexConnect). Streaming prices. Sandbox environment |
+| **Dukascopy** | Data + Execution | Swiss forex bank. Tick-level historical data back to 2003. 60+ pairs. JForex API |
+| **TrueFX** | Data | Free institutional-grade tick-by-tick data. 16+ major pairs. Millisecond resolution |
+| **IG Group** | Execution | 80+ FX pairs via CFDs. WebSocket streaming. FCA regulated |
+
+### Futures & Commodities
+
+**Priority: Medium** | **Target: 2026 H1**
+
+| Venue / Data | Type | Coverage |
+|---|---|---|
+| **CME Group** | Data + Execution | CME/CBOT/NYMEX/COMEX. DataMine API for historical. Real-time WebSocket API |
+| **ICE Data Services** | Data | Energy, agricultural, financial, equity index futures |
+| **Interactive Brokers** | Execution | All major futures exchanges globally |
+| **Rithmic** | Execution | Sub-250μs latency. Direct market access. HFT-capable |
+| **CQG** | Data + Execution | 85+ global data sources, 45 exchanges. Institutional-grade |
+| **Trading Technologies** | Execution | Multi-exchange DMA. Advanced order types. Autospreaders |
+| **Barchart** | Data | Comprehensive futures/commodity data. Strong agriculture coverage |
+| **DataBento** | Data | Licensed CME/ICE distributor. Tick/L2/L3 depth. Pay-per-use |
+
+### Options
+
+**Priority: Low** | **Target: 2026 H2**
+
+| Venue / Data | Type | Coverage |
+|---|---|---|
+| **CBOE DataShop** | Data | Most comprehensive US options data. Tick-level historical. All Access APIs |
+| **OptionMetrics (IvyDB)** | Data | All US exchange-traded options from 1996. Implied volatilities, greeks. Academic standard |
+| **ORATS** | Data | 4,000+ tickers. Pre-computed IV, greeks, predictive signals |
+| **iVolatility** | Data | Global options data. 20+ years history. US, Asia, Europe |
+| **Interactive Brokers** | Execution | Equity and index options across global markets |
+| **Alpaca** | Execution | US equity options. Commission-free |
+
+### ETFs & Indices
+
+ETFs are covered through equity broker integrations (IBKR, Alpaca, Schwab). Index data through:
+
+| Source | Coverage |
+|---|---|
+| **Polygon.io** | Real-time and historical US ETF data |
+| **Tiingo** | 82,000+ securities including ETFs |
+| **Alpha Vantage** | 200,000+ tickers including global ETFs |
+| **EOD Historical Data** | ETF profiles, holdings, sector weights |
+
+## Market Data Vendors
+
+### Price Data
+
+| Vendor | Assets | Key Features |
+|---|---|---|
+| **Polygon.io** | Stocks, options, forex, crypto | Official SIP data. Tick-level trades & quotes. All US exchanges |
+| **Tiingo** | 82,000+ global securities, crypto, FX | 30+ years historical EOD. Real-time IEX. News + sentiment. From $10/mo |
+| **Alpha Vantage** | 200,000+ tickers, 20+ exchanges | 50+ technical indicators built-in. Generous free tier |
+| **Nasdaq Data Link (Quandl)** | Multi-asset | Millions of time-series from 400+ sources. Institutional-grade |
+| **Intrinio** | Stocks, options, ETFs | 50+ years historical. Real-time WebSocket. Modular pricing |
+| **EOD Historical Data** | 150,000+ tickers, 70+ exchanges | Global coverage. Fundamentals, dividends, options, macro |
+| **DataBento** | Equities, futures, options | Licensed distributor CME/ICE. 15 US exchanges. Pay-per-use |
+| **Norgate Data** | US/Australian stocks, futures, FX | Meticulously cleaned. Popular with systematic traders |
+| **Twelve Data** | 100,000+ instruments | Stocks, forex, crypto, ETF, indices. WebSocket streaming |
+| **Finnhub** | Stocks, forex, crypto | Real-time quotes, fundamentals, SEC filings. Generous free tier |
+
+### Fundamental Data
+
+| Vendor | Coverage | Key Features |
+|---|---|---|
+| **Bloomberg** | Global | Gold standard. Real-time + analytics. ~$24K/yr terminal. SAPI/DAPI for programmatic access |
+| **Refinitiv / LSEG** | Global | Tick-level data. Machine-readable news. Strong FX/fixed income |
+| **S&P Capital IQ** | Global | Financial statements, M&A, credit analytics. Excel plug-in + API |
+| **FactSet** | Global | Clean quant APIs. Portfolio analytics, risk models. ~$12K/yr |
+| **Morningstar** | US + Global | Fund ratings, equity research. Standardized financials |
+| **Compustat** | US | Academic standard. Annual/quarterly. Via WRDS |
+| **SimFin** | US + Global | 20+ years history. Standardized statements. Free tier |
+| **Financial Modeling Prep** | 70,000+ securities | SEC-sourced. Income/balance/cashflow. Free tier |
+| **SEC EDGAR** | US | Official filings. XBRL-tagged. Full-text search. Free |
+
+### Forex-Specific Data
+
+| Vendor | Features |
+|---|---|
+| **TrueFX** | Free institutional-grade tick data. Fractional pip spreads. Millisecond resolution |
+| **HistData.com** | Free historical FX archive. Tick and 1-minute bars. CSV format |
+| **CurrencyLayer** | 168 currencies. Real-time + historical exchange rates. JSON API |
+| **TraderMade** | 60+ FX pairs. REST + WebSocket. Real-time + historical |
+
+### Crypto On-Chain Data
+
+| Vendor | Focus | Key Features |
+|---|---|---|
+| **Glassnode** | BTC/ETH on-chain | 800+ metrics. Exchange flows, UTXO, SOPR, hash rate. Free + Pro tiers |
+| **CryptoQuant** | Exchange flows | Real-time inflows/outflows. Miner pressure. Derivatives positioning |
+| **Nansen** | Wallet intelligence | 500M+ labeled wallets. Smart Money tracking. Multi-chain |
+| **Dune Analytics** | Custom queries | SQL on decoded blockchain data. Community dashboards. Multi-chain |
+| **Flipside Crypto** | Enterprise analytics | 7 trillion rows. 700M+ labeled wallets. LiveQuery API |
+| **IntoTheBlock** | ML-driven analytics | On-chain signals, price predictions, DeFi analytics |
+| **Santiment** | Social + on-chain | Crowd sentiment, dev activity, on-chain. GraphQL API |
+| **Token Terminal** | Protocol fundamentals | Revenue, fees, TVL, earnings. REST API. "Bloomberg for crypto" |
+| **DefiLlama** | DeFi TVL | All DeFi protocols/chains. Yields, stablecoins. Free open API |
+| **Coin Metrics** | Network + market | Hashrate, fees, supply, OHLCV, indexes. Community + Pro API |
+| **Messari** | Research + data | Asset profiles, governance, fundraising. Free API tier |
+| **Kaiko** | Institutional crypto | 100+ exchanges, 35,000+ pairs. Indices + benchmarks. Enterprise |
+| **Amberdata** | Institutional infra | Spot, futures, options. DeFi protocol analytics. CEX/DEX |
+| **Tardis.dev** | Ultra-granular | Tick-level L2/L3 order book. 30+ exchanges. Time-machine replay |
+
+### Alternative Data
+
+| Category | Vendors |
+|---|---|
+| **News & NLP** | Benzinga (real-time financial news), RavenPack (NLP analytics, 40,000+ sources), NewsAPI (80,000+ sources), Aylien (entity extraction, sentiment) |
+| **Social Sentiment** | StockTwits (investor social network), LunarCrush (crypto social intelligence), Quiver Quantitative (Congress trades, WSB, insider txns), Sentifi (AI social/news sentiment) |
+| **Web Traffic** | SimilarWeb (website analytics), Thinknum (digital footprint — jobs, pricing, stores), Second Measure (credit card spending), Earnest Research (consumer transactions) |
+| **Satellite & Geospatial** | Orbital Insight (parking lots, oil tanks), RS Metrics (retail foot traffic), SpaceKnow (manufacturing indices), Ursa Space (commodity intelligence) |
+| **Signals & Analytics** | ExtractAlpha (pre-validated quant signals), Exabel (alternative data → KPIs), data.ai (mobile app analytics), Preqin (alternative assets) |
+
+## QuantConnect Comparison
+
+QuantConnect currently integrates with 20+ data vendors and 50+ datasets. ClyptQ's roadmap targets **130+ integrations** covering:
+
+| Category | QuantConnect | ClyptQ (Planned) |
+|---|---|---|
+| Equity pricing | AlgoSeek | Polygon, Tiingo, DataBento, Alpha Vantage, Intrinio, EODHD, Norgate |
+| Equity options | AlgoSeek | CBOE DataShop, OptionMetrics, ORATS, iVolatility, Polygon |
+| Futures | AlgoSeek | CME DataMine, ICE, DataBento, Barchart, CQG |
+| Forex | FXCM | OANDA, FXCM, Dukascopy, TrueFX, HistData |
+| Crypto | CoinAPI | Kaiko, CoinMetrics, CoinGecko, Amberdata, Tardis (+ current 5 exchanges) |
+| Fundamentals | Morningstar | Bloomberg, Refinitiv, Capital IQ, FactSet, SimFin, FMP, Compustat |
+| On-chain | — | Glassnode, CryptoQuant, Nansen, Dune, Flipside, Santiment, DefiLlama |
+| Alternative | Benzinga, Brain, Quiver | RavenPack, StockTwits, LunarCrush, SimilarWeb, Thinknum, Orbital Insight |
+| Brokers | 20 | IBKR, Alpaca, Schwab, OANDA, Rithmic, CQG, TT (+ current 5 exchanges) |
+
+## Architecture
+
+All new asset classes use the same `TradingSpec` → `TradingDriver` → `StatefulGraph` pipeline:
+
+```python
+# Crypto (current)
+SymbolSourceMap({"binance:futures": ["BTC/USDT", "ETH/USDT"]})
+
+# US Stocks (planned)
+SymbolSourceMap({"alpaca:stock": ["AAPL", "GOOG"]})
+
+# Forex (planned)
+SymbolSourceMap({"oanda:forex": ["EUR/USD", "GBP/USD"]})
+
+# Futures (planned)
+SymbolSourceMap({"ibkr:futures": ["ES", "NQ", "CL"]})
+
+# Cross-asset (planned)
+SymbolSourceMap({
+    "binance:futures": ["BTC/USDT"],
+    "alpaca:stock": ["AAPL"],
+    "oanda:forex": ["EUR/USD"],
+})
+```
+
+**Execution routing** already supports decoupling data source from execution venue:
+
+```python
+SymbolSourceMap(
+    source_symbols={"tiingo:stock": ["AAPL", "GOOG"]},
+    execution_routing={
+        "tiingo:stock:AAPL": "alpaca:stock",
+        "tiingo:stock:GOOG": "alpaca:stock",
+    }
+)
+```
+
+## Timeline
+
+| Phase | Asset Class | Status |
+|---|---|---|
+| **Current** | Crypto (Binance, Bybit, OKX, Gate.io, Coinbase) | Live |
+| **2025 H2** | US Equities (IBKR, Alpaca) + Forex (OANDA) | In Development |
+| **2026 H1** | Global Equities + Futures + Commodities | Planned |
+| **2026 H2** | Options + ETF analytics + Alternative Data | Planned |
+| **Ongoing** | Data vendor integrations (130+ planned) | Continuous |

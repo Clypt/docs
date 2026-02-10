@@ -1,0 +1,549 @@
+---
+title: "Statistics and Math"
+description: "LINEARREG, BETA, CORREL, VAR, TSF, MINMAX, Hilbert Transform"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **26 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **HT_DCPERIOD** | `INDICATOR` | — | No |
+| **HT_DCPHASE** | `INDICATOR` | — | No |
+| **HT_TRENDLINE** | `INDICATOR` | — | No |
+| **HT_TRENDMODE** | `INDICATOR` | — | No |
+| **HT_SINE** | `INDICATOR` | `output='sine'` | No |
+| **HT_PHASOR** | `INDICATOR` | `output='inphase'` | No |
+| **MAX** | `INDICATOR` | `period=30` | No |
+| **MAXINDEX** | `INDICATOR` | `period=30` | No |
+| **MIN** | `INDICATOR` | `period=30` | No |
+| **MININDEX** | `INDICATOR` | `period=30` | No |
+| **MIDPOINT** | `INDICATOR` | `period=14` | No |
+| **MIDPRICE** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **MINMAX** | `INDICATOR` | `period=30`, `output='min'` | No |
+| **MINMAXINDEX** | `INDICATOR` | `period=30`, `output='minidx'` | No |
+| **AVGPRICE** | `INDICATOR` | `open_`, `high`, `low` | No |
+| **MEDPRICE** | `INDICATOR` | `high`, `low` | No |
+| **TYPPRICE** | `INDICATOR` | `high`, `low`, `close` | No |
+| **WCLPRICE** | `INDICATOR` | `high`, `low`, `close` | No |
+| **LINEARREG** | `INDICATOR` | `period=14` | No |
+| **LINEARREG_SLOPE** | `INDICATOR` | `period=14` | No |
+| **LINEARREG_INTERCEPT** | `INDICATOR` | `period=14` | No |
+| **LINEARREG_ANGLE** | `INDICATOR` | `period=14` | No |
+| **TSF** | `INDICATOR` | `period=14` | No |
+| **CORREL** | `INDICATOR` | `input1`, `input2`, `period=30` | No |
+| **BETA** | `INDICATOR` | `input1`, `input2`, `period=5` | No |
+| **SUM** | `INDICATOR` | `period=30` | No |
+
+---
+
+## HT_DCPERIOD
+
+Hilbert Transform - Dominant Cycle Period indicator.
+
+Returns the dominant cycle period of the price data.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## HT_DCPHASE
+
+Hilbert Transform - Dominant Cycle Phase indicator.
+
+Returns the phase of the dominant cycle.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## HT_TRENDLINE
+
+Hilbert Transform - Instantaneous Trendline indicator.
+
+Returns the trendline component of the price.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## HT_TRENDMODE
+
+Hilbert Transform - Trend vs Cycle Mode indicator.
+
+Returns 1 for trend mode, 0 for cycle mode.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## HT_SINE
+
+Hilbert Transform - SineWave indicator.
+
+Returns the sine or lead sine of the dominant cycle.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+| `output` | `str` | `'sine'` | "sine" or "leadsine" |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## HT_PHASOR
+
+Hilbert Transform - Phasor Components indicator.
+
+Returns the in-phase or quadrature component.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+| `output` | `str` | `'inphase'` | "inphase" or "quadrature" |
+
+<sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
+
+
+---
+
+## MAX
+
+Highest value over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `30` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MAXINDEX
+
+Index of highest value over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `30` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MIN
+
+Lowest value over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `30` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MININDEX
+
+Index of lowest value over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `30` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MIDPOINT
+
+MidPoint over period: (highest + lowest) / 2.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `14` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MIDPRICE
+
+Midpoint Price over period: (highest high + lowest low) / 2.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required |  |
+| `low` | `'Input'` | Required |  |
+| `period` | `int` | `14` |  |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MINMAX
+
+Lowest and highest values over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `30` | Lookback period |
+| `output` | `str` | `'min'` | "min" or "max" |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## MINMAXINDEX
+
+Indices of lowest and highest values over a specified period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `30` | Lookback period |
+| `output` | `str` | `'minidx'` | "minidx" or "maxidx" |
+
+<sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
+
+
+---
+
+## AVGPRICE
+
+Average Price indicator.
+
+AVGPRICE = (Open + High + Low + Close) / 4
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `open_` | `'Input'` | Required | Open price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `close` | `'Input'` | Required | Close price input |
+
+<sub>Source: `apps/trading/operators/indicator/price.py`</sub>
+
+
+---
+
+## MEDPRICE
+
+Median Price indicator.
+
+MEDPRICE = (High + Low) / 2
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+
+<sub>Source: `apps/trading/operators/indicator/price.py`</sub>
+
+
+---
+
+## TYPPRICE
+
+Typical Price indicator.
+
+TYPPRICE = (High + Low + Close) / 3
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `close` | `'Input'` | Required | Close price input |
+
+<sub>Source: `apps/trading/operators/indicator/price.py`</sub>
+
+
+---
+
+## WCLPRICE
+
+Weighted Close Price indicator.
+
+WCLPRICE = (High + Low + Close * 2) / 4
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `close` | `'Input'` | Required | Close price input |
+
+<sub>Source: `apps/trading/operators/indicator/price.py`</sub>
+
+
+---
+
+## LINEARREG
+
+Linear Regression indicator.
+
+Returns the linear regression value at the end of the period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## LINEARREG_SLOPE
+
+Linear Regression Slope indicator.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `14` |  |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## LINEARREG_INTERCEPT
+
+Linear Regression Intercept indicator.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `14` |  |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## LINEARREG_ANGLE
+
+Linear Regression Angle indicator (in degrees).
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `14` |  |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## TSF
+
+Time Series Forecast indicator.
+
+TSF = LINEARREG + LINEARREG_SLOPE
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## CORREL
+
+Pearson's Correlation Coefficient indicator.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input1` | `'Input'` | Required | First input signal |
+| `input2` | `'Input'` | Required | Second input signal |
+| `period` | `int` | `30` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## BETA
+
+Beta indicator - measures volatility relative to market.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input1` | `'Input'` | Required | Asset returns |
+| `input2` | `'Input'` | Required | Market returns |
+| `period` | `int` | `5` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+---
+
+## SUM
+
+Summation over a period.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `period` | `int` | `30` |  |
+
+<sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

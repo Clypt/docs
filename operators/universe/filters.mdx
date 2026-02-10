@@ -1,0 +1,212 @@
+---
+title: "Universe Filters"
+description: "VolumeFilter, VolatilityFilter, PriceFilter, LiquidityFilter, DataAvailabilityFilter"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **6 operators** (role: `FILTER`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **DataAvailabilityFilter** | `FILTER` | `min_bars=50` | No |
+| **LiquidityFilter** | `FILTER` | `min_dollar_volume=1000000` | No |
+| **PriceFilter** | `FILTER` | `min_price=1.0`, `max_price=None` | No |
+| **StrataFilter** | `FILTER` | `strata`, `symbol_order`, `include=None` | No |
+| **VolatilityFilter** | `FILTER` | `min_vol=0.001`, `max_vol=1.0`, `annualize=True` | No |
+| **VolumeFilter** | `FILTER` | `min_volume=100000` | No |
+
+---
+
+## DataAvailabilityFilter
+
+Filter by minimum data availability (non-NaN bars).
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `min_bars` | `int` | `50` |  |
+
+### Usage
+
+```python
+filter = DataAvailabilityFilter(
+    Input("FIELD:close", timeframe="1m", lookback=50),
+    min_bars=50,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/data_availability.py`</sub>
+
+
+---
+
+## LiquidityFilter
+
+Filter by average dollar volume (price * volume).
+
+Requires two inputs: close price and volume.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+| `min_dollar_volume` | `float` | `1000000` |  |
+
+### Usage
+
+```python
+filter = LiquidityFilter(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=20),
+        Input("FIELD:volume", timeframe="1m", lookback=20),
+    ],
+    min_dollar_volume=1_000_000,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/liquidity.py`</sub>
+
+
+---
+
+## PriceFilter
+
+Filter by price range.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `min_price` | `float` | `1.0` |  |
+| `max_price` | `Optional[float]` | `None` |  |
+
+### Usage
+
+```python
+filter = PriceFilter(
+    Input("FIELD:close", timeframe="1m", lookback=1),
+    min_price=1.0,
+    max_price=10000.0,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/price.py`</sub>
+
+
+---
+
+## StrataFilter
+
+Filter symbols by strata (group/category) membership.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `strata` | `Dict[str, str]` | Required |  |
+| `symbol_order` | `List[str]` | Required |  |
+| `include` | `Optional[List[str]]` | `None` |  |
+| `exclude` | `Optional[List[str]]` | `None` |  |
+
+### Usage
+
+```python
+filter = StrataFilter(
+    Input("FIELD:close", timeframe="1m", lookback=1),
+    strata={"AAPL": "tech", "GOOG": "tech", "JPM": "finance"},
+    symbol_order=["AAPL", "GOOG", "JPM"],
+    include=["tech"],
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/strata.py`</sub>
+
+
+---
+
+## VolatilityFilter
+
+Filter by volatility range.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `min_vol` | `float` | `0.001` |  |
+| `max_vol` | `float` | `1.0` |  |
+| `annualize` | `bool` | `True` |  |
+| `periods_per_year` | `int` | `252` |  |
+
+### Usage
+
+```python
+filter = VolatilityFilter(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+    min_vol=0.001,
+    max_vol=1.0,
+    annualize=True,
+    periods_per_year=252,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/volatility.py`</sub>
+
+
+---
+
+## VolumeFilter
+
+Filter by minimum average trading volume.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `min_volume` | `float` | `100000` |  |
+
+### Usage
+
+```python
+filter = VolumeFilter(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+    min_volume=100_000,
+)
+```
+
+<sub>Source: `apps/trading/operators/universe/filter/volume.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

@@ -1,0 +1,159 @@
+---
+title: "Volume Indicators"
+description: "OBV, AD, ADOSC, MFI, VWAP, CCI"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **5 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **AD** | `INDICATOR` | `close`, `high`, `low` | No |
+| **ADOSC** | `INDICATOR` | `close`, `high`, `low` | No |
+| **OBV** | `INDICATOR` | `close`, `volume` | No |
+| **MFI** | `INDICATOR` | `close`, `high`, `low` | No |
+| **CCI** | `INDICATOR` | `close`, `high`, `low` | No |
+
+---
+
+## AD
+
+Chaikin A/D Line (Accumulation/Distribution) indicator.
+
+AD = Previous AD + Current Money Flow Volume
+Money Flow Multiplier = [(Close - Low) - (High - Close)] / (High - Low)
+Money Flow Volume = Multiplier * Volume
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `volume` | `'Input'` | Required | Volume input |
+
+### Usage
+
+```python
+graph.add_node("ad", AD(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=1),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=1),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=1),
+    volume=Input("FIELD:gateio:spot:volume", timeframe="1h", lookback=1),
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
+
+
+---
+
+## ADOSC
+
+Chaikin A/D Oscillator indicator.
+
+ADOSC = EMA(AD, fast) - EMA(AD, slow)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `volume` | `'Input'` | Required | Volume input |
+| `fast_period` | `int` | `3` | Fast EMA period |
+| `slow_period` | `int` | `10` | Slow EMA period |
+
+<sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
+
+
+---
+
+## OBV
+
+On Balance Volume indicator.
+
+OBV adds volume on up days and subtracts volume on down days.
+If Close > PrevClose: OBV = PrevOBV + Volume
+If Close < PrevClose: OBV = PrevOBV - Volume
+If Close = PrevClose: OBV = PrevOBV
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `volume` | `'Input'` | Required | Volume input |
+
+<sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
+
+
+---
+
+## MFI
+
+Money Flow Index indicator.
+
+MFI is like RSI but incorporates volume.
+MFI = 100 - (100 / (1 + Money Flow Ratio))
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `volume` | `'Input'` | Required | Volume input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
+
+
+---
+
+## CCI
+
+Commodity Channel Index indicator.
+
+CCI = (Typical Price - SMA(Typical Price)) / (0.015 * Mean Deviation)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `20` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

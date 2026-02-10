@@ -1,17 +1,15 @@
 ---
 title: "Operator Protocol"
-description: "Core execution infrastructure and standardized interface for all trading operations"
+description: "The standardized interface for all computation in ClyptQ — 13 roles, custom operators, self-referencing patterns, and ML/DL integration"
 ---
-
-## Overview
-
-Operator Protocol is the core interface of ClyptQ, standardizing all operations to enable **composable and verifiable** strategy development.
 
 ## Core Interface
 
+Every operator in ClyptQ implements a single method:
+
 ```python
-class Operator(ABC):
-    """Standard interface for all operations"""
+class BaseOperator(ABC):
+    role: OperatorRole  # One of 13 roles
 
     def compute(
         self,
@@ -20,276 +18,547 @@ class Operator(ABC):
         context: ComputeContext
     ) -> TaggedArray:
         """
-        Execute operation
-
-        Args:
-            data: Input data {input_id: TaggedArray}
-            timestamp: Current timestamp
-            context: Execution context (warmup status, strategy state, etc.)
-
-        Returns:
-            TaggedArray[N] where N = number of symbols
+        Receive inputs → Compute → Return output.
+        Called once per tick by the StatefulGraph.
         """
 ```
 
-**Core Principles**:
-- **Pure Functions**: Same input → Same output
-- **Type Safety**: TaggedArray for all inputs/outputs
-- **State Management**: Store state in self (lookback, warmup, etc.)
+**Three guarantees:**
+1. **Inputs**: Always `Dict[str, TaggedArray]` — buffered by the graph's [RollingBuffers](/engine/lookback-buffers)
+2. **Output**: Always [TaggedArray](/engine/tagged-array) — 4 fields (value, exists, valid, updated)
+3. **Stateless**: No mutable state between ticks. The [graph](/engine/stateful-graph) manages all state.
 
-## TaggedArray System
-
-All data is represented with **4 fields**:
+## 13 Operator Roles
 
 ```python
-@dataclass
-class TaggedArray:
-    value: np.ndarray[float]    # Actual values
-    exists: np.ndarray[bool]    # Data existence
-    valid: np.ndarray[bool]     # Value validity (not NaN)
-    updated: np.ndarray[bool]   # Updated in current tick
+class OperatorRole(str, Enum):
+    ALPHA = "alpha"           # Predictive signals (future returns)
+    FACTOR = "factor"         # Cross-sectional systematic exposure
+    TRANSFORM = "transform"   # Normalization (ZScore, Rank, Neutralize)
+    OPTIMIZER = "optimizer"   # Portfolio weight optimization (MVO, RiskParity)
+    POSITION = "position"     # Position sizing and constraints
+    FILTER = "filter"         # Boolean universe selection
+    SCORE = "score"           # Continuous ranking scores
+    INDICATOR = "indicator"   # Technical indicators (SMA, RSI, MACD)
+    METRIC = "metric"         # Performance measurement (Sharpe, drawdown)
+    BALANCE = "balance"       # Portfolio state queries (cash, equity, positions)
+    ORDER = "order"           # Order intention generation
+    SEMANTIC = "semantic"     # LLM/WebSearch (ephemeral, paper/live only)
+    CONTROL = "control"       # Conditional gates (if/and/or)
 ```
 
-**Usage Example**:
+| Role | Input | Output | Ephemeral |
+|---|---|---|---|
+| ALPHA | Price/volume data | Signal [-1, 1] | No |
+| FACTOR | Cross-sectional data | Rank/score per symbol | No |
+| TRANSFORM | Raw signals | Normalized values | No |
+| OPTIMIZER | Signals + constraints | Portfolio weights | No |
+| POSITION | Weights + constraints | Position sizes | No |
+| FILTER | Market data | Boolean (1.0 or 0.0) | No |
+| SCORE | Market data | Continuous score | No |
+| INDICATOR | Price/volume | Indicator values | No |
+| METRIC | Returns/equity | Performance metrics | No |
+| BALANCE | STATE data + prices | Portfolio state | No |
+| ORDER | Weights + state | TradingIntention | No |
+| SEMANTIC | Indicators + text | AI-generated signals | **Yes** |
+| CONTROL | Any numeric | Gate (1.0 or 0.0) | No |
+
+## Building Custom Operators
+
+ClyptQ's operator system is designed for extension. **Inherit from `BaseOperator`** and implement `compute()` to create any custom logic:
+
+### Basic Custom Operator
+
 ```python
-# OHLCV data
-close = TaggedArray(
-    value=[42000.0, 43000.0, 44000.0],
-    exists=[True, True, True],
-    valid=[True, True, False],      # 3rd value is NaN
-    updated=[True, True, False]     # 3rd is FFilled
-)
+from clyptq.apps.trading.operators.base import BaseOperator, OperatorRole
+from clyptq.system.tagged_tensor import TaggedArray
+import numpy as np
 
-# Filter valid values only
-valid_prices = close.value[close.valid]  # [42000.0, 43000.0]
-```
-
-**Benefits**:
-- **Explicit Missing Data Handling**: Distinguish NaN vs missing data
-- **FFill Tracking**: updated=False indicates FFilled value
-- **Consistent Error Handling**: All Operators handle errors the same way
-
-## Operator Roles
-
-Operators are classified into **9 roles**:
-
-**1. ALPHA**: Generate predictive signals
-```python
-class MomentumAlpha(Operator):
+class MyMomentumAlpha(BaseOperator):
+    """Custom momentum signal with configurable lookback."""
     role = OperatorRole.ALPHA
 
+    def __init__(self, fast_period: int = 5, slow_period: int = 20):
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+
     def compute(self, data, timestamp, context):
-        close = data["close"]
-        returns = (close.value / close.value[0]) - 1.0
-        return TaggedArray(value=returns, ...)
+        close = data["close"]  # TaggedArray (lookback, n_symbols)
+
+        # Fast and slow returns
+        fast_ret = close.value[-1] / close.value[-self.fast_period] - 1.0
+        slow_ret = close.value[-1] / close.value[-self.slow_period] - 1.0
+
+        # Signal: fast momentum minus slow momentum
+        signal = fast_ret - slow_ret
+
+        return TaggedArray(
+            value=signal,
+            exists=close.exists[-1],
+            valid=close.valid[-1] & close.valid[-self.slow_period],
+            updated=True
+        )
 ```
 
-**2. FACTOR**: Systematic exposure (beta, sector, etc.)
+### Register and Use
+
 ```python
-class MarketBetaFactor(Operator):
-    role = OperatorRole.FACTOR
+graph = StatefulGraph()
+
+graph.add_node("my_alpha", MyMomentumAlpha(fast_period=5, slow_period=20),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)])
+
+# Use in downstream nodes
+graph.add_node("normalized", ZScore(),
+    inputs=[Input("my_alpha", "1m", lookback=100)])
 ```
 
-**3. FILTER**: Universe selection (boolean output)
+### Custom Filter
+
 ```python
-class LiquidityFilter(Operator):
+class VolatilityRegimeFilter(BaseOperator):
+    """Only trade when volatility is within a target range."""
     role = OperatorRole.FILTER
 
-    def compute(self, data, timestamp, context):
-        volume = data["volume"]
-        meets_threshold = volume.value > self.min_volume
-        return TaggedArray(value=meets_threshold.astype(float), ...)
-```
-
-**4. INDICATOR**: Technical indicators
-```python
-class RSI(Operator):
-    role = OperatorRole.INDICATOR
-```
-
-**5. METRIC**: Performance measurement
-```python
-class SharpeRatio(Operator):
-    role = OperatorRole.METRIC
-```
-
-**6. TRANSFORM**: Data transformation
-```python
-class Returns(Operator):
-    role = OperatorRole.TRANSFORM
-```
-
-**7. OPTIMIZER**: Portfolio optimization
-```python
-class MeanVarianceOptimizer(Operator):
-    role = OperatorRole.OPTIMIZER
-```
-
-**8. SCORE**: Ranking
-```python
-class ZScore(Operator):
-    role = OperatorRole.SCORE
-```
-
-**9. SEMANTIC**: LLM integration
-```python
-class LLMScorer(Operator):
-    role = OperatorRole.SEMANTIC
-```
-
-## ComputeGraph
-
-Operators are connected in a **DAG** to compose strategies:
-
-```python
-from clyptq.system.graph import ComputeGraph, Input
-
-graph = ComputeGraph()
-
-# Add nodes
-close = graph.add_node("close", FieldExtractor("close"))
-
-sma_fast = graph.add_node("sma_fast",
-    SMA(Input("close", lookback=10), span=10)
-)
-
-sma_slow = graph.add_node("sma_slow",
-    SMA(Input("close", lookback=20), span=20)
-)
-
-signal = graph.add_node("signal",
-    CrossoverAlpha(
-        Input("sma_fast", lookback=1),
-        Input("sma_slow", lookback=1)
-    )
-)
-
-# Execute (automatic dependency resolution)
-results = graph.compute(timestamp, data_provider, context)
-alpha = results["signal"]
-```
-
-**Graph Features**:
-- **Automatic Dependency Resolution**: Topological sort determines execution order
-- **Parallel Execution**: Independent nodes execute in parallel
-- **Lookback Management**: Automatically provides historical data
-
-## Input Specification
-
-Operators declare dependencies using **Input objects**:
-
-```python
-Input(
-    node_id="close",      # Dependent node
-    lookback=20,          # Required historical data count
-    field=None            # Specific field (for multi-output)
-)
-```
-
-**Usage Examples**:
-```python
-# Simple input (current value only)
-current_close = Input("close", lookback=1)
-
-# Historical data required (20 ticks)
-historical_close = Input("close", lookback=20)
-
-# Specific field from multi-output
-portfolio_weights = Input("optimizer", lookback=1, field="weights")
-```
-
-## Warmup System
-
-Operators automatically handle **warmup periods**:
-
-```python
-class SMA(Operator):
-    def __init__(self, input_close: Input, span: int):
-        self.span = span
-        self._buffer = []  # Warmup buffer
+    def __init__(self, min_vol: float = 0.01, max_vol: float = 0.05):
+        self.min_vol = min_vol
+        self.max_vol = max_vol
 
     def compute(self, data, timestamp, context):
         close = data["close"]
 
-        # During warmup
-        if len(self._buffer) < self.span:
-            self._buffer.append(close.value)
-            return self._get_warmup_output(close)
+        # Realized volatility
+        returns = np.diff(close.value, axis=0) / close.value[:-1]
+        vol = np.std(returns, axis=0)
 
-        # Normal computation
-        self._buffer.append(close.value)
-        self._buffer = self._buffer[-self.span:]  # Keep last N
+        # Filter: within regime
+        in_regime = ((vol >= self.min_vol) & (vol <= self.max_vol)).astype(float)
 
-        sma = np.mean(self._buffer, axis=0)
-        return TaggedArray(value=sma, exists=close.exists,
-                          valid=True, updated=True)
+        return TaggedArray(
+            value=in_regime,
+            exists=close.exists[-1],
+            valid=close.valid[-1],
+            updated=True
+        )
 ```
 
-**Warmup Handling**:
-- `context.is_warmup`: Whether in warmup period
-- `_get_warmup_output()`: Default output during warmup (usually NaN)
-- Semantic Operators skip API calls during warmup
+### Custom Metric
 
-## Best Practices
-
-**1. Maintain Pure Functions**
 ```python
-# Good: Store state in self only
-class MyOperator(Operator):
-    def __init__(self):
-        self._state = []
+class CustomSharpe(BaseOperator):
+    """Custom Sharpe with configurable risk-free rate."""
+    role = OperatorRole.METRIC
+
+    def __init__(self, risk_free_rate: float = 0.0, annualization: int = 252):
+        self.rf = risk_free_rate
+        self.ann = annualization
 
     def compute(self, data, timestamp, context):
-        # Pure computation
-        result = self._process(data)
-        self._state.append(result)  # Store state in self
-        return result
+        returns = data["returns"]
+
+        excess = returns.value - self.rf / self.ann
+        if len(excess) < 2:
+            return TaggedArray.empty(n=1)
+
+        sharpe = np.mean(excess) / np.std(excess) * np.sqrt(self.ann)
+
+        return TaggedArray(
+            value=np.array([sharpe]),
+            exists=np.array([True]),
+            valid=np.array([True]),
+            updated=True
+        )
 ```
 
-**2. TaggedArray Validation**
+**Any Python logic** can go inside `compute()` — NumPy, SciPy, PyTorch, sklearn, custom algorithms. The operator protocol only requires TaggedArray in, TaggedArray out.
+
+## Self-Referencing Operators
+
+Some operators need their **own previous output** as input. The classic example is EMA:
+
+```
+EMA(t) = α × close(t) + (1 - α) × EMA(t-1)
+```
+
+ClyptQ supports self-referencing by declaring the operator's own node name as an input:
+
+```python
+graph.add_node("ema_12", EMA(span=12),
+    inputs=[
+        Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=1),  # Current price
+        Input("ema_12", "1m", lookback=1),  # Self-reference: own previous output
+    ]
+)
+```
+
+### How It Works
+
+1. **Topological sort excludes self-edges** — The graph's Kahn's algorithm ignores self-references when computing execution order, preventing false cycle detection
+2. **Buffer seeding** — On the first tick, the self-reference buffer contains the initial/warmup value (typically `valid=False`)
+3. **Each tick** — After compute, the output is written to the self-reference buffer for the next tick
+
+```python
+class EMA(BaseOperator):
+    role = OperatorRole.INDICATOR
+
+    def __init__(self, span: int):
+        self.alpha = 2.0 / (span + 1)
+
+    def compute(self, data, timestamp, context):
+        close = data["close"]        # Current price
+        prev_ema = data["ema_12"]    # Own previous output
+
+        if not prev_ema.valid.any():
+            # First tick: use close as initial EMA
+            return TaggedArray(value=close.value, exists=close.exists,
+                             valid=close.valid, updated=True)
+
+        # EMA formula
+        ema = self.alpha * close.value + (1 - self.alpha) * prev_ema.value
+
+        return TaggedArray(value=ema, exists=close.exists,
+                         valid=close.valid & prev_ema.valid, updated=True)
+```
+
+### Self-Reference Use Cases
+
+| Operator | Formula | Self-Reference |
+|---|---|---|
+| EMA | α × x + (1-α) × EMA(t-1) | Previous EMA value |
+| KAMA | Adaptive MA with efficiency ratio | Previous KAMA value |
+| Accumulative metrics | Running sum/mean | Previous accumulator |
+| Kalman filter | State estimate + prediction | Previous state estimate |
+| EWMA Volatility | λσ²(t-1) + (1-λ)r²(t) | Previous variance estimate |
+
+## Iterative Computation Within compute()
+
+Operators are called **once per tick**, but the `compute()` method can contain **arbitrary Python logic** including loops. For algorithms that require iteration (numerical solvers, differential equations, convergence-based methods), you implement the full iteration **within a single `compute()` call**:
+
+```python
+class NewtonRaphsonOptimizer(BaseOperator):
+    """Solve optimization via Newton's method within a single tick."""
+    role = OperatorRole.OPTIMIZER
+
+    def __init__(self, max_iter: int = 100, tol: float = 1e-8):
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def compute(self, data, timestamp, context):
+        signals = data["signals"]
+
+        # Full iterative solver within one compute() call
+        x = np.zeros(signals.value.shape[-1])
+
+        for i in range(self.max_iter):
+            grad = self._gradient(x, signals.value)
+            hess = self._hessian(x, signals.value)
+            step = np.linalg.solve(hess, -grad)
+            x = x + step
+
+            if np.linalg.norm(step) < self.tol:
+                break  # Converged
+
+        return TaggedArray(value=x, exists=signals.exists[-1],
+                         valid=signals.valid[-1], updated=True)
+```
+
+### Differential Equation Solvers
+
+```python
+class OUProcessEstimator(BaseOperator):
+    """Estimate Ornstein-Uhlenbeck process parameters via Euler method."""
+    role = OperatorRole.INDICATOR
+
+    def __init__(self, dt: float = 1/1440, n_steps: int = 50):
+        self.dt = dt
+        self.n_steps = n_steps
+
+    def compute(self, data, timestamp, context):
+        spread = data["spread"]
+
+        # Iterative Euler integration within compute()
+        theta, mu, sigma = self._estimate_params(spread.value)
+        x = spread.value[-1]
+
+        simulated = np.zeros((self.n_steps, spread.value.shape[-1]))
+        for step in range(self.n_steps):
+            dx = theta * (mu - x) * self.dt + sigma * np.sqrt(self.dt) * np.random.randn(*x.shape)
+            x = x + dx
+            simulated[step] = x
+
+        expected_reversion = mu - spread.value[-1]
+        return TaggedArray(value=expected_reversion, exists=spread.exists[-1],
+                         valid=spread.valid[-1], updated=True)
+```
+
+### Key Principle
+
+You don't need incremental implementation for iterative algorithms. A single `compute()` call can run `for` loops, `while` loops, convergence checks — any Python control flow. The graph calls `compute()` once per tick, but **what happens inside is unrestricted**.
+
+This means:
+- **Newton-Raphson** for portfolio optimization — iterate to convergence within `compute()`
+- **Runge-Kutta** for ODE solvers — full integration step per tick
+- **Monte Carlo** simulation — generate thousands of paths within `compute()`
+- **Gradient descent** for online learning — run N steps per tick
+- **ADMM / convex optimization** — full solver per tick
+
+## Execution Responsibility Separation
+
+ClyptQ separates execution into three **memoryless** components:
+
+```mermaid
+flowchart LR
+    OG["Operator Graph<br>Signal → Weights → Position<br><br>Stateless<br>(pure functions)"] --> IN["Intention Node<br>Weights → Delta → Intention<br><br>Stateless<br>(delta compute)"]
+    IN --> EX["Executor<br>Delta → Order → Fill → STATE<br><br>Memoryless<br>(no history)"]
+    EX -- "STATE feedback" --> OG
+```
+
+### Memoryless Execution
+
+The executor has **no memory** of past orders or fills. Every tick:
+1. Receives `TradingIntention` from the intention node
+2. Computes delta from current STATE (positions, cash)
+3. Generates and executes order
+4. Updates STATE with fill result
+5. **Forgets everything** — next tick starts fresh
+
+This means **all metrics and tracking are done by operators in the graph**, not by the executor. Want a custom win rate calculation? Write a metric operator. Want drawdown tracking? Write a metric operator. The execution layer is a pure state machine with no opinion about performance measurement.
+
+### Feedback Loop Control
+
+Because STATE flows back into the graph as input, strategies can create **closed-loop feedback**:
+
+```python
+# Signal -> Intention -> Fill -> STATE -> Equity -> Risk Adjustment -> Signal
+#   ^                                                                    |
+#   +----------------------- Feedback loop via STATE -------------------+
+
+graph.add_node("signal", MomentumAlpha(), inputs=[close])
+graph.add_node("equity", EquityCalculator(), inputs=[state_inputs...])
+graph.add_node("drawdown", RollingDrawdown(),
+    inputs=[Input("equity", "1m", lookback=252)])
+
+# Risk adjustment based on drawdown (feedback from execution state)
+graph.add_node("risk_scaled_signal", RiskAdjuster(),
+    inputs=[
+        Input("signal", "1m", lookback=1),
+        Input("drawdown", "1m", lookback=1),
+    ])
+
+graph.add_node("intention", TargetPositionIntention(),
+    inputs=[
+        Input("risk_scaled_signal", "1m", lookback=1),
+        Input("book_size", "1m", lookback=1),
+        Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
+        Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
+    ])
+```
+
+**Feedback control examples:**
+- **Drawdown-based de-leveraging**: Reduce position size when drawdown exceeds threshold
+- **Equity curve trading**: Pause trading during losing streaks
+- **Adaptive position sizing**: Scale based on realized equity volatility
+- **Kelly criterion**: Dynamically size based on accumulated win rate and payoff ratio
+- **Regime switching**: Change strategy behavior based on tracked portfolio metrics
+
+## ML and DL Integration
+
+### Online Learning (Per-Tick)
+
+For models that update incrementally, the tick-by-tick architecture is natural:
+
+```python
+class OnlineLinearRegression(BaseOperator):
+    """Online learning: update model at each tick."""
+    role = OperatorRole.ALPHA
+
+    def __init__(self, n_features: int, learning_rate: float = 0.01):
+        self.lr = learning_rate
+        self.weights = np.zeros(n_features)
+        self.bias = 0.0
+
+    def compute(self, data, timestamp, context):
+        features = data["features"]    # (lookback, n_features, n_symbols)
+        target = data["returns"]       # (lookback, n_symbols)
+
+        if features.valid[-1].any():
+            X = features.value[-1]
+            y = target.value[-1]
+
+            # Online gradient step
+            pred = self.weights @ X + self.bias
+            error = pred - y
+            self.weights -= self.lr * (error @ X.T) / X.shape[1]
+            self.bias -= self.lr * np.mean(error)
+
+            prediction = self.weights @ X + self.bias
+        else:
+            prediction = np.zeros(features.value.shape[-1])
+
+        return TaggedArray(value=prediction, exists=features.exists[-1],
+                         valid=features.valid[-1], updated=True)
+```
+
+### Batch Data Collection for Offline Training
+
+ClyptQ processes data **tick-by-tick**, so standard batch DL training doesn't work directly in the graph. However, you can use a **collector node** to accumulate all data, then train after the iteration completes:
+
+```python
+class DataCollector(BaseOperator):
+    """Collect tick data for offline batch processing after run."""
+    role = OperatorRole.INDICATOR
+
+    def __init__(self):
+        self.collected_features = []
+        self.collected_targets = []
+
+    def compute(self, data, timestamp, context):
+        features = data["features"]
+        target = data["returns"]
+
+        if features.valid[-1].any():
+            self.collected_features.append(features.value[-1].copy())
+            self.collected_targets.append(target.value[-1].copy())
+
+        # Placeholder: return zero signal during collection
+        return TaggedArray.full(n=features.value.shape[-1], fill_value=0.0)
+```
+
+After `driver.run()` completes, all data is available for batch processing:
+
+```python
+# Run backtest to collect all data
+driver = TradingDriver.from_spec(spec)
+results = driver.run()
+
+# Extract collected data
+collector = graph.get_node("collector").operator
+X = np.array(collector.collected_features)  # (n_ticks, n_features, n_symbols)
+y = np.array(collector.collected_targets)   # (n_ticks, n_symbols)
+
+# Now train with standard batch processing
+import torch
+dataset = torch.utils.data.TensorDataset(torch.tensor(X), torch.tensor(y))
+loader = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=True)
+# ... standard PyTorch training loop
+```
+
+<Warning>
+The collector pattern is **not recommended** for production strategies. It breaks the stateless operator principle and stores unbounded data in memory. Use it only for research and prototyping. For production, prefer online learning or pre-trained model inference.
+</Warning>
+
+### Pre-Trained Model Inference (Recommended for DL)
+
+Train externally, load model, run inference per tick:
+
+```python
+class TransformerAlpha(BaseOperator):
+    """Load pre-trained model and run inference per tick."""
+    role = OperatorRole.ALPHA
+
+    def __init__(self, model_path: str, lookback: int = 60):
+        import torch
+        self.model = torch.load(model_path)
+        self.model.eval()
+        self.lookback = lookback
+
+    def compute(self, data, timestamp, context):
+        close = data["close"]     # (lookback, n_symbols)
+        volume = data["volume"]   # (lookback, n_symbols)
+
+        if close.value.shape[0] < self.lookback:
+            return TaggedArray.empty(n=close.value.shape[-1])
+
+        import torch
+        features = np.stack([close.value, volume.value], axis=-1)
+        tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+
+        with torch.no_grad():
+            prediction = self.model(tensor).squeeze().numpy()
+
+        return TaggedArray(value=prediction, exists=close.exists[-1],
+                         valid=close.valid[-1], updated=True)
+```
+
+### Reinforcement Learning
+
+RL agents fit naturally — each tick is an environment step:
+
+```python
+class RLAgent(BaseOperator):
+    """RL agent: observe state, take action (position target) each tick."""
+    role = OperatorRole.ALPHA
+
+    def __init__(self, model_path: str, train: bool = False):
+        self.agent = load_agent(model_path)
+        self.train = train
+        self.prev_equity = None
+
+    def compute(self, data, timestamp, context):
+        close = data["close"]
+        position = data["position"]
+        equity = data["equity"]
+
+        # Construct state
+        state = np.concatenate([close.value[-1], position.value, equity.value])
+
+        # Agent action
+        action = self.agent.act(state)
+
+        if self.train and self.prev_equity is not None:
+            reward = (equity.value[0] - self.prev_equity) / self.prev_equity
+            self.agent.learn(state, action, reward)
+
+        self.prev_equity = equity.value[0]
+
+        return TaggedArray(value=action, exists=close.exists[-1],
+                         valid=close.valid[-1], updated=True)
+```
+
+## Ephemeral Operators
+
+Operators marked `ephemeral = True` make external API calls (LLM, web search) and **cannot reproduce the same output for the same historical input**:
+
+- Skip backtest validation
+- Only run in **paper** or **live** mode
+- Skip warmup (return neutral values)
+- Should be gated with [Control operators](/operators/control) for cost control
+
+See [Semantic Operators](/operators/semantic) for detailed documentation.
+
+## ComputeContext
+
+The `context` parameter provides execution metadata:
+
 ```python
 def compute(self, data, timestamp, context):
-    input_data = data["input"]
-
-    # Process valid values only
-    if not input_data.valid.any():
-        return self._get_warmup_output(input_data)
-
-    valid_values = input_data.value[input_data.valid]
-    # Perform computation
-```
-
-**3. Error Handling**
-```python
-def compute(self, data, timestamp, context):
-    try:
-        result = self._compute_impl(data)
-        return result
-    except Exception as e:
-        logger.error(f"Operator failed: {e}")
-        # Return safe default value
-        return self._get_warmup_output(data["input"])
-```
-
-**4. Efficient Lookback**
-```python
-# Good: Request only what's needed
-Input("close", lookback=20)  # SMA(20) needs 20 ticks
-
-# Bad: Excessive lookback
-Input("close", lookback=1000)  # Wastes memory
+    context.is_warmup     # bool: True during warmup phase
+    context.tick_count    # int: Current tick number
+    context.mode          # str: "backtest", "paper", "live"
 ```
 
 ## Performance Considerations
 
-**Operator Execution Cost**:
-- **INDICATOR/TRANSFORM**: O(N) where N = number of symbols
-- **ALPHA/FACTOR**: O(N × L) where L = lookback
-- **OPTIMIZER**: O(N²) or O(N³) (depends on optimization algorithm)
-- **SEMANTIC**: API latency (100-1000ms)
+| Role | Typical Complexity | Notes |
+|---|---|---|
+| INDICATOR/TRANSFORM | O(N) | N = number of symbols |
+| ALPHA/FACTOR | O(N × L) | L = lookback length |
+| OPTIMIZER | O(N²) to O(N³) | Depends on algorithm |
+| METRIC | O(1) to O(W) | Accumulative = O(1), Rolling = O(W) |
+| SEMANTIC | O(API latency) | 100ms-5s per call, gate for cost |
+| BALANCE/ORDER | O(N) | Simple state queries |
 
-**Optimization Tips**:
-1. Minimize lookback
-2. Cache expensive computations (store in self)
-3. Skip Semantic Operators during warmup
-4. Use vectorized operations (NumPy)
+**Tips:**
+- Use NumPy vectorized operations (avoid Python loops over symbols)
+- Minimize lookback — request only what the algorithm needs
+- Cache expensive intermediate results in `self` (e.g., covariance matrices)
+- For ML inference, batch symbols together in one forward pass
+
+## Relationship to Other Concepts
+
+- **[TaggedArray](/engine/tagged-array)**: All inputs and outputs
+- **[StatefulGraph](/engine/stateful-graph)**: Manages operator execution and state
+- **[Lookback Buffers](/engine/lookback-buffers)**: How operators receive historical data
+- **[FIELD Data Principle](/engine/field-data-principle)**: Market data inputs
+- **[STATE Principle](/engine/state-principle)**: Portfolio state inputs
+- **[Operator Reference](/operators/overview)**: Complete catalog of 213+ built-in operators

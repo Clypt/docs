@@ -1,0 +1,103 @@
+---
+title: "B2B Quant Solutions"
+description: "Enterprise quant infrastructure — Quant DB, LLM agent teams, and white-label engine"
+---
+
+## Overview
+
+Clypt's B2B offering provides **institutional-grade quantitative infrastructure** for hedge funds, prop trading firms, and fintech companies. Built on the same ClyptQ engine that powers the consumer platform, B2B solutions add enterprise features: dedicated databases, LLM-powered research automation, and white-label deployment.
+
+## Products
+
+### Quant DB
+
+A purpose-built database optimized for quantitative research:
+
+| Feature | Description |
+|---------|-------------|
+| **Time-series storage** | Columnar Parquet-based storage optimized for OHLCV and tick data |
+| **Factor library** | Pre-computed factor exposures (momentum, value, volatility, etc.) |
+| **Alternative data** | News, on-chain analytics, social sentiment, funding rates |
+| **API access** | REST and Python SDK for direct integration |
+| **Cross-asset** | Crypto, equities, prediction markets in unified schema |
+
+```python
+# Planned API (subject to change)
+from clyptq.enterprise import QuantDB
+
+db = QuantDB(api_key="...")
+data = db.query(
+    symbols=["BTC/USDT", "ETH/USDT"],
+    fields=["close", "volume", "funding_rate"],
+    start="2024-01-01",
+    end="2024-12-31",
+    timeframe="1h",
+)
+```
+
+### LLM Agent Teams
+
+Autonomous LLM-powered agent teams that accelerate the quant development lifecycle:
+
+| Agent | Role | What It Does |
+|-------|------|-------------|
+| **Research Agent** | Ideation | Scans academic papers, generates alpha hypotheses |
+| **Builder Agent** | Implementation | Writes ClyptQ strategies from natural language specs |
+| **Backtest Agent** | Validation | Runs backtests, analyzes results, suggests improvements |
+| **Risk Agent** | Risk Management | Reviews strategies for risk exposure, suggests constraints |
+| **Optimizer Agent** | Tuning | Hyperparameter optimization across strategy parameters |
+
+These agents collaborate in a pipeline:
+
+```
+Research → Builder → Backtest → Risk Review → Optimization → Deploy
+```
+
+### White-Label Engine
+
+License the ClyptQ engine for proprietary use:
+
+| Feature | Description |
+|---------|-------------|
+| **Self-hosted** | Deploy on your own infrastructure |
+| **Custom operators** | Extend the operator library with proprietary logic |
+| **Private marketplace** | Internal strategy sharing without public exposure |
+| **Custom integrations** | Connect to internal data sources and execution venues |
+| **Dedicated support** | SLA-backed technical support and onboarding |
+
+## Enterprise Pricing
+
+| Tier | Features | Model |
+|------|----------|-------|
+| **Quant DB** | Data access + API | Usage-based (query volume) |
+| **Agent Teams** | LLM agents + compute | Subscription + compute costs |
+| **White-Label** | Full engine license | Annual contract |
+| **Custom** | Tailored solutions | Negotiated |
+
+## Target Customers
+
+| Segment | Use Case |
+|---------|----------|
+| **Crypto funds** | Replace in-house backtesting infra with ClyptQ |
+| **Prop trading firms** | LLM agents for strategy generation at scale |
+| **Fintech startups** | White-label trading engine for their products |
+| **Research labs** | Quant DB for academic/commercial research |
+
+## Timeline
+
+B2B solutions launch in **Phase 4** of the roadmap:
+
+1. **Phase 3**: Quant DB beta (data marketplace foundation)
+2. **Phase 4**: LLM Agent Teams + White-Label Engine
+3. **Ongoing**: Custom enterprise solutions
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Investor Overview" icon="chart-pie" href="/platform/investor-overview">
+    Revenue model and growth strategy
+  </Card>
+  <Card title="Rust Conversion" icon="bolt" href="/roadmap/rust-conversion">
+    Performance improvements for enterprise workloads
+  </Card>
+</CardGroup>

@@ -1,0 +1,241 @@
+---
+title: "Cross-Sectional Factors"
+description: "8 risk factors for portfolio construction"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **8 operators** (role: `FACTOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **LiquidityFactor** | `FACTOR` | — | No |
+| **MeanReversionFactor** | `FACTOR` | — | No |
+| **MomentumFactor** | `FACTOR` | — | No |
+| **ShortTermReversalFactor** | `FACTOR` | — | No |
+| **QualityFactor** | `FACTOR` | — | No |
+| **SizeFactor** | `FACTOR` | — | No |
+| **VolatilityFactor** | `FACTOR` | `annualize=False` | No |
+| **VolumeTrendFactor** | `FACTOR` | — | No |
+
+---
+
+## LiquidityFactor
+
+Liquidity Factor (Inverse of Amihud Illiquidity).
+
+Requires two inputs: close and volume.
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List['Input']` | Required |  |
+
+### Usage
+
+```python
+factor = LiquidityFactor(
+    inputs=[
+        Input("FIELD:close", timeframe="1m", lookback=21),
+        Input("FIELD:volume", timeframe="1m", lookback=21),
+    ],
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/liquidity.py`</sub>
+
+
+---
+
+## MeanReversionFactor
+
+Mean Reversion Factor (Z-score of price deviation).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = MeanReversionFactor(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/mean_reversion.py`</sub>
+
+
+---
+
+## MomentumFactor
+
+Momentum Factor (rate of price change).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = MomentumFactor(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/momentum.py`</sub>
+
+
+---
+
+## ShortTermReversalFactor
+
+Short-Term Reversal Factor (5-day return reversal).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = ShortTermReversalFactor(
+    Input("FIELD:close", timeframe="1m", lookback=5),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/momentum.py`</sub>
+
+
+---
+
+## QualityFactor
+
+Quality Factor (Volume Stability Proxy - lower CV = higher quality).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = QualityFactor(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/quality.py`</sub>
+
+
+---
+
+## SizeFactor
+
+Size Factor (volume-based size proxy).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = SizeFactor(
+    Input("FIELD:volume", timeframe="1m", lookback=20),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/size.py`</sub>
+
+
+---
+
+## VolatilityFactor
+
+Volatility Factor (std of returns).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `annualize` | `bool` | `False` |  |
+
+### Usage
+
+```python
+factor = VolatilityFactor(
+    Input("FIELD:close", timeframe="1m", lookback=21),
+    annualize=False,
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/volatility.py`</sub>
+
+
+---
+
+## VolumeTrendFactor
+
+Volume Trend Factor (rate of change in volume).
+
+**Role**: `FACTOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
+
+```python
+factor = VolumeTrendFactor(
+    Input("FIELD:volume", timeframe="1m", lookback=10),
+)
+```
+
+<sub>Source: `apps/trading/operators/signal/factor/volume.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

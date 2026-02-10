@@ -1,0 +1,528 @@
+---
+title: "Utility Operators"
+description: "Identity, Resample, FieldMerge, SymbolSelect, SymbolDrop, Constant, IntervalGate"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **25 operators** (role: various).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **IntervalGate** | `UNKNOWN` | `trigger_input`, `interval='5m'`, `output_timeframe=None` | No |
+| **ZScore** | `UNKNOWN` | `window=20`, `axis='Time'`, `ddof=1` | No |
+| **Demean** | `UNKNOWN` | `window=20`, `axis='Time'` | No |
+| **Scale** | `UNKNOWN` | `window=20`, `axis='Time'`, `method='std'` | No |
+| **Rank** | `UNKNOWN` | `window=1`, `axis='Symbol'` | No |
+| **Quantile** | `UNKNOWN` | `q=0.5`, `window=20`, `axis='Time'` | No |
+| **Resample** | `UNKNOWN` | `rule='1h'`, `method='last'`, `min_valid_ratio=0.5` | No |
+| **Mean** | `UNKNOWN` | `window=20`, `axis='Time'` | No |
+| **Std** | `UNKNOWN` | `window=20`, `axis='Time'`, `ddof=1` | No |
+| **Sum** | `UNKNOWN` | `window=20`, `axis='Time'` | No |
+| **Min** | `UNKNOWN` | `window=20`, `axis='Time'` | No |
+| **Max** | `UNKNOWN` | `window=20`, `axis='Time'` | No |
+| **Correlation** | `UNKNOWN` | `window=20` | No |
+| **Covariance** | `UNKNOWN` | `window=20` | No |
+| **TopN** | `UNKNOWN` | `n=10`, `method='largest'`, `axis='__primary__'` | No |
+| **TopNPercent** | `UNKNOWN` | `pct=0.1`, `method='largest'`, `axis='__primary__'` | No |
+| **Delta** | `UNKNOWN` | `periods=1`, `axis='Time'` | No |
+| **Log** | `UNKNOWN` | `window=1`, `axis='Time'` | No |
+| **Clip** | `UNKNOWN` | `min_val=None`, `max_val=None`, `window=1` | No |
+| **Identity** | `UNKNOWN` | `input_spec=None`, `window=1`, `axes=None` | No |
+| **Constant** | `UNKNOWN` | `value`, `axes=None` | No |
+| **Shift** | `UNKNOWN` | `periods=1`, `axis='Time'` | No |
+| **PctChange** | `UNKNOWN` | `periods=1`, `axis='Time'` | No |
+| **CumSum** | `UNKNOWN` | `window=None`, `axis='Time'` | No |
+| **CumProd** | `UNKNOWN` | `window=None`, `axis='Time'` | No |
+
+---
+
+## IntervalGate
+
+Time-based gate that opens on timeframe boundaries.
+
+Outputs 1.0 when current timestamp is on the specified interval boundary,
+0.0 otherwise. Use this to control execution frequency of operators
+that don't have internal data to aggregate (e.g., WebSearch, LLM).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `trigger_input` | `Input` | Required |  |
+| `interval` | `str` | `'5m'` |  |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe (defaults to trigger input timeframe) |
+
+<sub>Source: `operator/interval_gate.py`</sub>
+
+
+---
+
+## ZScore
+
+Standardize to mean=0, std=1.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+| `ddof` | `int` | `1` |  |
+
+<sub>Source: `operator/normalization.py`</sub>
+
+
+---
+
+## Demean
+
+Subtract mean from values.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/normalization.py`</sub>
+
+
+---
+
+## Scale
+
+Divide by std or range.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+| `method` | `str` | `'std'` |  |
+
+<sub>Source: `operator/normalization.py`</sub>
+
+
+---
+
+## Rank
+
+Fractional rank in [0, 1].
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Symbol'` |  |
+
+<sub>Source: `operator/ranking.py`</sub>
+
+
+---
+
+## Quantile
+
+Compute q-th quantile.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | `float` | `0.5` |  |
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/ranking.py`</sub>
+
+
+---
+
+## Resample
+
+Time-axis compression (1m -> 1h, 1d, etc.).
+
+Converts higher-frequency data to lower-frequency.
+Must be used explicitly when timeframe conversion is needed.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | close", timeframe="1m", lookback=60), |
+| `rule` | `str` | `'1h'` |  |
+| `method` | `Literal['last', 'first', 'mean', 'sum', 'min', 'max', 'ohlc']` | `'last'` | Aggregation method |
+| `min_valid_ratio` | `float` | `0.5` | Minimum ratio of valid ticks required |
+
+<sub>Source: `operator/resample.py`</sub>
+
+
+---
+
+## Mean
+
+Mean along specified axis.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Std
+
+Standard deviation operator.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+| `ddof` | `int` | `1` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Sum
+
+Sum operator.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Min
+
+Minimum operator.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Max
+
+Maximum operator.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Correlation
+
+Correlation over Time axis (requires two inputs).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## Covariance
+
+Covariance over Time axis (requires two inputs).
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `20` |  |
+
+<sub>Source: `operator/statistics.py`</sub>
+
+
+---
+
+## TopN
+
+Select top/bottom N symbols by ranking.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `n` | `int` | `10` |  |
+| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` |  |
+| `axis` | `str` | `'__primary__'` |  |
+
+<sub>Source: `operator/topn.py`</sub>
+
+
+---
+
+## TopNPercent
+
+Select top N% of symbols.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `pct` | `float` | `0.1` |  |
+| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` |  |
+| `axis` | `str` | `'__primary__'` |  |
+
+<sub>Source: `operator/topn.py`</sub>
+
+
+---
+
+## Delta
+
+Difference between current and lagged values.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `periods` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/transform.py`</sub>
+
+
+---
+
+## Log
+
+Natural logarithm transform.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/transform.py`</sub>
+
+
+---
+
+## Clip
+
+Limit values to specified range.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_val` | `float` | `None` |  |
+| `max_val` | `float` | `None` |  |
+| `window` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/transform.py`</sub>
+
+
+---
+
+## Identity
+
+Returns most recent tick. Can be used to alias FIELD inputs.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_spec` |  | `None` |  |
+| `window` | `int` | `1` |  |
+| `axes` | `Optional[List[str]]` | `None` |  |
+
+### Usage
+
+```python
+# Alias a FIELD for shorter reference
+graph.add_node("close", Identity(Input("FIELD:binance:futures:close", timeframe="1d")))
+
+# Then use in other operators
+graph.add_node("mom", MomentumAlpha(Input("close", timeframe="1d", lookback=10)))
+```
+
+<sub>Source: `operator/utility.py`</sub>
+
+
+---
+
+## Constant
+
+Returns a constant value.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | `Union[float, int, list, np.ndarray]` | Required |  |
+| `axes` | `Optional[List[str]]` | `None` |  |
+
+<sub>Source: `operator/utility.py`</sub>
+
+
+---
+
+## Shift
+
+Shift data by specified periods.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `periods` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/window.py`</sub>
+
+
+---
+
+## PctChange
+
+Percent change: (current - lagged) / lagged.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `periods` | `int` | `1` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/window.py`</sub>
+
+
+---
+
+## CumSum
+
+Running sum over time window.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `None` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/window.py`</sub>
+
+
+---
+
+## CumProd
+
+Running product over time window.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `window` | `int` | `None` |  |
+| `axis` | `Union[str, int]` | `'Time'` |  |
+
+<sub>Source: `operator/window.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

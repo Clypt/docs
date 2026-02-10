@@ -1,0 +1,210 @@
+---
+title: "Volatility Indicators"
+description: "ATR, NATR, BBANDS, STDDEV"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+This page documents **6 operators** (role: `INDICATOR`).
+
+## Quick Reference
+
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **ATR** | `INDICATOR` | `close`, `high`, `low` | No |
+| **NATR** | `INDICATOR` | `close`, `high`, `low` | No |
+| **TRANGE** | `INDICATOR` | `close`, `high`, `low` | No |
+| **BBANDS** | `INDICATOR` | `period=20`, `num_std=2.0`, `output='middle'` | No |
+| **STDDEV** | `INDICATOR` | `period=5`, `num_std=1.0` | No |
+| **VAR** | `INDICATOR` | `period=5` | No |
+
+---
+
+## ATR
+
+Average True Range indicator.
+
+ATR measures market volatility.
+True Range = max(High - Low, |High - PrevClose|, |Low - PrevClose|)
+ATR = Smoothed average of True Range
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+### Usage
+
+```python
+graph.add_node("atr", ATR(
+    close=Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
+    high=Input("FIELD:gateio:spot:high", timeframe="1h", lookback=20),
+    low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=20),
+    period=14,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
+
+
+---
+
+## NATR
+
+Normalized Average True Range indicator.
+
+NATR = (ATR / Close) * 100
+
+This makes ATR comparable across different price levels.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+| `period` | `int` | `14` | Lookback period |
+
+<sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
+
+
+---
+
+## TRANGE
+
+True Range indicator.
+
+True Range = max(High - Low, |High - PrevClose|, |Low - PrevClose|)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `close` | `'Input'` | Required | Close price input |
+| `high` | `'Input'` | Required | High price input |
+| `low` | `'Input'` | Required | Low price input |
+
+<sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
+
+
+---
+
+## BBANDS
+
+Bollinger Bands indicator.
+
+Bollinger Bands consist of a middle band (SMA) and upper/lower bands
+at standard deviation distances from the middle.
+
+Upper Band = SMA + (num_std * StdDev)
+Middle Band = SMA
+Lower Band = SMA - (num_std * StdDev)
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (typically close price) |
+| `period` | `int` | `20` | SMA period |
+| `num_std` | `float` | `2.0` | Number of standard deviations |
+| `output` | `str` | `'middle'` | "upper", "middle", or "lower" |
+
+### Usage
+
+```python
+graph.add_node("bb_upper", BBANDS(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=25),
+    period=20,
+    num_std=2.0,
+    output="upper",
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/bbands.py`</sub>
+
+
+---
+
+## STDDEV
+
+Standard Deviation indicator.
+
+Measures the dispersion of a dataset from its mean.
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `5` | Lookback period |
+| `num_std` | `float` | `1.0` | Number of standard deviations (multiplier, default: 1.0) |
+
+### Usage
+
+```python
+graph.add_node("stddev", STDDEV(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=10),
+    period=5,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/stddev.py`</sub>
+
+
+---
+
+## VAR
+
+Variance indicator.
+
+Measures the squared dispersion of a dataset from its mean.
+Variance = StdDev^2
+
+**Role**: `INDICATOR` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal |
+| `period` | `int` | `5` | Lookback period |
+
+### Usage
+
+```python
+graph.add_node("var", VAR(
+    Input("FIELD:gateio:spot:close", timeframe="1h", lookback=10),
+    period=5,
+))
+```
+
+<sub>Source: `apps/trading/operators/indicator/stddev.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

@@ -1,0 +1,244 @@
+---
+title: "Operator Reference"
+description: "Complete catalog of 213+ prebuilt operators across 13 roles"
+---
+
+## Overview
+
+ClyptQ provides **213+ prebuilt operators** organized across **13 roles**. Every operator follows the same protocol: receive [TaggedArray](/engine/tagged-array) inputs, return TaggedArray outputs. The [StatefulGraph](/engine/stateful-graph) handles all state management, buffering, and execution ordering.
+
+## Operator Roles
+
+| Role | Count | Purpose | Output |
+|---|---|---|---|
+| **INDICATOR** | 40+ | Technical indicators (SMA, RSI, MACD, Bollinger) | Numeric values |
+| **ALPHA** | 21 | Predictive signals for future returns | Signal in [-1, 1] |
+| **FACTOR** | 8 | Cross-sectional systematic exposure | Rank/score per symbol |
+| **TRANSFORM** | 20+ | Cross-sectional normalization (ZScore, Rank, Neutralize) | Transformed values |
+| **OPTIMIZER** | 5 | Portfolio weight optimization (MVO, RiskParity) | Weights summing to 1.0 |
+| **POSITION** | 7 | Position sizing and constraints (turnover, clip) | Position sizes |
+| **FILTER** | 6 | Boolean universe selection (volume, volatility) | 1.0 or 0.0 |
+| **SCORE** | 3 | Continuous ranking scores | Score per symbol |
+| **METRIC** | 21 | Performance measurement (Sharpe, drawdown) | Rolling or cumulative |
+| **BALANCE** | 7 | Portfolio state queries (cash, equity, positions) | State values |
+| **ORDER** | 6 | Order intention generation (spot, futures, arbitrage) | TradingIntention |
+| **SEMANTIC** | 3 | LLM/WebSearch/Sentiment (ephemeral) | AI-generated signals |
+| **CONTROL** | 3 | Conditional gates (if/and/or) | Gate values (0 or 1) |
+| **UTILITY** | 7 | Data routing (Identity, Resample, Merge, Select/Drop) | Transformed data |
+
+## Operator Protocol
+
+Every operator implements a single method:
+
+```python
+class MyOperator(BaseOperator):
+    role = OperatorRole.ALPHA  # One of 13 roles
+
+    def compute(self, data: Dict[str, TaggedArray], timestamp, context) -> TaggedArray:
+        close = data["close"]  # Input from RollingBuffer
+        # Your logic here
+        return TaggedArray(value=result, exists=close.exists, valid=close.valid, updated=True)
+```
+
+**Key rules:**
+1. **Stateless** — Operators must not store mutable state between ticks. The graph manages all state via [RollingBuffers](/engine/lookback-buffers)
+2. **TaggedArray in, TaggedArray out** — All inputs and outputs are TaggedArrays with 4 fields (value, exists, valid, updated)
+3. **Declare inputs upfront** — Each input is declared via `Input(source, timeframe, lookback)` at graph registration time
+
+## Category Guide
+
+### Indicators
+
+Technical indicators computed from price/volume data.
+
+<CardGroup cols={2}>
+  <Card title="Moving Averages" icon="chart-line" href="/operators/indicators/moving-averages">
+    SMA, EMA, DEMA, TEMA, WMA, TRIMA, T3, KAMA, MAMA, MA (10)
+  </Card>
+  <Card title="Momentum" icon="gauge" href="/operators/indicators/momentum">
+    RSI, MACD, MOM, ROC, CMO, APO, PPO, STOCH, STOCHRSI, WILLR, ULTOSC, BOP, TRIX (13)
+  </Card>
+  <Card title="Trend" icon="arrow-trend-up" href="/operators/indicators/trend">
+    ADX, AROON, SAR, ICHIMOKU, DI (5)
+  </Card>
+  <Card title="Volatility" icon="wave-pulse" href="/operators/indicators/volatility">
+    ATR, BBANDS, STDDEV (3)
+  </Card>
+  <Card title="Volume" icon="chart-bar" href="/operators/indicators/volume">
+    OBV, AD, ADOSC, MFI, VWAP (5+)
+  </Card>
+  <Card title="Statistics" icon="calculator" href="/operators/indicators/statistics">
+    LINEARREG, BETA, CORREL, VAR, TSF, MINMAX (6+)
+  </Card>
+  <Card title="Candlestick Patterns" icon="candle-holder" href="/operators/indicators/patterns">
+    48+ CDL pattern recognizers (CDLDOJI, CDLHAMMER, CDLENGULFING, etc.)
+  </Card>
+</CardGroup>
+
+### Signals
+
+Alpha signals and factor exposures for portfolio construction.
+
+<CardGroup cols={3}>
+  <Card title="Alphas" icon="lightbulb" href="/operators/signals/alphas">
+    21 alpha signals: Momentum, RSI, Bollinger, Volume, MeanReversion, etc.
+  </Card>
+  <Card title="Factors" icon="layer-group" href="/operators/signals/factors">
+    8 cross-sectional factors: Momentum, MeanReversion, Volatility, etc.
+  </Card>
+  <Card title="Alpha 101" icon="flask" href="/operators/signals/alpha-101">
+    101 formulaic alphas from WorldQuant's Alpha#101 paper
+  </Card>
+</CardGroup>
+
+### Transforms
+
+Cross-sectional normalization and portfolio optimization.
+
+<CardGroup cols={2}>
+  <Card title="Scalers" icon="arrows-maximize" href="/operators/transforms/scalers">
+    ZScore, Rank, MinMax, L1Norm, Softmax, etc. (10)
+  </Card>
+  <Card title="Neutralizers" icon="scale-balanced" href="/operators/transforms/neutralizers">
+    Demean, Neutralize, BarraNeutralizer, etc. (7)
+  </Card>
+  <Card title="Optimizers" icon="bullseye" href="/operators/transforms/optimizers">
+    MVO, RiskParity, EqualWeight, ClipWeights, MaxPositions (5)
+  </Card>
+  <Card title="Position" icon="sliders" href="/operators/transforms/position">
+    WeightsToPositions, TurnoverConstraint, etc. (7)
+  </Card>
+</CardGroup>
+
+### Universe
+
+Filtering and scoring for tradable asset selection.
+
+<CardGroup cols={2}>
+  <Card title="Filters" icon="filter" href="/operators/universe/filters">
+    VolumeFilter, VolatilityFilter, PriceFilter, CompositeFilter (6)
+  </Card>
+  <Card title="Scores" icon="ranking-star" href="/operators/universe/scores">
+    VolumeScore, LiquidityScore, VolatilityScore (3)
+  </Card>
+</CardGroup>
+
+### Metrics, Balance, Order, Semantic, Control
+
+<CardGroup cols={3}>
+  <Card title="Metrics" icon="chart-mixed" href="/operators/metrics">
+    Rolling (11) + Accumulative (10) performance metrics
+  </Card>
+  <Card title="Balance" icon="wallet" href="/operators/balance">
+    Cash, equity, positions, margin queries via STATE
+  </Card>
+  <Card title="Order" icon="paper-plane" href="/operators/order">
+    Spot, futures, arbitrage intention generation
+  </Card>
+</CardGroup>
+
+<CardGroup cols={3}>
+  <Card title="Semantic" icon="brain" href="/operators/semantic">
+    LLM scoring, web search, sentiment (ephemeral)
+  </Card>
+  <Card title="Control" icon="code-branch" href="/operators/control">
+    Conditional gates, AND/OR combinators
+  </Card>
+  <Card title="Utility" icon="wrench" href="/operators/utility">
+    Identity, Resample, FieldMerge, SymbolSelect/Drop
+  </Card>
+</CardGroup>
+
+## Writing Custom Operators
+
+### Basic Structure
+
+```python
+from clyptq.apps.trading.operators.base import BaseOperator, OperatorRole
+from clyptq.system.tagged_tensor import TaggedArray
+
+class MyAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def __init__(self, threshold: float = 0.5):
+        self.threshold = threshold
+
+    def compute(self, data, timestamp, context):
+        close = data["close"]
+
+        # Your signal logic
+        returns = (close.value[-1] / close.value[0]) - 1.0
+        signal = np.where(returns > self.threshold, 1.0, -1.0)
+
+        return TaggedArray(
+            value=signal,
+            exists=close.exists[-1],
+            valid=close.valid[-1],
+            updated=True
+        )
+```
+
+### Registering in a Graph
+
+```python
+from clyptq.system.graph import StatefulGraph, Input
+
+graph = StatefulGraph()
+
+# Register with inputs
+graph.add_node("my_alpha", MyAlpha(threshold=0.5),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)])
+
+# Use output in downstream nodes
+graph.add_node("signal", ZScore(),
+    inputs=[Input("my_alpha", "1m", lookback=100)])
+```
+
+### Handling TaggedArray Masks
+
+```python
+def compute(self, data, timestamp, context):
+    close = data["close"]
+
+    # Check if data is valid before computing
+    if not close.is_valid.any():
+        return TaggedArray.empty(n=close.value.shape[-1])
+
+    # Use is_fresh for freshness-sensitive logic
+    fresh_mask = close.is_fresh
+
+    # Compute only for valid symbols
+    result = np.where(close.is_valid, my_computation(close.value), np.nan)
+
+    return TaggedArray(
+        value=result,
+        exists=close.exists[-1] if close.value.ndim > 1 else close.exists,
+        valid=close.valid[-1] if close.value.ndim > 1 else close.valid,
+        updated=True
+    )
+```
+
+### Ephemeral Operators
+
+Operators that call external APIs (LLM, web search) are marked **ephemeral**:
+
+```python
+class MyLLMOperator(SemanticOperator):
+    role = OperatorRole.SEMANTIC
+    ephemeral = True  # Cannot reproduce outputs for backtesting
+
+    def _compute_semantic(self, data, timestamp, context):
+        # Call external API
+        response = self.llm_client.complete(...)
+        return self._wrap_as_tagged(scores, data)
+```
+
+Ephemeral operators skip backtest validation and only run in paper/live mode.
+
+## Relationship to Other Concepts
+
+- **[Operator Protocol](/engine/operator-protocol)**: Detailed protocol specification
+- **[TaggedArray](/engine/tagged-array)**: The 4-field data structure all operators use
+- **[StatefulGraph](/engine/stateful-graph)**: How operators are composed into a DAG
+- **[Lookback Buffers](/engine/lookback-buffers)**: How operators receive historical data
+- **[Strategy Framework](/engine/strategy-framework)**: Patterns for composing operators into strategies

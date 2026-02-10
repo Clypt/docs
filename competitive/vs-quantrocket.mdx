@@ -1,0 +1,202 @@
+---
+title: "ClyptQ vs QuantRocket"
+description: "How ClyptQ compares to QuantRocket's Docker-based quant trading pipeline"
+---
+
+## What Is QuantRocket?
+
+QuantRocket is a **Docker-based quant trading platform** that bundles multiple backtesting engines, data services, and execution routing into a single orchestrated pipeline. It runs as a set of Docker microservices on your local machine or cloud VM.
+
+Unlike most platforms that provide a single backtesting engine, QuantRocket offers **two**: Zipline (event-driven) and Moonshot (vectorized). It's primarily used for US equities and futures through Interactive Brokers.
+
+## Architecture Comparison
+
+### QuantRocket: Docker Microservices
+
+QuantRocket runs as a collection of Docker containers:
+
+```mermaid
+flowchart TB
+    subgraph DC["Docker Compose"]
+        JN["Jupyter<br>Notebook"]
+        ZE["Zipline<br>Engine"]
+        IB["IB<br>Gateway"]
+        ME["Moonshot<br>Engine"]
+        DB["Database<br>(Postgres)"]
+        FL["Flightlog<br>(Logging)"]
+    end
+```
+
+**Pros**: Professional-grade pipeline, each service is isolated.
+**Cons**: Requires Docker expertise, significant setup, self-hosted only.
+
+### ClyptQ: Unified SaaS
+
+```mermaid
+flowchart TB
+    subgraph TS["TradingSpec"]
+        DS["Data<br>Spec"]
+        SG["Strategy<br>(Graph)"]
+        ES["Execute<br>Spec"]
+    end
+    DS --> FP["FIELD Protocol"]
+    SG --> DAG["DAG"]
+    ES --> ME["Memoryless<br>Executor"]
+```
+
+Everything in one `TradingSpec`. No Docker. No microservices. No infrastructure management.
+
+## The Two-Engine Problem
+
+QuantRocket's two backtesting engines serve different purposes:
+
+| Engine | Type | Best For | Live Trading |
+|---|---|---|---|
+| **Zipline** | Event-driven | Accurate simulation | Via adapter |
+| **Moonshot** | Vectorized (pandas) | Fast parameter sweeps | Direct |
+
+This creates a choice: **accuracy or speed**, but not both. And if you develop in Moonshot (fast), your strategy uses vectorized pandas code — which has [all the structural flaws of vectorized backtesting](/competitive/vs-vectorized).
+
+**ClyptQ has one engine** — tick-by-tick, event-driven, with the same code path for backtest and live. No choosing between accuracy and convenience.
+
+## Key Differences
+
+### 1. Setup and Deployment
+
+| | QuantRocket | ClyptQ |
+|---|---|---|
+| **Installation** | Docker Compose (~10 containers) | Open Jupyter notebook |
+| **Setup time** | Hours (Docker, IB Gateway, data collection) | Minutes |
+| **Infrastructure** | Self-managed (local or cloud VM) | Managed SaaS |
+| **Updates** | Manual Docker image pulls | Automatic |
+| **Monitoring** | Self-managed (Flightlog) | Built-in |
+
+QuantRocket requires Docker familiarity and system administration. ClyptQ requires opening a browser.
+
+### 2. Asset Class Focus
+
+| | QuantRocket | ClyptQ |
+|---|---|---|
+| **Primary focus** | US equities, futures (via IB) | Crypto (5 exchanges) |
+| **Crypto support** | Limited (through IB crypto or manual) | Native (Binance, Gate.io, Bybit, OKX, Coinbase) |
+| **Futures modeling** | Basic (no funding rate, no liquidation) | Full (funding, margin, liquidation) |
+| **Data** | IB data + third-party (Sharadar, EDI) | Included (exchange-quality OHLCV) |
+| **Multi-exchange** | Single broker (IB) | Native multi-exchange (FIELD protocol) |
+
+QuantRocket is built around Interactive Brokers. If you trade crypto across multiple exchanges, it's not designed for that.
+
+### 3. Backtesting Accuracy
+
+| | QuantRocket (Moonshot) | QuantRocket (Zipline) | ClyptQ |
+|---|---|---|---|
+| **Lookahead prevention** | Manual (pandas) | Structural | Structural |
+| **State management** | DataFrame-based | Event-driven | STATE protocol |
+| **Cost modeling** | IB commission schedule | IB commission schedule | Exchange-specific (auto-fetched) |
+| **Funding rates** | Not modeled | Not modeled | 8-hour settlement simulation |
+| **Liquidation** | Not modeled | Not modeled | Exchange-specific margin logic |
+
+### 4. Research-to-Production Path
+
+**QuantRocket (Moonshot path):**
+```python
+# Research: pandas DataFrame operations
+def prices_to_signals(prices):
+    sma = prices.loc["Close"].rolling(20).mean()
+    signals = prices.loc["Close"] > sma
+    return signals.astype(int)
+
+# Live: same pandas code, but runs on live IB data
+# ✓ Code parity within Moonshot
+# ✗ But vectorized → all structural flaws apply
+```
+
+**QuantRocket (Zipline path):**
+```python
+# Research: Zipline algorithm
+def initialize(context):
+    context.asset = symbol('AAPL')
+
+def handle_data(context, data):
+    mavg = data.history(context.asset, 'price', 20, '1d').mean()
+    # Different from notebook research code
+```
+
+**ClyptQ:**
+```python
+# Research = Backtest = Live: same graph
+graph.add_node("sma", SMA(span=20),
+    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)])
+# mode="backtest" → mode="live": done
+```
+
+QuantRocket's Moonshot achieves code parity but at the cost of vectorized backtesting accuracy. Zipline achieves accuracy but requires different code patterns from research notebooks.
+
+ClyptQ achieves both — accurate event-driven backtesting with full code parity.
+
+### 5. Strategy Architecture
+
+| | QuantRocket | ClyptQ |
+|---|---|---|
+| **Strategy pattern** | Function/class returning pandas DataFrames | Composable operator DAG |
+| **Composability** | Limited (monolithic functions) | High (independent operators) |
+| **Operator library** | No pre-built operators (DIY with pandas/ta-lib) | 213+ pre-built operators |
+| **AI operators** | None | LLMScorer, WebSearch, Sentiment |
+| **Custom indicators** | pandas/ta-lib | BaseOperator inheritance |
+
+### 6. Pricing and Access
+
+| | QuantRocket | ClyptQ |
+|---|---|---|
+| **Model** | Subscription + self-hosted | SaaS subscription |
+| **Free tier** | Limited trial | Available |
+| **Data costs** | IB data fees + optional third-party | Included |
+| **Infrastructure costs** | Your servers (local or cloud) | Included |
+| **Marketplace** | None | Verified strategy marketplace |
+
+## Feature Comparison
+
+| Feature | ClyptQ | QuantRocket |
+|---|---|---|
+| **Code parity** | Structural (one codebase) | Partial (Moonshot only, vectorized) |
+| **Backtesting model** | Tick-by-tick state machine | Zipline (event) or Moonshot (vectorized) |
+| **Language** | Python (any library) | Python (pandas-centric) |
+| **Data included** | Yes (5 crypto exchanges) | IB data (requires IB account) |
+| **Asset classes** | Crypto (stocks planned) | US equities, futures, forex (via IB) |
+| **Futures support** | Full (funding, margin, liquidation) | Basic (IB margin rules) |
+| **Multi-exchange** | Native (FIELD protocol) | Single broker (IB) |
+| **Deployment** | SaaS (managed) | Docker (self-hosted) |
+| **Setup time** | Minutes | Hours |
+| **Operator library** | 213+ pre-built | None (DIY) |
+| **AI operators** | Yes | No |
+| **Marketplace** | Verified strategies | None |
+| **Scheduling** | Managed | Cron-based (self-managed) |
+| **Open source** | No | No (commercial license) |
+
+## When to Choose QuantRocket
+
+QuantRocket is a good fit if you:
+
+- **Trade US equities/futures via Interactive Brokers** — purpose-built for the IB ecosystem
+- **Need Sharadar fundamentals or EDI data** — pre-integrated third-party data pipelines
+- **Prefer self-hosted infrastructure** — full control over your Docker stack
+- **Want both vectorized and event-driven options** — Moonshot for scanning, Zipline for validation
+- **Already have Docker expertise** — the microservices architecture is a strength, not a burden
+
+## When to Choose ClyptQ
+
+ClyptQ is the better choice if you:
+
+- **Trade crypto** — native multi-exchange support with exchange-specific cost modeling
+- **Want zero infrastructure** — SaaS with no Docker, no servers, no maintenance
+- **Need accurate crypto backtests** — funding rates, liquidation, tiered fees
+- **Want composable strategies** — 213+ operators in a DAG vs monolithic pandas functions
+- **Want AI-powered trading** — LLM, web search, sentiment as first-class operators
+- **Want to sell strategies** — verified marketplace
+- **Value code parity without accuracy trade-offs** — event-driven AND single codebase
+
+## Relationship to Other Concepts
+
+- **[Why ClyptQ?](/competitive/why-clyptq)**: Complete overview of all competitive advantages
+- **[vs Vectorized Frameworks](/competitive/vs-vectorized)**: Why Moonshot's vectorized approach has structural limitations
+- **[vs QuantConnect](/competitive/vs-quantconnect)**: Comparison with another cloud-based platform
+- **[Research = Backtest = Live](/competitive/code-parity)**: The code parity guarantee in detail

@@ -1,0 +1,142 @@
+---
+title: "Alpha 101"
+description: "WorldQuant 101 formulaic alphas — systematic alpha generation"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+Implementation of the [WorldQuant 101 Formulaic Alphas](https://arxiv.org/abs/1601.00991) paper.
+**101 alphas** available, each as a standalone operator.
+
+All Alpha 101 operators share: **Role**: `ALPHA` | **Ephemeral**: No
+
+## Alpha Catalog
+
+| Alpha | Description | Key Parameters |
+|-------|-------------|----------------|
+| **Alpha101_001** | Volatility-based conditional ranking. | `std_window=20`, `argmax_window=5` |
+| **Alpha101_002** | Volume-price negative correlation. | `close_input`, `open_input`, `volume_input` |
+| **Alpha101_003** | Open-volume negative correlation. | `open_input`, `volume_input`, `corr_window=10` |
+| **Alpha101_004** | Inverted time-series rank of low prices. | `ts_rank_window=9` |
+| **Alpha101_005** | VWAP deviation combination. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_006** | Open-volume negative correlation. | `open_input`, `volume_input`, `corr_window=10` |
+| **Alpha101_007** | Volume-conditional price change. | `close_input`, `volume_input`, `amount_window=20` |
+| **Alpha101_008** | Open-returns delayed comparison. | `open_input`, `close_input`, `sum_window=5` |
+| **Alpha101_009** | Price change direction consistency. | `delta_window=1`, `consistency_window=5` |
+| **Alpha101_010** | Ranked price change direction consistency. | `delta_window=1`, `consistency_window=4` |
+| **Alpha101_011** | VWAP-close deviation with volume change. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_012** | Volume-price divergence. | `close_input`, `volume_input`, `delta_window=1` |
+| **Alpha101_013** | Negative close-volume covariance ranking. | `close_input`, `volume_input`, `cov_window=5` |
+| **Alpha101_014** | Returns delta with open-volume correlation. | `open_input`, `close_input`, `volume_input` |
+| **Alpha101_015** | High-volume correlation sum. | `high_input`, `volume_input`, `corr_window=3` |
+| **Alpha101_016** | Negative high-volume covariance ranking. | `high_input`, `volume_input`, `cov_window=5` |
+| **Alpha101_017** | Complex close-volume momentum. | `close_input`, `volume_input`, `ts_rank_window1=10` |
+| **Alpha101_018** | Close-open volatility and correlation. | `close_input`, `open_input`, `std_window=5` |
+| **Alpha101_019** | Price direction with long-term returns. | `delay_window=7`, `delta_window=7`, `returns_sum_window=250` |
+| **Alpha101_020** | Opening gap ranking. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_021** | Close volatility with volume ratio. | `close_input`, `volume_input`, `short_window=2` |
+| **Alpha101_022** | High-volume correlation change with volatility. | `high_input`, `close_input`, `volume_input` |
+| **Alpha101_023** | High price breakout. | `avg_window=20`, `delta_window=2` |
+| **Alpha101_024** | Long-term average change rate. | `long_window=100`, `short_delta=3`, `threshold=0.05` |
+| **Alpha101_025** | Returns-amount-VWAP composite. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_026** | Volume-high time-series correlation. | `volume_input`, `high_input`, `ts_rank_window=5` |
+| **Alpha101_027** | Volume-VWAP correlation ranking. | `volume_input`, `high_input`, `low_input` |
+| **Alpha101_028** | Amount-low correlation with mid-price. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_029** | Complex nested ranking. | `close_input`, `delta_window=5`, `delay_window=6` |
+| **Alpha101_030** | Price direction pattern with volume ratio. | `close_input`, `volume_input`, `short_volume_window=5` |
+| **Alpha101_031** | Multi-ranking decay + amount-low correlation. | `close_input`, `low_input`, `volume_input` |
+| **Alpha101_032** | Mean reversion with VWAP correlation. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_033** | Open-close ratio momentum. | `open_input`, `close_input` |
+| **Alpha101_034** | Volatility ratio and price change. | `close_input`, `short_std=2`, `long_std=5` |
+| **Alpha101_035** | Volume-price-returns time-series ranking. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_036** | Weighted multi-factor composite. | `close_input`, `open_input`, `high_input` |
+| **Alpha101_037** | Long-term open-close correlation. | `open_input`, `close_input`, `corr_window=200` |
+| **Alpha101_038** | Close time-series with close/open ratio. | `close_input`, `open_input`, `ts_rank_window=10` |
+| **Alpha101_039** | Price delta with decayed volume ratio. | `close_input`, `volume_input`, `delta_window=7` |
+| **Alpha101_040** | High volatility with correlation. | `high_input`, `volume_input`, `std_window=10` |
+| **Alpha101_041** | Geometric mean minus VWAP. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_042** | VWAP-close difference to sum ratio. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_043** | Volume ratio with price delta ranking. | `close_input`, `volume_input`, `amount_window=20` |
+| **Alpha101_044** | Negative high-volume rank correlation. | `high_input`, `volume_input`, `corr_window=5` |
+| **Alpha101_045** | Delayed close mean with correlations. | `close_input`, `volume_input`, `delay_window=5` |
+| **Alpha101_046** | Multi-period slope comparison. | `close_input` |
+| **Alpha101_047** | Complex price-volume-VWAP. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_048** | Price change correlation with volatility. | `close_input`, `corr_window=250`, `vol_window=250` |
+| **Alpha101_049** | Slope comparison with threshold. | `close_input`, `threshold=-0.1` |
+| **Alpha101_050** | Volume-VWAP correlation max. | `volume_input`, `high_input`, `low_input` |
+| **Alpha101_051** | Slope comparison with threshold. | `close_input`, `threshold=-0.05` |
+| **Alpha101_052** | Low minimum change with returns and volume. | `low_input`, `close_input`, `volume_input` |
+| **Alpha101_053** | Price position delta. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_054** | Price ratio with power. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_055** | Stochastic-volume correlation. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_056** | Returns ratio and cap product. | `close_input`, `volume_input`, `returns_window1=10` |
+| **Alpha101_057** | Close-VWAP with argmax decay. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_058** | Demeaned VWAP-volume correlation decay rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_059** | Weighted VWAP-volume correlation decay rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_060** | Price position volume vs argmax. | `close_input`, `high_input`, `low_input` |
+| **Alpha101_061** | VWAP range vs amount correlation rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_062** | VWAP-amount correlation vs price rank. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_063** | Demeaned close delta vs weighted price-amount correlation. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_064** | Weighted open-low amount correlation vs mid-VWAP delta. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_065** | Weighted open-VWAP amount correlation vs open range. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_066** | VWAP delta decay rank plus low-VWAP ratio ts_rank. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_067** | High range rank power by demeaned VWAP-amount correlation rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_068** | High-amount correlation ts_rank vs weighted close-low delta. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_069** | Demeaned VWAP delta max rank power by weighted price-amount correlation ts_rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_070** | VWAP delta rank power by demeaned close-amount correlation ts_rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_071** | Alpha 101_071: Close-amount correlation decay rank vs price difference decay ran | `open_input`, `high_input`, `low_input` |
+| **Alpha101_072** | Alpha 101_072: Mid price-amount correlation decay rank ratio.  Divides mid price | `high_input`, `low_input`, `close_input` |
+| **Alpha101_073** | Alpha 101_073: VWAP delta decay rank vs weighted price change rate decay rank ma | `open_input`, `high_input`, `low_input` |
+| **Alpha101_074** | Alpha 101_074: Close-amount correlation rank vs weighted high-VWAP volume correl | `high_input`, `low_input`, `close_input` |
+| **Alpha101_075** | Alpha 101_075: VWAP-volume correlation rank vs low-amount rank correlation rank. | `high_input`, `low_input`, `close_input` |
+| **Alpha101_076** | Alpha 101_076: VWAP delta decay rank vs demeaned low-amount correlation decay ra | `high_input`, `low_input`, `close_input` |
+| **Alpha101_077** | Alpha 101_077: Price difference decay rank vs mid-amount correlation decay rank  | `high_input`, `low_input`, `close_input` |
+| **Alpha101_078** | Alpha 101_078: Weighted low-VWAP amount correlation rank power by VWAP-volume ra | `high_input`, `low_input`, `close_input` |
+| **Alpha101_079** | Alpha 101_079: Demeaned weighted close-open delta rank vs VWAP-amount ts_rank co | `open_input`, `high_input`, `low_input` |
+| **Alpha101_080** | Alpha 101_080: Demeaned weighted open-high delta sign rank power by high-amount  | `open_input`, `high_input`, `close_input` |
+| **Alpha101_081** | Alpha 101_081: VWAP-amount correlation product log rank vs VWAP-volume rank corr | `high_input`, `low_input`, `close_input` |
+| **Alpha101_082** | Alpha 101_082: Open delta decay rank vs demeaned volume-open correlation decay r | `open_input`, `volume_input`, `delta_window=1` |
+| **Alpha101_083** | Alpha 101_083: Delayed range ratio rank times double volume rank ratio.  Complex | `high_input`, `low_input`, `close_input` |
+| **Alpha101_084** | Alpha 101_084: VWAP max difference ts_rank power by close delta.  Raises VWAP-ma | `high_input`, `low_input`, `close_input` |
+| **Alpha101_085** | Alpha 101_085: Weighted high-close amount correlation rank power by mid-volume t | `high_input`, `low_input`, `close_input` |
+| **Alpha101_086** | Alpha 101_086: Close-amount correlation ts_rank vs price sum difference rank.  N | `open_input`, `high_input`, `low_input` |
+| **Alpha101_087** | Alpha 101_087: Weighted close-VWAP delta decay rank vs demeaned amount-close cor | `high_input`, `low_input`, `close_input` |
+| **Alpha101_088** | Alpha 101_088: Price rank sum difference decay rank vs close-amount ts_rank corr | `open_input`, `high_input`, `low_input` |
+| **Alpha101_089** | Alpha 101_089: Weighted low-amount correlation decay rank minus demeaned VWAP de | `high_input`, `low_input`, `close_input` |
+| **Alpha101_090** | Alpha 101_090: Close max difference rank power by demeaned amount-low correlatio | `low_input`, `close_input`, `volume_input` |
+| **Alpha101_091** | Alpha 101_091: Double decayed close-volume correlation ts_rank minus VWAP-amount | `high_input`, `low_input`, `close_input` |
+| **Alpha101_092** | Alpha 101_092: Mid-close vs low-open comparison decay rank min with low-amount r | `open_input`, `high_input`, `low_input` |
+| **Alpha101_093** | Alpha 101_093: Demeaned VWAP-amount correlation decay ts_rank divided by weighte | `high_input`, `low_input`, `close_input` |
+| **Alpha101_094** | Alpha 101_094: VWAP-min VWAP difference rank power by VWAP-amount ts_rank correl | `high_input`, `low_input`, `close_input` |
+| **Alpha101_095** | Alpha 101_095: Open-min open difference rank less than mid-amount correlation ra | `open_input`, `high_input`, `low_input` |
+| **Alpha101_096** | Alpha 101_096: VWAP-volume rank correlation decay ts_rank vs close-amount ts_ran | `high_input`, `low_input`, `close_input` |
+| **Alpha101_097** | Alpha 101_097: Demeaned weighted low-VWAP delta decay rank minus low-amount ts_r | `high_input`, `low_input`, `close_input` |
+| **Alpha101_098** | Alpha 101_098: VWAP-amount correlation decay rank minus open-amount rank correla | `open_input`, `high_input`, `low_input` |
+| **Alpha101_099** | Alpha 101_099: Mid-amount sum correlation rank less than low-volume correlation  | `high_input`, `low_input`, `close_input` |
+| **Alpha101_100** | Alpha 101_100: Complex multi-demeaned price position-volume and correlation fact | `high_input`, `low_input`, `close_input` |
+| **Alpha101_101** | Alpha 101_101: Price change divided by price range.  Calculates price change nor | `open_input`, `high_input`, `low_input` |
+
+## Usage Pattern
+
+All Alpha 101 operators follow the same pattern:
+
+```python
+from clyptq.apps.trading.operators.signal.alpha.alpha_101 import Alpha101_001
+
+graph.add_node("alpha_001", Alpha101_001(
+    Input("FIELD:binance:futures:ohlcv:close", timeframe="1m", lookback=20)
+))
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Alpha Signals" icon="chart-line" href="/operators/signals/alphas">
+    Hand-crafted alpha signals
+  </Card>
+  <Card title="Factors" icon="layer-group" href="/operators/signals/factors">
+    Cross-sectional risk factors
+  </Card>
+</CardGroup>

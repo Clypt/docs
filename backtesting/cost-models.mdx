@@ -1,0 +1,228 @@
+---
+title: "Cost Models"
+description: "Exchange-specific fee structures, slippage modeling, and CCXT auto-fetch"
+---
+
+## Why Cost Modeling Matters
+
+A strategy that trades 2× daily with 0.04% taker fees on Binance futures pays **~29% annually** in fees alone. Ignoring this — or using a flat 0.1% assumption — produces backtests that have no resemblance to reality.
+
+ClyptQ models costs at the venue level: each exchange-account pair has its own `CostModel` with maker/taker fees, slippage, and tick size.
+
+## CostModelSpec
+
+`CostModelSpec` is the user-facing configuration for cost modeling. It's specified per `AccountSpec`:
+
+```python
+AccountSpec(
+    exchange="binance",
+    market_type="futures",
+    initial_cash=10_000.0,
+    cost_model=CostModelSpec(
+        maker_fee=0.0002,      # 0.02% (VIP 1)
+        taker_fee=0.0004,      # 0.04% (VIP 1)
+        slippage_bps=1.0,      # 0.01% slippage on market orders
+        min_tick_size=0.01,    # Price precision ($0.01)
+    ),
+)
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `maker_fee` | `float` | `0.001` | Fee rate for maker (limit) orders. 0.001 = 0.1% |
+| `taker_fee` | `float` | `0.001` | Fee rate for taker (market) orders. 0.001 = 0.1% |
+| `slippage_bps` | `float` | `0.0` | Slippage in basis points for market orders. 1.0 = 0.01% |
+| `min_tick_size` | `float` | `0.01` | Minimum price increment for rounding |
+
+### How Fees Are Calculated
+
+```
+fee = |trade_value| × fee_rate
+
+where:
+  trade_value = quantity × execution_price
+  fee_rate = maker_fee (if limit order rests in book)
+           = taker_fee (if market order crosses spread)
+```
+
+For INSTANT mode, market orders always pay the `taker_fee`. Limit orders always pay the `maker_fee`.
+
+For LATENT mode (orderbook simulation), maker/taker is determined dynamically:
+- **Maker**: limit price is better than best bid/ask (order rests in book)
+- **Taker**: limit price crosses the spread (order fills immediately)
+
+### How Slippage Is Applied
+
+```python
+# For BUY orders: price moves UP (worse execution)
+exec_price = market_price × (1 + slippage_bps / 10000)
+
+# For SELL orders: price moves DOWN (worse execution)
+exec_price = market_price × (1 - slippage_bps / 10000)
+```
+
+Slippage is applied **only to market orders** in INSTANT mode. In LATENT mode with orderbook data, slippage emerges naturally from walking the orderbook — no fixed slippage is needed.
+
+## Fee Resolution Priority
+
+ClyptQ resolves fees through `VenueFeeResolver` with a clear priority chain:
+
+```
+1. User override (CostModelSpec in AccountSpec)
+     ↓ if not set
+2. CCXT auto-fetch (for crypto exchanges)
+     ↓ if fetch fails
+3. Known venue defaults (for stock brokers)
+     ↓ if unknown venue
+4. Fallback default (0.1% maker/taker)
+```
+
+### 1. User Override (Highest Priority)
+
+If you specify a `CostModelSpec` in your `AccountSpec`, it takes absolute precedence:
+
+```python
+AccountSpec(
+    exchange="binance",
+    market_type="futures",
+    cost_model=CostModelSpec(
+        maker_fee=0.0002,    # My VIP 1 rate
+        taker_fee=0.0004,
+    ),
+)
+```
+
+This is the recommended approach for VIP traders who know their exact fee tier.
+
+### 2. CCXT Auto-Fetch
+
+For crypto exchanges without explicit overrides, ClyptQ fetches current fee schedules from the exchange API via CCXT:
+
+```python
+# Internally:
+ccxt_exchange = ccxt.binance()
+fees = ccxt_exchange.fetch_trading_fees()
+# → {"maker": 0.001, "taker": 0.001}  (default tier)
+```
+
+Auto-fetch returns the **default tier** (non-VIP) rates. If you have VIP status, use a manual override.
+
+### 3. Known Venue Defaults (Stock Brokers)
+
+For stock brokers that aren't CCXT-compatible:
+
+| Venue | Maker | Taker | Slippage | Notes |
+|-------|-------|-------|----------|-------|
+| **Alpaca** | 0.0% | 0.0% | 1.0 bps | Commission-free US equities |
+| **Interactive Brokers** | 0.0% | 0.005% | 1.0 bps | Ultra-low professional rates |
+
+### 4. Fallback Default
+
+If all resolution methods fail:
+
+```python
+CostModel(
+    slippage_bps=0.0,
+    maker_fee=0.001,    # 0.1%
+    taker_fee=0.001,    # 0.1%
+)
+```
+
+## Orderbook-Based Execution (LATENT Mode)
+
+When orderbook data is available, BacktestFactory uses the `BacktestSimulator` to match orders against the book:
+
+```
+Order: BUY 2.0 BTC at MARKET
+
+Orderbook asks:
+  $50,100 × 0.5 BTC
+  $50,105 × 1.0 BTC
+  $50,120 × 3.0 BTC
+
+Matching:
+  Fill 0.5 @ $50,100 = $25,050
+  Fill 1.0 @ $50,105 = $50,105
+  Fill 0.5 @ $50,120 = $25,060
+  -----------------------------
+  Total: 2.0 BTC @ avg $50,107.50
+
+Fee: $100,215 × 0.0004 (taker) = $40.09
+```
+
+This captures:
+- **Price impact**: large orders walk the book and get progressively worse prices
+- **Partial fills**: if liquidity is insufficient, only available quantity fills
+- **Maker/taker detection**: limit orders that rest in the book pay maker fees
+
+## Example: Full Cost Configuration
+
+```python
+# Binance futures with VIP 1 rates + realistic slippage
+binance_account = AccountSpec(
+    exchange="binance",
+    market_type="futures",
+    initial_cash=50_000.0,
+    max_leverage=10.0,
+    cost_model=CostModelSpec(
+        maker_fee=0.0002,      # 0.02% maker
+        taker_fee=0.0004,      # 0.04% taker
+        slippage_bps=0.5,      # Conservative slippage
+    ),
+)
+
+# Gateio futures with default rates (auto-fetched from CCXT)
+gateio_account = AccountSpec(
+    exchange="gateio",
+    market_type="futures",
+    initial_cash=50_000.0,
+    max_leverage=5.0,
+    # No cost_model → auto-fetched from Gateio API
+)
+
+spec = TradingSpec(
+    data=data_config,
+    strategy=TradingStrategySpec(graph=graph),
+    execution=TradingExecutionSpec(
+        mode="backtest",
+        accounts=[binance_account, gateio_account],
+        execution_price_source="ohlcv",
+    ),
+)
+```
+
+## Cost Impact Analysis
+
+To understand how much costs affect your strategy, compare backtests with different cost configurations:
+
+```python
+# Run 1: Zero costs (theoretical)
+zero_cost = CostModelSpec(maker_fee=0, taker_fee=0, slippage_bps=0)
+
+# Run 2: Default costs (auto-fetched)
+# No CostModelSpec → uses CCXT rates
+
+# Run 3: Realistic costs (VIP + slippage)
+realistic = CostModelSpec(maker_fee=0.0002, taker_fee=0.0004, slippage_bps=1.0)
+
+# Compare equity curves:
+# If Run 1 shows 50% return and Run 3 shows 15%,
+# the strategy loses 35% to costs — probably not viable.
+```
+
+<Warning>
+If the gap between zero-cost and realistic-cost backtests is more than 50% of your total return, the strategy is likely **cost-dominated** and may not be profitable after fees. Focus on reducing trade frequency or improving signal quality.
+</Warning>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Exchange Specifics" icon="building-columns" href="/backtesting/exchange-specifics">
+    Per-exchange fee tables, minimum order amounts, and market type support
+  </Card>
+  <Card title="Execution Pipeline" icon="arrow-right" href="/engine/execution-pipeline">
+    How Intention → Delta → Order → Fill works with cost models
+  </Card>
+</CardGroup>

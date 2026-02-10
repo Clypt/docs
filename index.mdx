@@ -1,205 +1,140 @@
 ---
-title: "Your Quantitative Trading Platform"
-description: "Trading Commerce Platform - Building Trust Between Strategy Buyers and Builders"
+title: "ClyptQ"
+description: "The Quantitative Trading Engine that makes Research = Backtest = Live"
 ---
 
-Clypt is a **Trading Commerce platform** that establishes trust between strategy **Buyers** and **Builders** through transparent, reproducible, and reliable algorithmic trading infrastructure powered by the ClyptQ Trading Engine.
+## What Is ClyptQ?
 
-## Ecosystem Vision
+ClyptQ is a **production-grade quantitative trading engine** where the same code runs identically in research, backtesting, and live trading. No rewrites. No adapters. No "production mode."
 
-<Note>
-**Trading Commerce Ecosystem**
+```python
+# This SAME code runs in backtest, paper, and live
+spec = TradingSpec(
+    data=data_config,
+    strategy=TradingStrategySpec(graph=graph),
+    execution=TradingExecutionSpec(
+        mode="backtest",    # ← Change to "paper" or "live"
+        accounts=[account],
+    ),
+)
 
-Clypt creates a trusted marketplace where Builders monetize their strategies and Buyers deploy verified strategies with confidence, all powered by production-grade infrastructure.
-</Note>
+driver = TradingDriver.from_spec(spec)
+for result in driver:
+    print(f"{result.timestamp} | equity: {result.outputs['equity']}")
+```
 
-### The Trust Relationship
+## Who Is ClyptQ For?
 
-<CardGroup cols={2}>
-  <Card title="For Builders" icon="wrench" href="/ecosystem/builder-guide">
-    - Verifiable performance through reproducible backtests
-    - Production infrastructure for seamless deployment
-    - Marketplace monetization with transparent metrics
-    - Same code runs from backtest to live trading
+<CardGroup cols={3}>
+  <Card title="Builders" icon="code" href="/platform/builder-guide">
+    **Strategy developers** who want to go from research to live trading without rewriting code. Use any Python library — PyTorch, XGBoost, HuggingFace — inside 213+ composable operators.
   </Card>
 
-  <Card title="For Buyers" icon="wallet" href="/ecosystem/buyer-guide">
-    - Access to verified, professionally developed strategies
-    - Transparent performance metrics and risk analytics
-    - Deploy strategies without coding knowledge
-    - Built-in risk management and monitoring
+  <Card title="Buyers" icon="chart-line" href="/platform/buyer-guide">
+    **Strategy consumers** who want verified, independently-tested strategies. Cross-exchange validation ensures strategies aren't overfit to a single venue.
+  </Card>
+
+  <Card title="Investors" icon="building-columns" href="/platform/investor-overview">
+    **Capital allocators** looking for transparent risk metrics, portfolio-level diversification, and institutional-grade reporting across strategy providers.
   </Card>
 </CardGroup>
 
-## Core Platform Values
+## Five Pillars
 
-**Transparency**: All strategy performance is verifiable and reproducible through the ClyptQ Trading Engine.
+| Pillar | What It Means |
+|--------|---------------|
+| **Research = Backtest = Live** | Same `TradingSpec`, same `for result in driver` loop, same analysis code across all modes |
+| **Tick-by-Tick State Machine** | Each operator sees only past data through `RollingBuffer`. Lookahead bias is structurally impossible |
+| **Full Python Freedom** | Any Python library works inside operators. No sandbox, no restrictions, no "approved list" |
+| **Data Included** | 5 exchanges × spot + futures × 1-minute OHLCV. Pre-aligned, gap-filled, ready to use |
+| **Verified Marketplace** | Sell strategies without revealing source code. Buy strategies with independently verified backtests |
 
-**Reliability**: Backtest and live trading run on identical infrastructure, ensuring what you test is what you get in production.
+## Architecture at a Glance
 
-**Accessibility**: Builders access production-grade tools, Buyers deploy strategies without technical expertise.
+```mermaid
+flowchart TB
+    subgraph TradingSpec[" TradingSpec "]
+        direction LR
+        DataSpec["DataSpec<br>Exchanges, Symbols, Timeframes"]
+        StrategySpec["StrategySpec<br>Graph, Operators, Connections"]
+        ExecutionSpec["ExecutionSpec<br>mode: backtest → paper → live"]
+    end
 
-## ClyptQ Trading Engine
+    TradingSpec --> FIELD["FIELD Protocol"]
+    TradingSpec --> Graph["StatefulGraph (DAG)"]
+    TradingSpec --> Executor["Executor (Memoryless)"]
 
-The foundation of the Clypt ecosystem is the **ClyptQ Trading Engine**, a production-grade quantitative trading system with four core layers:
+    FIELD --> Graph
+    Graph --> Executor
+    Executor -- "STATE" --> Graph
+```
 
-<Tabs>
-  <Tab title="System Layer">
-    **Execution Infrastructure**
+**FIELD** delivers market data (prices, volumes, funding rates) to the graph.
+**STATE** feeds portfolio data (cash, positions, margin) back from the executor.
+The graph processes both through operators in topological order, producing intentions that the executor fills.
 
-    - ComputeGraph: DAG-based execution with automatic dependency resolution
-    - TaggedArray: 4-field data structure (value, exists, valid, updated) for robust data handling
-    - Operator Protocol: Standardized interface for all trading operations
-
-    ```python
-    graph = ComputeGraph()
-    signal = graph.add_node("signal",
-        CrossoverAlpha(Input("sma_fast"), Input("sma_slow"))
-    )
-    ```
-  </Tab>
-
-  <Tab title="Operator Layer">
-    **Strategy Composition**
-
-    - 9 Operator roles: ALPHA, FACTOR, FILTER, INDICATOR, METRIC, TRANSFORM, OPTIMIZER, SCORE, SEMANTIC
-    - 40+ built-in technical indicators
-    - Composable operators for complex strategies
-
-    ```python
-    sma_fast = SMA(Input("close", lookback=10), span=10)
-    sma_slow = SMA(Input("close", lookback=50), span=50)
-    signal = CrossoverAlpha(sma_fast, sma_slow)
-    ```
-  </Tab>
-
-  <Tab title="Trading Layer">
-    **Execution & Risk Management**
-
-    - TradingDriver orchestration
-    - 3-stage execution: Intention → Delta → Order
-    - Execution modes: Backtest (INSTANT/LATENT), Paper, Live
-    - Built-in risk management and cost modeling
-
-    ```python
-    driver = TradingDriver.from_spec(spec)
-    driver.load_data(items=["BTC/USDT:USDT"], start=..., end=...)
-    for result in driver.run():
-        print(f"PnL: {result.pnl}")
-    ```
-  </Tab>
-
-  <Tab title="Data Layer">
-    **Multi-Asset Data Integration**
-
-    - Crypto, stocks, macro, on-chain data sources
-    - Environment-based automatic routing (dev/prod/kernel)
-    - Validation, FFill, and live data handling
-    - Redis integration for multi-consumer optimization
-
-    ```python
-    storage = get_storage("binance/futures/ohlcv")
-    # Automatic routing based on environment
-    ```
-  </Tab>
-</Tabs>
-
-## How It Works
+## Quick Start
 
 <Steps>
-  <Step title="Builders Develop Strategies">
-    Builders create strategies using the ClyptQ Trading Engine's Operator Protocol and Strategy Framework. The same code runs from development through backtesting to live trading.
-
-    [Learn more about Operator Protocol →](/engine/operator-protocol)
+  <Step title="Explore">
+    ```python
+    from clyptq import Helper
+    Helper.exchanges()          # Available exchanges
+    Helper.symbols("binance", "futures", quote="USDT")  # Available symbols
+    Helper.data_catalog()       # Local data inventory
+    ```
   </Step>
 
-  <Step title="Transparent Verification">
-    All strategy performance is verified through reproducible backtests and paper trading. The Trading Engine ensures identical execution between test and production environments.
+  <Step title="Build a Graph">
+    ```python
+    from clyptq.system.graph import StatefulGraph, Input
+    from clyptq.apps.trading.operators.indicator import SMA
 
-    [Learn more about Trading System →](/engine/trading-system)
+    graph = StatefulGraph()
+    close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
+    graph.add_node("sma_fast", SMA(span=10), inputs=[close])
+    graph.add_node("sma_slow", SMA(span=50), inputs=[close])
+    ```
   </Step>
 
-  <Step title="Marketplace Listing">
-    Builders list verified strategies on the marketplace with transparent performance metrics. Buyers can evaluate strategies with complete confidence in the reported results.
-
-    [Learn more about Builder Guide →](/ecosystem/builder-guide)
-  </Step>
-
-  <Step title="Buyers Deploy with Confidence">
-    Buyers select and deploy strategies knowing that performance is verifiable, execution is reliable, and risk management is built-in.
-
-    [Learn more about Buyer Guide →](/ecosystem/buyer-guide)
+  <Step title="Run">
+    ```python
+    driver = TradingDriver.from_spec(spec)
+    for result in driver:
+        equity_curve.append(result.outputs["equity"])
+    ```
   </Step>
 </Steps>
 
-## Documentation Structure
+<Card title="Full Quickstart Guide" icon="rocket" href="/quickstart">
+  Step-by-step guide: install → build strategy → backtest → analyze results
+</Card>
+
+## Documentation Map
 
 <CardGroup cols={2}>
-  <Card title="Clypt Ecosystem" icon="globe" href="/ecosystem/overview">
-    Understanding the Trading Commerce platform and Buyer-Builder trust relationship
+  <Card title="Engine Concepts" icon="gears" href="/engine/field-data-principle">
+    FIELD/STATE protocols, TaggedArray, StatefulGraph, operator system, TradingSpec
   </Card>
-
-  <Card title="ClyptQ Trading Engine" icon="gears" href="/engine/operator-protocol">
-    Production-grade quantitative trading engine with comprehensive documentation
+  <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
+    Cost models, funding rates, liquidation, lookahead prevention
   </Card>
-</CardGroup>
-
-### Complete Documentation
-
-**Clypt Ecosystem**:
-- [Ecosystem Overview](/ecosystem/overview) - Trading Commerce platform vision
-- [Buyer Guide](/ecosystem/buyer-guide) - Strategy evaluation and deployment
-- [Builder Guide](/ecosystem/builder-guide) - Development workflow and marketplace
-
-**ClyptQ Trading Engine**:
-- [Operator Protocol](/engine/operator-protocol) - Core execution infrastructure
-- [Strategy Framework](/engine/strategy-framework) - Strategy composition patterns
-- [Trading System](/engine/trading-system) - Execution pipeline and risk management
-- [Data System](/engine/data-system) - Multi-asset data integration
-- [Configuration](/engine/configuration) - System configuration and setup
-
-## Why Clypt?
-
-### Unique Value Proposition
-
-**For Builders**:
-- Immediate access to production infrastructure
-- Backtest = Live guarantee (same code, same results)
-- Marketplace monetization with transparent metrics
-- Focus on strategy development, not infrastructure
-
-**For Buyers**:
-- Verifiable strategy performance through reproducible results
-- Transparent metrics with built-in validation
-- Professional risk management and monitoring
-- Deploy without technical expertise
-
-**For the Ecosystem**:
-- Trust-based Trading Commerce platform
-- Sustainable fee models benefiting all participants
-- Continuous innovation through Builder competition
-- Quality assurance through transparent verification
-
-## Getting Started
-
-<CardGroup cols={3}>
-  <Card title="Understand the Ecosystem" icon="lightbulb" href="/ecosystem/overview">
-    Learn about the Trading Commerce platform
+  <Card title="Competitive Edge" icon="bolt" href="/competitive/why-clyptq">
+    vs QuantConnect, Nautilus, QuantRocket, vectorized frameworks
   </Card>
-
-  <Card title="For Buyers" icon="shopping-cart" href="/ecosystem/buyer-guide">
-    Evaluate and deploy strategies
+  <Card title="Operator Reference" icon="book" href="/operators/overview">
+    213+ operators: indicators, signals, transforms, metrics, AI
   </Card>
-
-  <Card title="For Builders" icon="code" href="/ecosystem/builder-guide">
-    Develop and monetize strategies
+  <Card title="Tutorials" icon="graduation-cap" href="/tutorials/first-strategy">
+    SMA crossover, multi-factor, AI-augmented, cross-exchange arbitrage
+  </Card>
+  <Card title="Roadmap" icon="road" href="/roadmap/overview">
+    US stocks, data marketplace, Rust conversion, competitions
   </Card>
 </CardGroup>
 
 ---
 
 <Warning>
-**Risk Disclaimer**
-
-Trading carries substantial risk. Past performance does not guarantee future results. All strategies are provided for informational purposes. Trade responsibly and never invest more than you can afford to lose.
+**Risk Disclaimer** — Trading carries substantial risk. Past performance does not guarantee future results. All strategies are provided for informational purposes. Never invest more than you can afford to lose.
 </Warning>

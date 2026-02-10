@@ -1,0 +1,213 @@
+---
+title: "Lookahead Bias Prevention"
+description: "How ClyptQ prevents lookahead bias by design, not by discipline"
+---
+
+## What Is Lookahead Bias?
+
+Lookahead bias occurs when a trading strategy uses information that **would not have been available** at the time a trade decision was made. It's the single most common cause of backtests that look profitable but fail in live trading.
+
+```python
+# Vectorized frameworks make this trivially easy:
+signals = np.where(prices > prices.rolling(20).mean(), 1, -1)
+
+# The ENTIRE price array is visible to the computation.
+# A subtle off-by-one error — using prices[i] instead of prices[i-1] —
+# gives the strategy access to the current bar's close price
+# BEFORE the bar has closed. This inflates returns dramatically.
+```
+
+The problem isn't that programmers are careless. The problem is that **vectorized frameworks make it structurally possible** to introduce lookahead bias with a single indexing mistake.
+
+## How ClyptQ Prevents It
+
+ClyptQ prevents lookahead bias through **four structural mechanisms** — not through code reviews or best practices, but through architecture that makes lookahead physically impossible.
+
+### 1. RollingBuffer: Fixed-Size Circular Buffer
+
+Every operator input is delivered through a `RollingBuffer` — a pre-allocated circular buffer that contains only the declared `lookback` number of past ticks:
+
+```python
+class RollingBuffer:
+    def __init__(self, lookback: int, n_symbols: int):
+        self.lookback = max(1, lookback)
+        # Pre-allocated: ONLY this many ticks can exist
+        self.value = np.zeros((self.lookback, n_symbols), dtype=np.float64)
+        self.exists = np.zeros((self.lookback, n_symbols), dtype=bool)
+        self.valid = np.zeros((self.lookback, n_symbols), dtype=bool)
+        self.updated = np.zeros((self.lookback, n_symbols), dtype=bool)
+        self.write_idx = 0
+
+    def append(self, tick: TaggedArray) -> None:
+        # Circular overwrite: oldest data destroyed, no future data possible
+        idx = self.write_idx % self.lookback
+        self.value[idx] = tick.value
+        self.write_idx += 1
+```
+
+**Key property:** The buffer is pre-allocated to exactly `lookback` slots. There is no array of future prices. There is no array at all — just a fixed window of past data that overwrites itself circularly.
+
+An operator requesting `lookback=20` receives exactly 20 ticks of historical data. Not 21. Not the entire dataset. Twenty ticks, ordered oldest-to-newest, with no possibility of accessing tick 21.
+
+### 2. Input Declarations: Explicit Lookback Contracts
+
+Every operator must declare exactly how much history it needs through `Input` objects:
+
+```python
+graph.add_node("sma_20", SMA(span=20),
+    inputs=[
+        Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)
+    ])
+
+graph.add_node("signal", CrossoverAlpha(),
+    inputs=[
+        Input("sma_fast", "1m", lookback=2),   # Only 2 ticks of SMA history
+        Input("sma_slow", "1m", lookback=2),   # Only 2 ticks of SMA history
+    ])
+```
+
+The `lookback` parameter determines the size of the `RollingBuffer` allocated for that specific consumer. The operator's `compute()` method receives a `TaggedArray` of shape `(lookback, n_symbols)` — no more, no less.
+
+This is fundamentally different from vectorized frameworks where every operation has access to the full price array:
+
+| | Vectorized (pandas/numpy) | ClyptQ (RollingBuffer) |
+|---|---|---|
+| **Data visible** | Entire array (all past + future) | Only `lookback` ticks (past only) |
+| **Lookahead possible** | Yes (indexing error) | No (buffer doesn't contain future data) |
+| **Memory** | O(n) for full history | O(lookback) per consumer |
+| **Enforcement** | Developer discipline | Structural guarantee |
+
+### 3. Automatic Warmup Calculation
+
+Before the backtest starts, ClyptQ automatically computes how many ticks are needed to fill all `RollingBuffer`s. This **warmup phase** runs the graph without executing any trades:
+
+```mermaid
+flowchart RL
+    FC1["FIELD:close"] -- "lookback=20" --> SMA20["sma_20"] --> SIG1["signal"] --> W1["weights"] --> INT1["intention"]
+    FC2["FIELD:close"] -- "lookback=50" --> SMA50["sma_50"] --> SIG2["signal"] --> W2["weights"] --> INT2["intention"]
+    MAX["Max path: 50 ticks + 5% safety buffer = 52 warmup ticks"]
+    style MAX fill:#1e1b16,stroke:#a1854a,color:#e8dcc4
+```
+
+The algorithm works by:
+
+1. **Tracing backward** from every node in `execution_order` through its `Input` dependencies
+2. **Accumulating lookback values** along each path (adjusting for overlaps: `total = node_lookback + accumulated - 1`)
+3. **Converting to source ticks** (accounting for timeframe differences: a 20-bar 1h lookback = 1,200 1m source ticks)
+4. **Taking the maximum** across all paths to each FIELD source
+5. **Adding a 5% safety buffer** (`warmup = int(max_warmup * 1.05)`)
+
+During warmup:
+- Operators execute normally (buffers fill up)
+- STATE is extracted (portfolio state available)
+- **No trading orders are executed** (`extra_context={"is_warmup": True}`)
+- Intention operators produce no output
+
+This means the first real trade happens only after all operators have sufficient history — matching exactly what would happen if you deployed the strategy live.
+
+<Info>
+Warmup ticks are **automatically computed** — you never need to manually set warmup. The graph traces its own dependency tree to determine the exact number of pre-run ticks needed. See [Warmup Calculation](/engine/stateful-graph#warmup-calculation) and [Lookback Buffers](/engine/lookback-buffers) for the full algorithm.
+</Info>
+
+### 4. Topological Execution Order
+
+The graph executes operators in **dependency order** (Kahn's algorithm), ensuring that every operator's inputs are computed before the operator runs:
+
+```mermaid
+flowchart LR
+    FC["FIELD:close"] --> SF["sma_fast"]
+    FC --> SS["sma_slow"]
+    SF --> SIG["signal"]
+    SS --> SIG
+    SIG --> W["weights"]
+    SC["STATE:cash"] --> EQ["equity"]
+    SP["STATE:pos_quantity"] --> EQ
+    FC --> EQ
+    W --> INT["intention"]
+    SP --> INT
+    FC --> INT
+```
+
+Each operator sees only:
+- Its declared inputs (through `RollingBuffer`)
+- The current tick's FIELD data (through the graph's on_tick dispatch)
+- STATE data extracted from the executor (cash, positions, margin)
+
+There is no global state, no shared mutable array, no way for operator 5 to access the output of operator 7.
+
+## The Complete Picture
+
+These four mechanisms work together to create an environment where lookahead is structurally impossible:
+
+```mermaid
+flowchart LR
+    subgraph TN["Tick N"]
+        FD["FIELD data<br>(tick N only)"] --> RB["RollingBuffer<br>[N-19] [N-18] ... [N]<br>(20 ticks only)"]
+        RB --> OP["Operator<br>compute()"]
+        OP --> TA["TaggedArray"]
+    end
+    NF["No tick N+1, N+2, ... in buffer<br>No global price array accessible<br>No future operator output readable<br>No trades during warmup"]
+    style NF fill:#2a1f1f,stroke:#a87171,color:#e8c4c4
+```
+
+## Comparison with Vectorized Frameworks
+
+### Pandas / NumPy (Used by Freqtrade, bt, Moonshot)
+
+```python
+# Full array visible — lookahead is one index away
+df["signal"] = np.where(df["close"] > df["close"].rolling(20).mean(), 1, -1)
+
+# Common mistake: using .shift(0) instead of .shift(1)
+# This uses TODAY's close to generate TODAY's signal — impossible in reality
+df["signal"] = np.where(df["close"] > df["sma_20"], 1, -1)  # WRONG
+df["signal"] = np.where(df["close"].shift(1) > df["sma_20"].shift(1), 1, -1)  # Must shift
+```
+
+The burden is entirely on the developer to get every `.shift()` call correct.
+
+### Backtrader / Zipline (Event-Driven)
+
+These frameworks process data bar-by-bar, which is better than pure vectorized. But:
+
+```python
+# Backtrader: self.data is the full data series
+class MyStrategy(bt.Strategy):
+    def next(self):
+        # self.data.close[0] is current bar — OK
+        # But self.data.close[1] is NEXT bar — lookahead!
+        # Nothing prevents this access.
+        if self.data.close[0] > self.data.close[-20]:  # OK: past
+            self.buy()
+        if self.data.close[0] < self.data.close[1]:    # BUG: future
+            self.sell()
+```
+
+The data object still contains the full series. Positive indexing accesses future bars. No structural prevention.
+
+### ClyptQ (RollingBuffer)
+
+```python
+class MyAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def compute(self, inputs, timestamp, context):
+        close = inputs[0]  # TaggedArray: shape (lookback, n_symbols)
+        # close[-1] = most recent tick (current)
+        # close[0] = oldest tick in window
+        # There IS no close[lookback] — the buffer doesn't have it
+        return TaggedArray(values=signal, ...)
+```
+
+The operator physically cannot access data outside its declared `lookback` window. This isn't a convention — it's a constraint enforced by the `RollingBuffer` allocation.
+
+## Summary
+
+| Mechanism | What It Prevents |
+|---|---|
+| **RollingBuffer** | Future data access (buffer only contains `lookback` past ticks) |
+| **Input declarations** | Undeclared data access (operator only receives declared inputs) |
+| **Automatic warmup** | Insufficient history (all buffers fully filled before first trade) |
+| **Topological execution** | Temporal ordering violations (dependencies computed before consumers) |
+
+The result: **you cannot introduce lookahead bias in ClyptQ, even if you try**. The architecture doesn't rely on developer discipline — it makes the wrong thing impossible.
