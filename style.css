@@ -1,27 +1,57 @@
 /* Clypt Docs — Global Overrides */
 
-/* Force black text on ALL primary-colored elements (CTA button, links, etc.) */
-/* The primary color #94F1E8 (cyan) is too light for white text */
-[class*="TopbarCta"] *,
-[class*="topbar-cta"] *,
-[class*="CtaButton"] *,
-[class*="cta-button"] *,
-[class*="TopbarCta"],
-[class*="topbar-cta"],
-[class*="CtaButton"],
-[class*="cta-button"] {
+/* ===== Hide light/dark mode toggle ===== */
+[class*="ColorModeToggle"],
+[class*="colorModeToggle"],
+[class*="color-mode"],
+[class*="ThemeToggle"],
+[class*="theme-toggle"],
+[class*="DarkMode"],
+[class*="dark-mode"],
+[class*="mode-toggle"],
+[class*="ModeToggle"],
+button[aria-label*="mode"],
+button[aria-label*="theme"],
+button[aria-label*="dark"],
+button[aria-label*="light"] {
+  display: none !important;
+}
+
+/* ===== Force black text on CTA button ===== */
+/* Nuclear approach: any link/button with primary bg in the header area */
+header a,
+header button,
+nav a,
+nav button {
+  /* Only apply to elements with the primary background color */
+}
+
+/* Target by href (the CTA points to clypt.ai) */
+a[href="https://clypt.ai"],
+a[href="https://clypt.ai"] *,
+a[href="https://clypt.ai"] span,
+a[href="https://clypt.ai"] p,
+a[href="https://clypt.ai"] div {
   color: #000000 !important;
 }
 
-/* Target the topbar CTA button by its href */
+/* Target by background color — any element with mint/cyan bg should have black text */
+/* Mintlify renders CTA with inline styles or CSS variables */
+[style*="background"] a,
+[style*="background"] span {
+  color: inherit;
+}
+
+/* Override via CSS custom properties that Mintlify uses */
+:root {
+  --primary-cta-text: #000000;
+}
+
+/* Broadest possible: target ALL elements in the top navigation bar */
 nav a[href="https://clypt.ai"],
+nav a[href="https://clypt.ai"] > *,
 header a[href="https://clypt.ai"],
-a[href="https://clypt.ai"] {
+header a[href="https://clypt.ai"] > * {
   color: #000000 !important;
-}
-
-/* Catch-all: any element with inline primary color background */
-[style*="94F1E8"],
-[style*="94f1e8"] {
-  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
