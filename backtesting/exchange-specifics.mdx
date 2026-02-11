@@ -54,8 +54,8 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 | **Binance** | 8 hours | 00:00, 08:00, 16:00 | Standard |
 | **Bybit** | 8 hours | 00:00, 08:00, 16:00 | Standard |
 | **Gateio** | 8 hours | 00:00, 08:00, 16:00 | Standard |
-| **Coinbase** | 1 hour | Every hour | More frequent, smaller payments |
-| **Kraken** | 4 hours | 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 | 6× per day |
+| **Coinbase** | 1 hour | Every hour | `has_funding_rate=False` — not simulated |
+| **Kraken** | 4 hours | 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 | 6× per day, fully simulated |
 
 ## Per-Exchange Details
 
@@ -116,8 +116,19 @@ Broad altcoin selection with higher liquidation threshold.
 - **Max leverage**: 100×
 - **Higher threshold**: 1.5 margin ratio (more conservative than peers)
 - **Altcoin depth**: More small-cap perpetuals than other exchanges
+- **Contract units**: Futures use integer contracts, not fractional amounts
 
 **Important note:** Gateio's 1.5× liquidation threshold means positions are liquidated **earlier** than on Binance or Bybit. A strategy that survives on Binance may get liquidated on Gateio with the same parameters.
+
+**Contract unit conversion:** Gateio futures require integer contracts. The API converts between BTC amounts and contracts automatically:
+
+```python
+# Gate.io: precision.amount == 1.0 → integer contracts only
+# Example: BTC/USDT contract_size = 0.0001 BTC
+# 0.1 BTC order → 1000 contracts
+contracts = amount / contract_size
+# API receives contracts (integer), internally tracked in BTC
+```
 
 ### Coinbase
 
@@ -129,11 +140,10 @@ US-regulated exchange with CFTC oversight and strict leverage limits.
 - **Max leverage**: 10× (CFTC limit)
 - **High MMR**: 6.67% (MM = IM × ⅔) — always static default (no dynamic tier API)
 - **Higher fees**: Liquidation fee at 1.0%
-- **Limited funding history**: ~42 days (insufficient for long backtests)
-- **Live funding API**: Not supported — falls back to rate=0 for paper/live trading
+- **No funding simulation**: `has_funding_rate=False` — funding not auto-injected
 
 <Warning>
-Coinbase funding rate data is limited to approximately 42 days of history. Long-term backtests on Coinbase perpetual will **not** include funding rate simulation. Additionally, the live funding rate API is unsupported — paper and live trading use a fallback rate of 0. Consider using Binance or Bybit for accurate futures backtests.
+Coinbase has `has_funding_rate=False`, so funding is **not simulated** in backtest or paper trading (rate defaults to 0). Historical funding data is limited to ~42 days and the live API is unsupported. Futures backtest P&L will not include funding costs. Consider using Binance or Bybit for accurate futures backtests.
 </Warning>
 
 ### Kraken
@@ -146,13 +156,42 @@ Regulated exchange with moderate leverage and higher liquidation costs.
 - **Max leverage**: 50×
 - **Higher MMR**: 2.0% default — dynamic tier resolution supported via CCXT public API
 - **Higher liquidation fee**: 1.5%
-- **4-hour funding**: 6 settlements per day (vs standard 3) — currently only 8h settlements applied in backtest
+- **4-hour funding**: 6 settlements per day (vs standard 3) — fully simulated at all 6 settlement times
 
 <Note>
-Kraken's 4-hour funding schedule means 6 settlements per day (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC). The current backtest executor only applies funding at the standard 8h boundaries (00:00, 08:00, 16:00), missing three of the six daily settlements. This understates funding costs by approximately half. Per-exchange settlement schedules are planned.
+Kraken's 4-hour funding schedule means 6 settlements per day (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC). The backtest executor applies funding at all 6 settlement boundaries using per-exchange `FUNDING_SETTLEMENT_HOURS`.
 
-**CCXT note**: `fetch_funding_rate_history()` returns data at 1h intervals for Kraken, but the intermediate values (01h, 02h, 03h, etc.) are **predicted rates**, not actual settlements. Only the 4h boundary values represent real funding charges.
+**CCXT note**: `fetch_funding_rate_history()` returns data at 1h intervals for Kraken, but the intermediate values (01h, 02h, 03h, etc.) are **predicted rates**, not actual settlements. Only the 4h boundary values represent real funding charges. The settlement hour gatekeeping ensures only real settlement times are applied.
 </Note>
+
+## Settlement Currencies
+
+| Exchange | Spot | Futures |
+|----------|------|---------|
+| **Binance** | USDT (primary), FDUSD, USDC | USDT, USDC |
+| **Bybit** | USDT, USDC | USDT |
+| **Gateio** | USDT | USDT |
+| **Coinbase** | USD, USDC | USDC |
+| **Kraken** | USD, USDT | USD |
+
+Symbol formats differ by exchange:
+
+```
+Spot:    BTC/USDT
+Futures: BTC/USDT:USDT    (settlement currency suffix)
+Kraken:  BTC/USD:USD
+Coinbase: BTC/USDC:USDC
+```
+
+## Position Modes
+
+| Exchange | One-Way | Hedge Mode | Notes |
+|----------|---------|------------|-------|
+| **Binance** | Yes | Yes | `position_side: "long"/"short"` |
+| **Bybit** | Yes | Yes | |
+| **Gateio** | Yes | Yes | |
+| **Coinbase** | Yes | No | `position_side: "both"` only |
+| **Kraken** | Yes | No | |
 
 ## Order Validation Limits
 

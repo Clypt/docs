@@ -66,10 +66,10 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 | **Bybit** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
 | **Gateio** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
 | **Coinbase** | 1h | Every hour | ~42 days | No (live API unsupported) |
-| **Kraken** | 4h | 6× per day | Full | Yes (8h settlements only) |
+| **Kraken** | 4h | 6× per day | Full | Yes |
 
 <Note>
-**Backtest funding accuracy**: Binance, Bybit, and Gateio have full 8h funding simulation. Kraken's 4h schedule is partially simulated (3 of 6 daily settlements). Coinbase funding is not simulated due to limited historical data and unsupported live API. See [Funding Rate Simulation](/backtesting/funding-rates) for details.
+**Backtest funding accuracy**: Binance, Bybit, and Gateio have full 8h funding simulation. Kraken's 4h schedule is fully simulated at all 6 daily settlement times. Coinbase funding is not simulated due to limited historical data (`has_funding_rate=False`). See [Funding Rate Simulation](/backtesting/funding-rates) for details.
 </Note>
 
 ## Data Availability
@@ -95,6 +95,30 @@ Use `Helper.data_catalog()` to check locally available data and date ranges.
 | **Gateio** | Yes | ~100-200ms | Automatic |
 | **Coinbase** | Yes | ~100-200ms | Automatic |
 | **Kraken** | Yes | ~100-200ms | Automatic |
+
+## Settlement Currencies
+
+| Exchange | Spot | Futures |
+|----------|------|---------|
+| **Binance** | USDT (primary), FDUSD, USDC | USDT, USDC |
+| **Bybit** | USDT, USDC | USDT |
+| **Gateio** | USDT | USDT |
+| **Coinbase** | USD, USDC | USDC |
+| **Kraken** | USD, USDT | USD |
+
+<Note>
+Multi-exchange strategies require matching symbol formats: `BTC/USDT` (Binance) vs `BTC/USD:USD` (Kraken). The `convert_symbol()` function handles automatic conversion.
+</Note>
+
+## Position Modes
+
+| Exchange | One-Way | Hedge Mode | Notes |
+|----------|---------|------------|-------|
+| **Binance** | Yes | Yes | `position_side: "long"/"short"` |
+| **Bybit** | Yes | Yes | |
+| **Gateio** | Yes | Yes | |
+| **Coinbase** | Yes | No | `position_side: "both"` only |
+| **Kraken** | Yes | No | |
 
 ## Configuration Examples
 

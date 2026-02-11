@@ -81,6 +81,15 @@ The delta is converted to an order and executed by the fill engine:
 | **paper** | `BacktestFactory` | Same simulated fill, but on live data |
 | **live** | `LiveFactory` | Real order sent to exchange via CCXT |
 
+### Order Types
+
+| Type | Description | Fee | Slippage |
+|------|-----------|-----|----------|
+| `MARKET` | Market order | Taker fee | Applied |
+| `LIMIT` | Limit order | Maker fee | None (INSTANT mode) |
+| `STOP` | Stop market order | Taker fee | Applied |
+| `STOP_LIMIT` | Stop limit order | Maker fee | None |
+
 ## Execution Modes: INSTANT vs LATENT
 
 ### INSTANT mode
@@ -211,7 +220,7 @@ fee = fill_price × quantity × fee_rate
 Fee rates are resolved through a 3-level priority chain:
 1. User override in `CostModelSpec`
 2. Auto-fetched from exchange via CCXT
-3. Fallback defaults (0.1% maker, 0.1% taker)
+3. Fallback defaults (0.02% maker, 0.05% taker)
 
 ### Slippage
 
@@ -256,6 +265,18 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for per-exchange formula
 | **Balance sync** | Before each tick, check for external changes (manual trades, liquidation, funding) |
 | **Heartbeat** | Periodic heartbeat prevents Kernel idle timeout |
 | **First tick skip** | Skip execution on first real-time tick to avoid stale warmup signals |
+
+## Execution Mode Differences
+
+| Feature | Backtest | Paper | Live |
+|---------|----------|-------|------|
+| **Fees** | CostModel (CCXT or override) | CostModel (same) | Exchange actual fee |
+| **Slippage** | Configured value | Configured value | Real execution price |
+| **Funding** | Settlement hours based | Real-time poll + settlement | Exchange auto-applied |
+| **Margin validation** | `_validate_margin()` | `_validate_margin()` | Exchange-side validation |
+| **Liquidation** | `check_liquidation()` simulation | `check_liquidation()` simulation | Exchange forced liquidation |
+| **Balance sync** | N/A | `sync_account_balances()` | `sync_account_balances()` |
+| **Orderbook** | Historical data (if available) | Real-time orderbook | Real-time orderbook |
 
 ## TP/SL in Backtest
 

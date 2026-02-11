@@ -74,7 +74,7 @@ ClyptQ resolves fees through `VenueFeeResolver` with a clear priority chain:
      ↓ if not set
 2. CCXT auto-fetch (from exchange API)
      ↓ if fetch fails
-3. Fallback default (0.1% maker/taker)
+3. Fallback default (0.02% maker, 0.05% taker)
 ```
 
 ### 1. User Override (Highest Priority)
@@ -109,13 +109,13 @@ Auto-fetch returns the **default tier** (non-VIP) rates. If you have VIP status,
 
 ### 3. Fallback Default
 
-If all resolution methods fail:
+If all resolution methods fail, the fallback matches typical Tier 0 futures rates:
 
 ```python
 CostModel(
     slippage_bps=0.0,
-    maker_fee=0.001,    # 0.1%
-    taker_fee=0.001,    # 0.1%
+    maker_fee=0.0002,   # 0.02%
+    taker_fee=0.0005,   # 0.05%
 )
 ```
 
