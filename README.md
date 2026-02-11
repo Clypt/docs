@@ -53,13 +53,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## Deployment
 
-Documentation is automatically deployed when changes are pushed to the main branch via Mintlify's GitHub integration.
+Documentation is automatically deployed when changes are pushed to the main branch via Mintlify's integration.
 
 ## Project Links
 
 - **Website**: https://clypt.ai
 - **Documentation**: https://docs.clypt.ai
-- **GitHub**: https://github.com/clypt
 - **X (Twitter)**: https://x.com/clyptai
 - **LinkedIn**: https://www.linkedin.com/company/clypt-ai
 
@@ -69,7 +68,6 @@ See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation Issues**: https://github.com/clypt/docs/issues
 - **Email**: jaden@clypt.ai
 - **X (Twitter)**: https://x.com/clyptai
 - **LinkedIn**: https://www.linkedin.com/company/clypt-ai

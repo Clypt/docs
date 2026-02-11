@@ -56,6 +56,54 @@ Returns the dominant cycle period of the price data.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (typically close price) |
 
+### Usage
+
+```python
+op = HT_DCPERIOD(Input("FIELD:close", timeframe="1m", lookback=32))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 32:
+                result[i] = self._calculate_dc_period(prices[valid_mask])
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
 
@@ -74,6 +122,54 @@ Returns the phase of the dominant cycle.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (typically close price) |
+
+### Usage
+
+```python
+op = HT_DCPHASE(Input("FIELD:close", timeframe="1m", lookback=32))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 32:
+                result[i] = self._calculate_dc_phase(prices[valid_mask])
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
@@ -94,6 +190,54 @@ Returns the trendline component of the price.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (typically close price) |
 
+### Usage
+
+```python
+op = HT_TRENDLINE(Input("FIELD:close", timeframe="1m", lookback=32))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 12:
+                result[i] = self._calculate_trendline(prices[valid_mask])
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
 
@@ -112,6 +256,54 @@ Returns 1 for trend mode, 0 for cycle mode.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (typically close price) |
+
+### Usage
+
+```python
+op = HT_TRENDMODE(Input("FIELD:close", timeframe="1m", lookback=32))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 20:
+                result[i] = self._calculate_trend_mode(prices[valid_mask])
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
@@ -133,6 +325,56 @@ Returns the sine or lead sine of the dominant cycle.
 | `input` | `'Input'` | Required | Input signal (typically close price) |
 | `output` | `str` | `'sine'` | "sine" or "leadsine" |
 
+### Usage
+
+```python
+sine = HT_SINE(Input("FIELD:close", timeframe="1m", lookback=32), output="sine")
+leadsine = HT_SINE(Input("FIELD:close", timeframe="1m", lookback=32), output="leadsine")
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 32:
+                sine, leadsine = self._calculate_sine(prices[valid_mask])
+                result[i] = leadsine if self._output == "leadsine" else sine
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
 
@@ -153,6 +395,56 @@ Returns the in-phase or quadrature component.
 | `input` | `'Input'` | Required | Input signal (typically close price) |
 | `output` | `str` | `'inphase'` | "inphase" or "quadrature" |
 
+### Usage
+
+```python
+inphase = HT_PHASOR(Input("FIELD:close", timeframe="1m", lookback=32), output="inphase")
+quadrature = HT_PHASOR(Input("FIELD:close", timeframe="1m", lookback=32), output="quadrature")
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= 32:
+                inphase, quadrature = self._calculate_phasor(prices[valid_mask])
+                result[i] = quadrature if self._output == "quadrature" else inphase
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/hilbert.py`</sub>
 
 
@@ -162,6 +454,9 @@ Returns the in-phase or quadrature component.
 
 Highest value over a specified period.
 
+Example:
+    op = MAX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -170,6 +465,55 @@ Highest value over a specified period.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `30` |  |
+
+### Usage
+
+```python
+op = MAX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_vals = window[~np.isnan(window)]
+            if len(valid_vals) > 0:
+                result[i] = np.max(valid_vals)
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -180,6 +524,9 @@ Highest value over a specified period.
 
 Index of highest value over a specified period.
 
+Example:
+    op = MAXINDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -188,6 +535,54 @@ Index of highest value over a specified period.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `30` |  |
+
+### Usage
+
+```python
+op = MAXINDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)):
+                result[i] = float(np.argmax(window))
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -198,6 +593,9 @@ Index of highest value over a specified period.
 
 Lowest value over a specified period.
 
+Example:
+    op = MIN(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -206,6 +604,55 @@ Lowest value over a specified period.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `30` |  |
+
+### Usage
+
+```python
+op = MIN(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_vals = window[~np.isnan(window)]
+            if len(valid_vals) > 0:
+                result[i] = np.min(valid_vals)
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -216,6 +663,9 @@ Lowest value over a specified period.
 
 Index of lowest value over a specified period.
 
+Example:
+    op = MININDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -224,6 +674,54 @@ Index of lowest value over a specified period.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `30` |  |
+
+### Usage
+
+```python
+op = MININDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)):
+                result[i] = float(np.argmin(window))
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -234,6 +732,9 @@ Index of lowest value over a specified period.
 
 MidPoint over period: (highest + lowest) / 2.
 
+Example:
+    op = MIDPOINT(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -242,6 +743,55 @@ MidPoint over period: (highest + lowest) / 2.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `14` |  |
+
+### Usage
+
+```python
+op = MIDPOINT(Input("FIELD:close", timeframe="1m", lookback=30), period=30)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_vals = window[~np.isnan(window)]
+            if len(valid_vals) > 0:
+                result[i] = (np.max(valid_vals) + np.min(valid_vals)) / 2
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -252,6 +802,13 @@ MidPoint over period: (highest + lowest) / 2.
 
 Midpoint Price over period: (highest high + lowest low) / 2.
 
+Example:
+    op = MIDPRICE(
+        Input("FIELD:high", timeframe="1m", lookback=14),
+        Input("FIELD:low", timeframe="1m", lookback=14),
+        period=14,
+    )
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -261,6 +818,63 @@ Midpoint Price over period: (highest high + lowest low) / 2.
 | `high` | `'Input'` | Required |  |
 | `low` | `'Input'` | Required |  |
 | `period` | `int` | `14` |  |
+
+### Usage
+
+```python
+op = MIDPRICE(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[-period:, i]
+            lows = low_values[-period:, i]
+            if not np.any(np.isnan(highs)) and not np.any(np.isnan(lows)):
+                result[i] = (np.max(highs) + np.min(lows)) / 2
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -281,6 +895,59 @@ Lowest and highest values over a specified period.
 | `period` | `int` | `30` | Lookback period |
 | `output` | `str` | `'min'` | "min" or "max" |
 
+### Usage
+
+```python
+lowest = MINMAX(Input("FIELD:close", timeframe="1m", lookback=30), period=30, output="min")
+highest = MINMAX(Input("FIELD:close", timeframe="1m", lookback=30), period=30, output="max")
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_vals = window[~np.isnan(window)]
+            if len(valid_vals) > 0:
+                if self._output == "max":
+                    result[i] = np.max(valid_vals)
+                else:
+                    result[i] = np.min(valid_vals)
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
 
@@ -299,6 +966,58 @@ Indices of lowest and highest values over a specified period.
 | `input` | `'Input'` | Required | Input signal |
 | `period` | `int` | `30` | Lookback period |
 | `output` | `str` | `'minidx'` | "minidx" or "maxidx" |
+
+### Usage
+
+```python
+min_idx = MINMAXINDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30, output="minidx")
+max_idx = MINMAXINDEX(Input("FIELD:close", timeframe="1m", lookback=30), period=30, output="maxidx")
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)):
+                if self._output == "maxidx":
+                    result[i] = float(np.argmax(window))
+                else:
+                    result[i] = float(np.argmin(window))
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/minmax.py`</sub>
 
@@ -322,6 +1041,64 @@ AVGPRICE = (Open + High + Low + Close) / 4
 | `low` | `'Input'` | Required | Low price input |
 | `close` | `'Input'` | Required | Close price input |
 
+### Usage
+
+```python
+op = AVGPRICE(
+    Input("FIELD:open", timeframe="1m", lookback=1),
+    Input("FIELD:high", timeframe="1m", lookback=1),
+    Input("FIELD:low", timeframe="1m", lookback=1),
+    Input("FIELD:close", timeframe="1m", lookback=1),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_output()
+
+    open_data, high_data, low_data, close_data = data[0], data[1], data[2], data[3]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    o = open_data[-1].value
+    h = high_data[-1].value
+    l = low_data[-1].value
+    c = close_data[-1].value
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            if not any(np.isnan([o[i], h[i], l[i], c[i]])):
+                result[i] = (o[i] + h[i] + l[i] + c[i]) / 4
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/price.py`</sub>
 
 
@@ -341,6 +1118,60 @@ MEDPRICE = (High + Low) / 2
 |-----------|------|---------|-------------|
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
+
+### Usage
+
+```python
+op = MEDPRICE(
+    Input("FIELD:high", timeframe="1m", lookback=1),
+    Input("FIELD:low", timeframe="1m", lookback=1),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    h = high_data[-1].value
+    l = low_data[-1].value
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            if not any(np.isnan([h[i], l[i]])):
+                result[i] = (h[i] + l[i]) / 2
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/price.py`</sub>
 
@@ -363,6 +1194,62 @@ TYPPRICE = (High + Low + Close) / 3
 | `low` | `'Input'` | Required | Low price input |
 | `close` | `'Input'` | Required | Close price input |
 
+### Usage
+
+```python
+op = TYPPRICE(
+    Input("FIELD:high", timeframe="1m", lookback=1),
+    Input("FIELD:low", timeframe="1m", lookback=1),
+    Input("FIELD:close", timeframe="1m", lookback=1),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    high_data, low_data, close_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    h = high_data[-1].value
+    l = low_data[-1].value
+    c = close_data[-1].value
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            if not any(np.isnan([h[i], l[i], c[i]])):
+                result[i] = (h[i] + l[i] + c[i]) / 3
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/price.py`</sub>
 
 
@@ -384,6 +1271,62 @@ WCLPRICE = (High + Low + Close * 2) / 4
 | `low` | `'Input'` | Required | Low price input |
 | `close` | `'Input'` | Required | Close price input |
 
+### Usage
+
+```python
+op = WCLPRICE(
+    Input("FIELD:high", timeframe="1m", lookback=1),
+    Input("FIELD:low", timeframe="1m", lookback=1),
+    Input("FIELD:close", timeframe="1m", lookback=1),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    high_data, low_data, close_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    h = high_data[-1].value
+    l = low_data[-1].value
+    c = close_data[-1].value
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            if not any(np.isnan([h[i], l[i], c[i]])):
+                result[i] = (h[i] + l[i] + c[i] * 2) / 4
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/price.py`</sub>
 
 
@@ -404,6 +1347,60 @@ Returns the linear regression value at the end of the period.
 | `input` | `'Input'` | Required | Input signal |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = LINEARREG(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                # Linear regression
+                x = np.arange(period)
+                slope, intercept = np.polyfit(x, window, 1)
+                result[i] = intercept + slope * (period - 1)
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
 
@@ -413,6 +1410,9 @@ Returns the linear regression value at the end of the period.
 
 Linear Regression Slope indicator.
 
+Example:
+    op = LINEARREG_SLOPE(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -421,6 +1421,56 @@ Linear Regression Slope indicator.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `14` |  |
+
+### Usage
+
+```python
+op = LINEARREG_SLOPE(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                x = np.arange(period)
+                slope, _ = np.polyfit(x, window, 1)
+                result[i] = slope
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
@@ -431,6 +1481,9 @@ Linear Regression Slope indicator.
 
 Linear Regression Intercept indicator.
 
+Example:
+    op = LINEARREG_INTERCEPT(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -439,6 +1492,56 @@ Linear Regression Intercept indicator.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `14` |  |
+
+### Usage
+
+```python
+op = LINEARREG_INTERCEPT(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                x = np.arange(period)
+                _, intercept = np.polyfit(x, window, 1)
+                result[i] = intercept
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
@@ -449,6 +1552,9 @@ Linear Regression Intercept indicator.
 
 Linear Regression Angle indicator (in degrees).
 
+Example:
+    op = LINEARREG_ANGLE(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -457,6 +1563,56 @@ Linear Regression Angle indicator (in degrees).
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `14` |  |
+
+### Usage
+
+```python
+op = LINEARREG_ANGLE(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                x = np.arange(period)
+                slope, _ = np.polyfit(x, window, 1)
+                result[i] = np.degrees(np.arctan(slope))
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
@@ -478,6 +1634,57 @@ TSF = LINEARREG + LINEARREG_SLOPE
 | `input` | `'Input'` | Required | Input signal |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = TSF(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                x = np.arange(period)
+                slope, intercept = np.polyfit(x, window, 1)
+                # TSF = forecast for next period
+                result[i] = intercept + slope * period
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
 
@@ -496,6 +1703,63 @@ Pearson's Correlation Coefficient indicator.
 | `input1` | `'Input'` | Required | First input signal |
 | `input2` | `'Input'` | Required | Second input signal |
 | `period` | `int` | `30` | Lookback period |
+
+### Usage
+
+```python
+op = CORREL(
+    Input("FIELD:close", timeframe="1m", lookback=30),
+    Input("FIELD:volume", timeframe="1m", lookback=30),
+    period=30,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    data1, data2 = data[0], data[1]
+
+    n_time = len(data1)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data1[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    values1 = np.array([data1[t].value for t in range(n_time)])
+    values2 = np.array([data2[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            w1 = values1[-period:, i]
+            w2 = values2[-period:, i]
+            if not np.any(np.isnan(w1)) and not np.any(np.isnan(w2)):
+                result[i] = np.corrcoef(w1, w2)[0, 1]
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
@@ -516,6 +1780,66 @@ Beta indicator - measures volatility relative to market.
 | `input2` | `'Input'` | Required | Market returns |
 | `period` | `int` | `5` | Lookback period |
 
+### Usage
+
+```python
+op = BETA(
+    Input("FIELD:close", timeframe="1m", lookback=30),
+    Input("FIELD:volume", timeframe="1m", lookback=30),
+    period=30,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    data1, data2 = data[0], data[1]
+
+    n_time = len(data1)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data1[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    values1 = np.array([data1[t].value for t in range(n_time)])
+    values2 = np.array([data2[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            w1 = values1[-period:, i]
+            w2 = values2[-period:, i]
+            if not np.any(np.isnan(w1)) and not np.any(np.isnan(w2)):
+                var_market = np.var(w2)
+                if var_market > 0:
+                    cov = np.cov(w1, w2)[0, 1]
+                    result[i] = cov / var_market
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 
 
@@ -525,6 +1849,9 @@ Beta indicator - measures volatility relative to market.
 
 Summation over a period.
 
+Example:
+    op = SUM(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+
 **Role**: `INDICATOR` | **Ephemeral**: No
 
 ### Parameters
@@ -533,6 +1860,54 @@ Summation over a period.
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required |  |
 | `period` | `int` | `30` |  |
+
+### Usage
+
+```python
+op = SUM(Input("FIELD:close", timeframe="1m", lookback=14), period=14)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+    result = np.full(n_symbols, np.nan)
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)):
+                result[i] = np.sum(window)
+
+    result_valid = exists & valid & ~np.isnan(result)
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stats.py`</sub>
 

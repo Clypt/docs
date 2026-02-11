@@ -62,6 +62,53 @@ graph.add_node("apo", APO(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._slow_period:
+                valid_prices = prices[valid_mask]
+                fast_ema = self._calculate_ema(valid_prices, self._fast_alpha)
+                slow_ema = self._calculate_ema(valid_prices, self._slow_alpha)
+                result[i] = fast_ema[-1] - slow_ema[-1]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/apo.py`</sub>
 
 
@@ -101,6 +148,56 @@ graph.add_node("bop", BOP(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_output()
+
+    open_data, high_data, low_data, close_data = data[0], data[1], data[2], data[3]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last_close = close_data[-1]
+    n_symbols = len(last_close.exists)
+    exists = last_close.exists
+    valid = last_close.valid
+
+    open_val = open_data[-1].value
+    high_val = high_data[-1].value
+    low_val = low_data[-1].value
+    close_val = close_data[-1].value
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            o, h, l, c = open_val[i], high_val[i], low_val[i], close_val[i]
+            if not any(np.isnan([o, h, l, c])):
+                hl_range = h - l
+                if hl_range > 0:
+                    result[i] = (c - o) / hl_range
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/bop.py`</sub>
 
 
@@ -132,6 +229,51 @@ graph.add_node("cmo", CMO(
     Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
     period=14,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._period + 1:
+                valid_prices = prices[valid_mask]
+                result[i] = self._calculate_cmo(valid_prices)
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/cmo.py`</sub>
@@ -171,6 +313,58 @@ graph.add_node("macd", MACD(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    # Extract values for all time periods
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._slow_period + self._signal_period:
+                valid_prices = prices[valid_mask]
+                macd, signal, histogram = self._calculate_macd(valid_prices)
+                if self._output == "signal":
+                    result[i] = signal
+                elif self._output == "histogram":
+                    result[i] = histogram
+                else:
+                    result[i] = macd
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/macd.py`</sub>
 
 
@@ -199,6 +393,52 @@ graph.add_node("mom", MOM(
     Input("FIELD:gateio:spot:close", timeframe="1h", lookback=15),
     period=10,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    # Extract values for all time periods
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    if n_time > self._period:
+        for i in range(n_symbols):
+            if exists[i] and valid[i]:
+                current = all_values[-1, i]
+                past = all_values[-(self._period + 1), i]
+                if not np.isnan(current) and not np.isnan(past):
+                    result[i] = current - past
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/mom.py`</sub>
@@ -235,6 +475,54 @@ graph.add_node("ppo", PPO(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._slow_period:
+                valid_prices = prices[valid_mask]
+                fast_ema = self._calculate_ema(valid_prices, self._fast_alpha)
+                slow_ema = self._calculate_ema(valid_prices, self._slow_alpha)
+                if slow_ema[-1] != 0:
+                    result[i] = ((fast_ema[-1] - slow_ema[-1]) / slow_ema[-1]) * 100
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/ppo.py`</sub>
 
 
@@ -264,6 +552,51 @@ graph.add_node("roc", ROC(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    if n_time > self._period:
+        for i in range(n_symbols):
+            if exists[i] and valid[i]:
+                current = all_values[-1, i]
+                past = all_values[-(self._period + 1), i]
+                if not np.isnan(current) and not np.isnan(past) and past != 0:
+                    result[i] = ((current - past) / past) * 100
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
 
 
@@ -283,6 +616,57 @@ ROCP = (Price_today - Price_n_periods_ago) / Price_n_periods_ago
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
 | `period` | `int` | `10` | Number of periods |
+
+### Usage
+
+```python
+op = ROCP(Input("FIELD:close", timeframe="1m", lookback=10), period=10)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    if n_time > self._period:
+        for i in range(n_symbols):
+            if exists[i] and valid[i]:
+                current = all_values[-1, i]
+                past = all_values[-(self._period + 1), i]
+                if not np.isnan(current) and not np.isnan(past) and past != 0:
+                    result[i] = (current - past) / past
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
 
@@ -304,6 +688,57 @@ ROCR = Price_today / Price_n_periods_ago
 | `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
 | `period` | `int` | `10` | Number of periods |
 
+### Usage
+
+```python
+op = ROCR(Input("FIELD:close", timeframe="1m", lookback=10), period=10)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    if n_time > self._period:
+        for i in range(n_symbols):
+            if exists[i] and valid[i]:
+                current = all_values[-1, i]
+                past = all_values[-(self._period + 1), i]
+                if not np.isnan(current) and not np.isnan(past) and past != 0:
+                    result[i] = current / past
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
 
 
@@ -323,6 +758,57 @@ ROCR100 = (Price_today / Price_n_periods_ago) * 100
 |-----------|------|---------|-------------|
 | `input` | `'Input'` | Required | Input signal (requires lookback &gt;= period) |
 | `period` | `int` | `10` | Number of periods |
+
+### Usage
+
+```python
+op = ROCR100(Input("FIELD:close", timeframe="1m", lookback=10), period=10)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    if n_time > self._period:
+        for i in range(n_symbols):
+            if exists[i] and valid[i]:
+                current = all_values[-1, i]
+                past = all_values[-(self._period + 1), i]
+                if not np.isnan(current) and not np.isnan(past) and past != 0:
+                    result[i] = (current / past) * 100
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/roc.py`</sub>
 
@@ -355,6 +841,52 @@ graph.add_node("rsi", RSI(
     Input("FIELD:gateio:spot:close", timeframe="1h", lookback=20),
     period=14,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    # Extract values for all time periods
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._period + 1:
+                valid_prices = prices[valid_mask]
+                result[i] = self._calculate_rsi(valid_prices)
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/rsi.py`</sub>
@@ -395,6 +927,62 @@ graph.add_node("stoch", STOCH(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._fastk_period + self._slowk_period:
+                slowk, slowd = self._calculate_stoch(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+                result[i] = slowd if self._output == "slowd" else slowk
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stoch.py`</sub>
 
 
@@ -420,6 +1008,72 @@ Fast Stochastic returns raw %K without smoothing.
 | `fastk_period` | `int` | `14` | %K period |
 | `fastd_period` | `int` | `3` | %D period |
 | `output` | `str` | `'fastk'` | "fastk" or "fastd" |
+
+### Usage
+
+```python
+op = STOCHF(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._fastk_period:
+                fastk, fastd = self._calculate_stochf(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+                result[i] = fastd if self._output == "fastd" else fastk
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/stoch.py`</sub>
 
@@ -458,6 +1112,54 @@ graph.add_node("stochrsi", STOCHRSI(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    min_periods = self._rsi_period + self._stoch_period + 1
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= min_periods:
+                valid_prices = prices[valid_mask]
+                fastk, fastd = self._calculate_stochrsi(valid_prices)
+                result[i] = fastd if self._output == "fastd" else fastk
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stochrsi.py`</sub>
 
 
@@ -486,6 +1188,51 @@ graph.add_node("trix", TRIX(
     Input("FIELD:gateio:spot:close", timeframe="1h", lookback=50),
     period=30,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            prices = all_values[:, i]
+            valid_mask = ~np.isnan(prices)
+            if np.sum(valid_mask) >= self._period * 2:
+                valid_prices = prices[valid_mask]
+                result[i] = self._calculate_trix(valid_prices)
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/trix.py`</sub>
@@ -528,6 +1275,63 @@ graph.add_node("ultosc", ULTOSC(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    min_periods = self._period3 + 1
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= min_periods:
+                result[i] = self._calculate_ultosc(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/ultosc.py`</sub>
 
 
@@ -563,6 +1367,63 @@ graph.add_node("willr", WILLR(
     low=Input("FIELD:gateio:spot:low", timeframe="1h", lookback=20),
     period=14,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            close = close_values[-1, i]
+            highs = high_values[-period:, i]
+            lows = low_values[-period:, i]
+
+            if not np.any(np.isnan(highs)) and not np.any(np.isnan(lows)) and not np.isnan(close):
+                highest_high = np.max(highs)
+                lowest_low = np.min(lows)
+                hl_range = highest_high - lowest_low
+
+                if hl_range > 0:
+                    result[i] = ((highest_high - close) / hl_range) * -100
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/willr.py`</sub>

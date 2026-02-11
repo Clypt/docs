@@ -307,22 +307,24 @@ This means:
 ClyptQ separates execution into three **memoryless** components:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     OG["Operator Graph<br>Signal → Weights → Position<br><br>Stateless<br>(pure functions)"] --> IN["Intention Node<br>Weights → Delta → Intention<br><br>Stateless<br>(delta compute)"]
     IN --> EX["Executor<br>Delta → Order → Fill → STATE<br><br>Memoryless<br>(no history)"]
     EX -- "STATE feedback" --> OG
+
+    class EX action
 ```
 
 ### Memoryless Execution
 
-The executor has **no memory** of past orders or fills. Every tick:
-1. Receives `TradingIntention` from the intention node
-2. Computes delta from current STATE (positions, cash)
-3. Generates and executes order
-4. Updates STATE with fill result
-5. **Forgets everything** — next tick starts fresh
+The executor is stateless -- it receives an intention, computes a delta from current STATE, executes the order, updates STATE, and forgets everything. All metrics, tracking, and adaptation are done by operators in the graph, not by the executor.
 
-This means **all metrics and tracking are done by operators in the graph**, not by the executor. Want a custom win rate calculation? Write a metric operator. Want drawdown tracking? Write a metric operator. The execution layer is a pure state machine with no opinion about performance measurement.
+<Card title="FIELD & STATE" icon="database" href="/engine/field-state">
+  How FIELD (market data) and STATE (portfolio state) flow through the graph and enable the memoryless execution pattern
+</Card>
 
 ### Feedback Loop Control
 
@@ -559,6 +561,5 @@ def compute(self, data, timestamp, context):
 - **[TaggedArray](/engine/tagged-array)**: All inputs and outputs
 - **[StatefulGraph](/engine/stateful-graph)**: Manages operator execution and state
 - **[Lookback Buffers](/engine/lookback-buffers)**: How operators receive historical data
-- **[FIELD Data Principle](/engine/field-data-principle)**: Market data inputs
-- **[STATE Principle](/engine/state-principle)**: Portfolio state inputs
-- **[Operator Reference](/operators/overview)**: Complete catalog of 213+ built-in operators
+- **[FIELD & STATE](/engine/field-state)**: Market data and portfolio state inputs
+- **[Operator Reference](/operators/overview)**: Complete catalog of 380+ built-in operators

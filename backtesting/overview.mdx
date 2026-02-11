@@ -44,9 +44,9 @@ The only difference between backtest and live is **step 6**: backtest simulates 
 
 ### 1. Structural Lookahead Prevention
 
-Operators see only past data through `RollingBuffer` — a pre-allocated circular buffer that physically cannot contain future data. There is no array of future prices to accidentally index into.
+Operators see only past data through `RollingBuffer` — a pre-allocated circular buffer that physically cannot contain future data.
 
-<Card title="Deep Dive: Lookahead Prevention" icon="shield" href="/backtesting/lookahead-bias-prevention">
+<Card title="Lookahead Bias Prevention" icon="shield" href="/backtesting/lookahead-bias-prevention">
   How RollingBuffer, warmup calculation, and Input declarations make lookahead bias structurally impossible
 </Card>
 
@@ -95,7 +95,6 @@ Leveraged positions are liquidated when margin ratios breach exchange-specific t
 |----------|-------------|-----------------|---------------|
 | Binance | 1.3% | 0.75% | MMR/Equity × 100 (inverted) |
 | Bybit | 0.5% | 0.6% | Equity/MMR (normal) |
-| OKX | 0.5% | 0.5% | MMR/Equity × 100 (inverted) |
 | Gateio | 1.0% | 0.5% | Equity/MMR (normal) |
 | Coinbase | 6.67% | 1.0% | Equity/MMR (CFTC regulated) |
 

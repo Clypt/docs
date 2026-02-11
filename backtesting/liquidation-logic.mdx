@@ -28,7 +28,7 @@ For each futures account:
 
 Exchanges use one of two formulas to compute margin ratio:
 
-**Inverted (Binance, OKX):**
+**Inverted (Binance):**
 ```
 margin_ratio = (maintenance_margin / equity) × 100
 
@@ -53,14 +53,13 @@ Both formulas express the same economic condition — equity insufficient to cov
 | Exchange | Default MMR | Liquidation Fee | Threshold | Formula | Notes |
 |----------|-------------|-----------------|-----------|---------|-------|
 | **Binance** | 1.3% | 0.75% | 100% | Inverted | Tiered MMR by position size |
-| **OKX** | 0.5% | 0.5% | 100% | Inverted | Same style as Binance |
 | **Bybit** | 0.5% | 0.6% | 1.0 | Normal | Lower MMR, more leverage allowed |
 | **Gateio** | 1.0% | 0.5% | 1.5 | Normal | Higher threshold (more conservative) |
 | **Coinbase** | 6.67% | 1.0% | 1.0 | Normal | CFTC regulated, MM = IM × ⅔ |
 | **Kraken** | 2.0% | 1.5% | 1.0 | Normal | Regulated, higher fees |
 
 <Info>
-The **Default MMR** values are Tier 1 (smallest position) rates. In reality, exchanges use tiered MMR where larger positions require higher maintenance margin. ClyptQ uses the Tier 1 default; you can override `maintenance_margin_rate` for more precise simulation.
+The **Default MMR** values are Tier 1 (smallest position) rates. In reality, exchanges use tiered MMR where larger positions require higher maintenance margin. ClyptQ supports **dynamic tier resolution** for exchanges that expose tier data via CCXT: Binance (requires API key), Bybit, Gateio, and Kraken fetch real-time tier brackets. Coinbase does not expose tier data — it always uses the static default (6.67%).
 </Info>
 
 ## Liquidation Calculation Step by Step

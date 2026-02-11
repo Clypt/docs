@@ -1,0 +1,92 @@
+---
+title: "Glossary"
+description: "Quick reference for ClyptQ terminology"
+---
+
+## Core Architecture
+
+**TradingSpec**
+The complete strategy definition: data + strategy + execution mode. Changing `mode` is all it takes to go from backtest to live. [Full Reference →](/engine/trading-spec)
+
+**TradingDriver**
+The runtime orchestrator. Reads a TradingSpec, computes warmup, and runs the tick loop. [Architecture Overview →](/getting-started/architecture-overview)
+
+**StatefulGraph**
+A DAG execution engine where operators are stateless and the graph manages all state via RollingBuffers. [Deep Dive →](/engine/stateful-graph)
+
+**Operator**
+A stateless computation unit that receives TaggedArrays and returns a TaggedArray. ClyptQ ships 380+ across 14 roles. [Operator System →](/engine/operators)
+
+**BaseOperator**
+The abstract base class all operators inherit from. Requires implementing `compute()` and declaring a `role`. [Protocol Reference →](/engine/operator-protocol)
+
+**OperatorRole**
+One of 14 roles (ALPHA, INDICATOR, TRANSFORM, OPTIMIZER, etc.) that categorizes what an operator does. [Role Table →](/engine/operators#14-operator-roles)
+
+## Data Concepts
+
+**FIELD**
+Market data namespace: `FIELD:exchange:market:ohlcv:field`. The only way operators receive market data. [FIELD & STATE →](/engine/field-state)
+
+**STATE**
+Portfolio data namespace: `STATE:exchange:market:key`. Updated by the executor after each fill. [FIELD & STATE →](/engine/field-state)
+
+**TaggedArray**
+4-field data structure (value, exists, valid, updated) that distinguishes missing data from invalid data. [Why 4 Fields? →](/engine/tagged-array)
+
+**RollingBuffer**
+Pre-allocated circular buffer that stores historical data for each operator input. Prevents lookahead by only exposing the declared lookback window. [Lookback Buffers →](/engine/lookback-buffers)
+
+**SymbolSourceMap**
+Maps symbols to exchanges: `{"binance:futures": ["BTC/USDT", "ETH/USDT"]}`. Determines which symbols appear in each FIELD source. [TradingSpec →](/engine/trading-spec)
+
+**AxisMeta**
+Frozen metadata about the symbol dimension — symbol names, exchange sources, index mappings. [TaggedArray →](/engine/tagged-array#axismeta)
+
+**Input**
+Declaration of what data an operator needs: `Input(source, timeframe, lookback)`. Tells the graph how to set up buffers. [StatefulGraph →](/engine/stateful-graph)
+
+**Forward-Fill**
+When no new data arrives for a FIELD source, the last known value is reused with `updated=False`. [FIELD & STATE →](/engine/field-state#forward-fill)
+
+## Execution Concepts
+
+**Intention**
+Target portfolio state produced by ORDER operators: "I want 0.5 BTC long." [Execution Pipeline →](/engine/execution-pipeline)
+
+**Delta**
+The difference between current position and target: "I need to buy 0.3 BTC." [Execution Pipeline →](/engine/execution-pipeline)
+
+**BacktestFactory / LiveFactory**
+Fill engines. BacktestFactory simulates fills against historical data. LiveFactory sends real orders via CCXT. [Architecture Overview →](/getting-started/architecture-overview)
+
+**Warmup**
+Pre-execution period where the graph processes ticks to fill RollingBuffers before generating trading signals. Computed automatically by tracing the graph backward. [StatefulGraph →](/engine/stateful-graph)
+
+**Ephemeral Operator**
+An operator that calls external APIs (LLM, web search). Cannot reproduce outputs for backtesting. Only runs in paper/live mode. [Semantic Operators →](/operators/semantic)
+
+## Platform Concepts
+
+**Code Parity**
+The guarantee that the same graph runs identically in backtest, paper, and live modes. Only the data source and fill engine change. [Deep Dive →](/competitive/code-parity)
+
+**Cross-Exchange Validation**
+Platform tests strategies on exchange data the builder never saw, proving the strategy isn't overfit to a single venue. [Marketplace →](/platform/marketplace)
+
+**Trading Commerce**
+The marketplace model: builders create strategies, platform verifies them, buyers deploy them. [Marketplace →](/platform/marketplace)
+
+## Backtesting Concepts
+
+**Lookahead Bias**
+Using future data in backtesting. ClyptQ prevents this structurally via RollingBuffers. [Prevention →](/backtesting/lookahead-bias-prevention)
+
+**Funding Rate**
+Periodic payment between long/short holders in perpetual futures. Simulated at settlement boundaries. [Funding Rates →](/backtesting/funding-rates)
+
+**MMR (Maintenance Margin Ratio)**
+Minimum equity required to keep a leveraged position open. Varies by exchange and position tier. [Liquidation Logic →](/backtesting/liquidation-logic)
+
+**CostModelSpec**
+Configuration for maker/taker fees, slippage, and funding rate overrides. Auto-fetched from exchanges if not specified. [Cost Models →](/backtesting/cost-models)

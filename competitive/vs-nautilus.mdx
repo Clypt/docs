@@ -100,7 +100,7 @@ spec = TradingSpec(
 
 | | Nautilus | ClyptQ |
 |---|---|---|
-| **Data source** | BYO (Tardis.dev, Databento, custom) | Included (Binance, Gate.io, Bybit, OKX, Coinbase) |
+| **Data source** | BYO (Tardis.dev, Databento, custom) | Included (Binance, Gate.io, Bybit, Kraken, Coinbase) |
 | **Setup time** | Hours to days (sourcing, cataloging) | Zero (available immediately) |
 | **Cost** | Data vendor subscriptions ($100-$1000+/mo) | Included in platform |
 | **Multi-exchange alignment** | Manual (you align timestamps) | Automatic (pre-aligned) |
@@ -146,7 +146,7 @@ graph.add_node("intention", TargetPositionIntention(...), inputs=[risk, book_siz
 
 Each node is testable in isolation. Swap the signal? Change one node. Add risk management? Add a node. The rest of the graph is untouched.
 
-### 213+ Pre-built Operators
+### 380+ Pre-built Operators
 
 | Category | ClyptQ | Nautilus |
 |---|---|---|
@@ -159,7 +159,7 @@ Each node is testable in isolation. Swap the signal? Change one node. Add risk m
 | **AI operators** | 3 (LLMScorer, WebSearch, Sentiment) | None |
 | **Order operators** | 6 (Target, Futures, Arbitrage, etc.) | Order factory (manual) |
 
-With Nautilus, you build everything from primitives. With ClyptQ, you compose from a library of 213+ operators.
+With Nautilus, you build everything from primitives. With ClyptQ, you compose from a library of 380+ operators.
 
 ### AI-Powered Trading
 
@@ -184,7 +184,7 @@ ClyptQ's marketplace enables strategy monetization with cross-exchange verificat
 | **Setup time** | Minutes | Hours to days |
 | **Deployment** | SaaS (managed) | Self-hosted |
 | **Learning curve** | Moderate | Steep |
-| **Operator library** | 213+ pre-built | ~30 indicators |
+| **Operator library** | 380+ pre-built | ~30 indicators |
 | **Strategy architecture** | Composable DAG | Monolithic strategy class |
 | **Multi-exchange** | Native (FIELD protocol) | Supported (venue adapters) |
 | **Futures modeling** | Full (funding, liquidation, margin) | Configurable (manual setup) |
@@ -211,7 +211,7 @@ Nautilus Trader is the right choice if you:
 ClyptQ is the better choice if you:
 
 - **Want to start trading fast** — Data, infrastructure, and execution handled for you
-- **Value composability** — Build strategies from 213+ pre-built operators
+- **Value composability** — Build strategies from 380+ pre-built operators
 - **Trade crypto across exchanges** — Native multi-exchange with exchange-specific cost modeling
 - **Use AI/ML in strategies** — LLM, web search, and sentiment as first-class operators
 - **Want to sell strategies** — Verified marketplace with cross-exchange validation
@@ -229,7 +229,7 @@ ClyptQ's [planned Rust migration](/roadmap/rust-conversion) (core engine in Rust
 
 ## Relationship to Other Concepts
 
-- **[Why ClyptQ?](/competitive/why-clyptq)**: Complete overview of all competitive advantages
+- **[Why ClyptQ?](/competitive/overview)**: Complete overview of all competitive advantages
 - **[Research = Backtest = Live](/competitive/code-parity)**: Code parity comparison (both platforms guarantee this)
 - **[AI-Powered Trading](/competitive/semantic-operators)**: The AI capability that Nautilus lacks
 - **[Rust Conversion Roadmap](/roadmap/rust-conversion)**: How ClyptQ plans to match Nautilus's performance

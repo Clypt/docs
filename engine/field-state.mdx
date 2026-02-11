@@ -1,0 +1,264 @@
+---
+title: "FIELD & STATE"
+description: "Two data namespaces that power every ClyptQ strategy — market data in, portfolio state back"
+---
+
+## Two Data Protocols
+
+Every ClyptQ strategy has two types of data flowing through it:
+
+| | FIELD | STATE |
+|---|-------|-------|
+| **Source** | Market data (exchanges) | Portfolio state (executor) |
+| **Direction** | Forward (into the graph) | Backward (after fills, back into graph) |
+| **Updated by** | Data provider (Parquet or WebSocket) | Execution engine (after every fill) |
+| **Warmup** | Contributes to warmup calculation | Does not contribute to warmup |
+| **Examples** | Prices, volumes, funding rates | Cash, positions, margin |
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
+flowchart LR
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
+    FIELD["FIELD<br>Market Data"] --> Graph["StatefulGraph<br>Operators"]
+    Graph --> Exec["Executor"]
+    Exec -- "STATE<br>Portfolio State" --> Graph
+
+    class FIELD source
+    class Exec action
+```
+
+Both protocols use the same infrastructure — consumer maps, [RollingBuffers](/engine/lookback-buffers), [TaggedArrays](/engine/tagged-array), and topological execution. The only difference is where the data originates.
+
+---
+
+## FIELD Protocol
+
+### Format
+
+```
+FIELD:{exchange}:{market_type}:ohlcv:{field_name}
+```
+
+| Component | Description | Examples |
+|-----------|-------------|---------|
+| `FIELD` | Protocol prefix | Always `FIELD` |
+| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit`, `kraken`, `coinbase` |
+| `market_type` | Market category | `spot`, `futures` |
+| `ohlcv` | Data domain | `ohlcv` (more domains planned) |
+| `field_name` | Data field | `close`, `open`, `high`, `low`, `volume` |
+
+```python
+"FIELD:binance:futures:ohlcv:close"     # Binance futures close price
+"FIELD:gateio:spot:ohlcv:volume"        # Gate.io spot volume
+"FIELD:bybit:futures:ohlcv:high"        # Bybit futures high price
+```
+
+### Using FIELD in a Graph
+
+```python
+from clyptq.system.graph import StatefulGraph, Input
+
+graph = StatefulGraph()
+
+# Declare what data this operator needs
+sma = graph.add_node("sma_20", SMA(span=20), inputs=[
+    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)
+])
+```
+
+The `Input` declaration tells the graph:
+- **What data** — `FIELD:binance:futures:ohlcv:close`
+- **At what resolution** — `"1m"` (1-minute candles)
+- **How much history** — `lookback=20` (20 ticks of rolling history)
+
+### FIELD Distribution
+
+When new market data arrives (a tick), the graph distributes it to all consuming operators via pre-computed consumer maps:
+
+```python
+# Pre-computed at graph construction time (O(1) per tick)
+_field_consumers = {
+    "FIELD:binance:futures:ohlcv:close": [
+        ("sma_20", buffer_for_sma),
+        ("rsi_14", buffer_for_rsi),
+    ],
+}
+```
+
+### Multi-Venue Routing
+
+FIELD prefixes prevent data collision across exchanges:
+
+```python
+# Same field name ("close"), completely separate data streams
+binance_close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=20)
+gateio_close  = Input("FIELD:gateio:futures:ohlcv:close", "1m", lookback=20)
+
+graph.add_node("spread", SpreadCalculator(), inputs=[binance_close, gateio_close])
+```
+
+### SymbolSourceMap
+
+The FIELD protocol connects to the data layer through `SymbolSourceMap`:
+
+```python
+symbol_map = SymbolSourceMap({
+    "binance:futures": ["BTC/USDT", "ETH/USDT"],
+    "gateio:futures":  ["SOL/USDT", "DOGE/USDT"],
+})
+```
+
+When `FIELD:binance:futures:ohlcv:close` arrives, it contains data for BTC/USDT and ETH/USDT — the symbols mapped to that source.
+
+### Forward-Fill
+
+If a FIELD source has no new data at a given tick, the graph **forward-fills** by reusing the last known value:
+
+```python
+if new_data_available:
+    buffer.append(new_tick)              # updated=True
+else:
+    last = buffer.get_last()
+    last.updated = False                 # Mark as stale
+    buffer.append(last)                  # Forward-fill
+```
+
+The `value` is preserved, but `updated=False` signals staleness. Operators can check `updated` to decide whether to recompute.
+
+<Warning>
+FIELD is the **only** way operators receive market data. There is no `get_price()` function, no global dataframe, no implicit context. This is by design — it prevents lookahead bias and makes all data dependencies explicit.
+</Warning>
+
+---
+
+## STATE Protocol
+
+### Format
+
+```
+STATE:{exchange}:{market_type}:{key}
+```
+
+| Component | Description | Examples |
+|-----------|-------------|---------|
+| `STATE` | Protocol prefix | Always `STATE` |
+| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit` |
+| `market_type` | Market category | `spot`, `futures` |
+| `key` | State key | `cash`, `pos_quantity`, `pos_entry_price`, `available_margin` |
+
+```python
+"STATE:binance:futures:cash"              # Cash balance
+"STATE:gateio:spot:pos_quantity"          # Position quantities
+"STATE:binance:futures:available_margin"  # Free margin (futures)
+```
+
+### Available STATE Keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `cash` | Scalar | Available cash balance |
+| `pos_quantity` | Array | Position quantities per symbol |
+| `pos_entry_price` | Array | Average entry prices per symbol |
+| `available_margin` | Scalar | Free margin (futures only) |
+
+<Info>
+STATE data is updated by the **execution engine** after every fill. You don't update STATE manually — it reflects the real (or simulated) portfolio state.
+</Info>
+
+### Using STATE in a Graph
+
+Operators declare STATE inputs the same way as FIELD inputs:
+
+```python
+equity = graph.add_node("equity", EquityCalculator(), inputs=[
+    Input("STATE:binance:futures:cash", "1m", lookback=1),
+    Input("STATE:binance:futures:pos_quantity", "1m", lookback=1),
+    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=1),
+    Input("STATE:binance:futures:pos_entry_price", "1m", lookback=1),
+])
+```
+
+FIELD and STATE inputs mix in the same operator. The graph treats both identically for routing.
+
+### Balance Operators
+
+Pre-built operators for common STATE queries:
+
+| Operator | Output | Purpose |
+|----------|--------|---------|
+| `CashBalance` | Scalar | Current cash |
+| `EquityCalculator` | Scalar | Cash + position value |
+| `TotalEquityCalculator` | Scalar | Aggregate across venues |
+| `AvailableMargin` | Scalar | Free margin (futures) |
+| `PositionQuantity` | Array | Position sizes per symbol |
+| `BookSize` | Scalar | Scaled book size (with min/max clamp) |
+
+---
+
+## Feedback Loops
+
+Because STATE flows back into the graph, strategies create **closed-loop feedback**:
+
+```python
+# Equity tracking
+graph.add_node("equity", EquityCalculator(), inputs=[...])
+
+# Drawdown from equity (feedback: execution state → signal adjustment)
+graph.add_node("drawdown", RollingDrawdown(),
+    inputs=[Input("equity", "1m", lookback=252)])
+
+# Risk adjustment based on drawdown
+graph.add_node("risk_scaled", RiskAdjuster(), inputs=[
+    Input("signal", "1m", lookback=1),
+    Input("drawdown", "1m", lookback=1),
+])
+```
+
+**Feedback enables:** drawdown-based de-leveraging, equity curve trading, adaptive position sizing, Kelly criterion, regime switching.
+
+---
+
+## Memoryless Execution
+
+The executor has **no memory** of past orders. Every tick:
+1. Receives `TradingIntention` from intention nodes
+2. Computes delta against current STATE
+3. Executes order (simulated or real)
+4. Updates STATE
+5. **Forgets everything** — next tick starts fresh
+
+This means **all metrics and tracking are operators in the graph**, not embedded in the execution layer. Want custom Sharpe? Write a metric operator. Want drawdown tracking? Write a metric operator.
+
+---
+
+## Future Data Types (Planned)
+
+Additional FIELD domains are planned:
+
+```python
+"FIELD:binance:futures:orderbook:best_bid"      # Orderbook data
+"FIELD:binance:futures:funding:rate"             # Funding rates
+"FIELD:glassnode:btc:onchain:exchange_inflow"    # On-chain data
+"FIELD:fred:us:macro:fed_funds_rate"             # Macro indicators
+```
+
+Global data (macro indicators) will be broadcast across the symbol dimension. Domain-specific data (on-chain) will use the [TaggedArray](/engine/tagged-array) `exists` mask to indicate which symbols it applies to.
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="TaggedArray" icon="layer-group" href="/engine/tagged-array">
+    The 4-field data structure used by both FIELD and STATE
+  </Card>
+  <Card title="Lookback Buffers" icon="database" href="/engine/lookback-buffers">
+    How RollingBuffers store FIELD and STATE data
+  </Card>
+  <Card title="Execution Pipeline" icon="paper-plane" href="/engine/execution-pipeline">
+    Intention → Delta → Order → Fill → STATE update
+  </Card>
+  <Card title="TradingSpec" icon="file-code" href="/engine/trading-spec">
+    How DataSpec and AccountSpec define FIELD and STATE namespaces
+  </Card>
+</CardGroup>

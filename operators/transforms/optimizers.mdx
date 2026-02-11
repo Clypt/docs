@@ -23,7 +23,12 @@ This page documents **5 operators** (role: various).
 
 ## MeanVarianceOptimizer
 
-Mean-Variance Optimization (Markowitz).
+Mean-Variance (Markowitz) portfolio optimization.
+
+Computes optimal weights by maximizing expected return for a given
+level of risk aversion. Solves the unconstrained quadratic program
+and L1-normalizes the result.
+Formula: w_raw = Sigma^&#123;-1&#125; * mu / lambda; w = w_raw / sum(|w_raw|)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -31,12 +36,12 @@ Mean-Variance Optimization (Markowitz).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `expected_returns` | `Dict[str, float]` | Required |  |
-| `cov_matrix` | `Dict[str, Dict[str, float]]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
-| `risk_aversion` | `float` | `1.0` |  |
-| `regularize` | `float` | `1e-06` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `expected_returns` | `Dict[str, float]` | Required | Dict mapping symbol name to expected return. |
+| `cov_matrix` | `Dict[str, Dict[str, float]]` | Required | Nested dict &#123;sym_i: &#123;sym_j: cov&#125;&#125; defining the covariance matrix. |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the array index positions. |
+| `risk_aversion` | `float` | `1.0` | Risk aversion parameter lambda; higher means more conservative |
+| `regularize` | `float` | `1e-06` | Ridge regularization added to diagonal of covariance matrix |
 
 ### Usage
 
@@ -48,6 +53,73 @@ optimizer = MeanVarianceOptimizer(
     symbol_order=["BTC", "ETH"],
     risk_aversion=1.0,
 )
+graph.add_node("mvo_weights", optimizer)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    n_valid = np.sum(compute_mask)
+    if n_valid > 0:
+        valid_indices = np.where(compute_mask)[0]
+        valid_symbols = [self._symbol_order[i] for i in valid_indices]
+
+        mu = np.array([
+            self._expected_returns.get(sym, 0.0) for sym in valid_symbols
+        ])
+
+        Sigma = np.zeros((n_valid, n_valid))
+        for i, sym_i in enumerate(valid_symbols):
+            for j, sym_j in enumerate(valid_symbols):
+                if sym_i in self._cov_matrix and sym_j in self._cov_matrix[sym_i]:
+                    Sigma[i, j] = self._cov_matrix[sym_i][sym_j]
+                elif i == j:
+                    Sigma[i, j] = 0.04
+
+        Sigma += self._regularize * np.eye(n_valid)
+
+        try:
+            Sigma_inv = np.linalg.inv(Sigma)
+            raw_weights = (Sigma_inv @ mu) / self._risk_aversion
+
+            total = np.sum(np.abs(raw_weights))
+            if total > 1e-10:
+                weights = raw_weights / total
+            else:
+                weights = np.zeros(n_valid)
+        except np.linalg.LinAlgError:
+            weights = np.zeros(n_valid)
+
+        result[valid_indices] = weights
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
@@ -57,7 +129,12 @@ optimizer = MeanVarianceOptimizer(
 
 ## RiskParityOptimizer
 
-Risk Parity weights (proportional to inverse volatility).
+Risk Parity portfolio weights proportional to inverse volatility.
+
+Allocates weight to each asset inversely proportional to its
+volatility, so that each asset contributes equally to portfolio
+risk. Volatilities below min_vol are floored to avoid extreme weights.
+Formula: w_i = (1 / vol_i) / sum(1 / vol)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -65,10 +142,10 @@ Risk Parity weights (proportional to inverse volatility).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `volatilities` | `Dict[str, float]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
-| `min_vol` | `float` | `0.01` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `volatilities` | `Dict[str, float]` | Required | Dict mapping symbol name to annualized volatility. |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the array index positions. |
+| `min_vol` | `float` | `0.01` | Floor for volatility values to prevent extreme weights |
 
 ### Usage
 
@@ -78,6 +155,54 @@ optimizer = RiskParityOptimizer(
     volatilities={"BTC": 0.5, "ETH": 0.6},
     symbol_order=["BTC", "ETH"],
 )
+graph.add_node("rp_weights", optimizer)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_indices = np.where(compute_mask)[0]
+        valid_symbols = [self._symbol_order[i] for i in valid_indices]
+
+        vols = np.array([
+            max(self._volatilities.get(sym, 0.20), self._min_vol)
+            for sym in valid_symbols
+        ])
+
+        inv_vols = 1.0 / vols
+        weights = inv_vols / np.sum(inv_vols)
+
+        result[valid_indices] = weights
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
@@ -87,7 +212,12 @@ optimizer = RiskParityOptimizer(
 
 ## ClipWeights
 
-Clip weights to bounds and optionally renormalize.
+Clip portfolio weights to bounds and optionally renormalize.
+
+Constrains each weight to [lower, upper] and optionally rescales
+so that sum(|w_i|) = 1 after clipping. This enforces per-asset
+weight limits while maintaining full investment.
+Formula: w_i = clip(w_i, lower, upper); if renormalize: w_i = w_i / sum(|w|)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -95,10 +225,10 @@ Clip weights to bounds and optionally renormalize.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `lower` | `float` | `-1.0` |  |
-| `upper` | `float` | `1.0` |  |
-| `renormalize` | `bool` | `True` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `lower` | `float` | `-1.0` | Lower bound for each weight |
+| `upper` | `float` | `1.0` | Upper bound for each weight |
+| `renormalize` | `bool` | `True` | If True, L1-normalize weights after clipping |
 
 ### Usage
 
@@ -109,6 +239,47 @@ transform = ClipWeights(
     upper=0.5,
     renormalize=True,
 )
+graph.add_node("clipped_weights", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = values.copy()
+    result[compute_mask] = np.clip(values[compute_mask], self._lower, self._upper)
+
+    if self._renormalize and np.any(compute_mask):
+        total = np.sum(np.abs(result[compute_mask]))
+        if total > 1e-10:
+            result[compute_mask] = result[compute_mask] / total
+
+    result[~compute_mask] = np.nan
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
@@ -118,7 +289,12 @@ transform = ClipWeights(
 
 ## MaxPositions
 
-Limit number of positions to top K by absolute weight.
+Limit the number of positions to the top K by absolute weight.
+
+Keeps only the top-N symbols ranked by absolute weight value and
+zeros out the rest. Optionally renormalizes the surviving weights
+so that sum(|w_i|) = 1.
+Algorithm: sort symbols by |w_i| descending, keep top N, zero the rest.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -126,9 +302,9 @@ Limit number of positions to top K by absolute weight.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `n` | `int` | `20` |  |
-| `renormalize` | `bool` | `True` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `n` | `int` | `20` | Maximum number of positions to retain |
+| `renormalize` | `bool` | `True` | If True, L1-normalize weights after filtering |
 
 ### Usage
 
@@ -138,6 +314,59 @@ transform = MaxPositions(
     n=20,
     renormalize=True,
 )
+graph.add_node("top_positions", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_indices = np.where(compute_mask)[0]
+        valid_values = values[compute_mask]
+
+        abs_values = np.abs(valid_values)
+        n_keep = min(self._n, len(valid_values))
+
+        top_k_local = np.argsort(abs_values)[-n_keep:]
+
+        sparse_values = np.zeros_like(valid_values)
+        sparse_values[top_k_local] = valid_values[top_k_local]
+
+        if self._renormalize:
+            total = np.sum(np.abs(sparse_values))
+            if total > 1e-10:
+                sparse_values = sparse_values / total
+
+        result[valid_indices] = sparse_values
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
@@ -147,7 +376,13 @@ transform = MaxPositions(
 
 ## EqualWeight
 
-Equal weight allocation.
+Equal weight allocation across symbols based on signal sign.
+
+Assigns equal absolute weight to every valid symbol, using the sign
+of the input signal to determine direction (long or short). In
+long-only mode, only symbols with positive signal values receive
+weight.
+Formula: w_i = sign(x_i) / N, where N is the number of active positions.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -155,8 +390,8 @@ Equal weight allocation.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `long_only` | `bool` | `False` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `long_only` | `bool` | `False` | If True, only allocate to symbols with positive signal values |
 
 ### Usage
 
@@ -165,6 +400,53 @@ transform = EqualWeight(
     Input("signals", timeframe="1m", lookback=1),
     long_only=False,
 )
+graph.add_node("equal_weights", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        if self._long_only:
+            work_mask = compute_mask & (values > 0)
+        else:
+            work_mask = compute_mask
+
+        n_positions = np.sum(work_mask)
+        if n_positions == 0:
+            result[compute_mask] = 0.0
+        else:
+            result[work_mask] = np.sign(values[work_mask]) / n_positions
+            result[compute_mask & ~work_mask] = 0.0
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>

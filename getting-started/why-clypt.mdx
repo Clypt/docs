@@ -10,6 +10,7 @@ Every quant trader has experienced this: a backtest shows 40% annual returns, bu
 **Why this happens on traditional platforms:**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
     subgraph RC[" Research Code "]
         direction TB
@@ -80,7 +81,7 @@ ClyptQ doesn't just "check" for lookahead — it makes it **architecturally impo
 |---------|-------------|
 | **Exchange-specific fees** | Auto-fetched from each exchange via CCXT |
 | **Funding rate simulation** | 8-hour settlement cycles, auto-injected for futures |
-| **Liquidation logic** | Per-exchange margin ratio formulas (Binance, Bybit, OKX, etc.) |
+| **Liquidation logic** | Per-exchange margin ratio formulas (Binance, Bybit, Kraken, etc.) |
 | **Slippage modeling** | BPS-based or orderbook-based (LATENT mode) |
 
 ### Python freedom
@@ -118,16 +119,19 @@ Existing platforms (QuantConnect community, copy-trading services) suffer from:
 Because the same graph runs on any exchange's data (operators process `TaggedArray`s, not exchange-specific formats), the platform can independently verify strategies:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
+    classDef warn fill:#2a1f1f,stroke:#f87171,stroke-width:1.5px,color:#fecaca
+
     A["Builder submits:<br>Tested on Binance futures"] --> V["Platform verifies"]
     V --> B["Binance futures → Sharpe 1.8<br>(builder's data)"]
     V --> C["Bybit futures → Sharpe 1.5<br>(builder never saw)"]
     V --> D["Gateio futures → Sharpe 1.3<br>(builder never saw)"]
     V --> E["Coinbase futures → Sharpe 0.4<br>(poor — flagged)"]
-    style B fill:#0f2d2b,stroke:#2dd4bf,color:#ccfbf1
-    style C fill:#0f2d2b,stroke:#2dd4bf,color:#ccfbf1
-    style D fill:#0f2d2b,stroke:#2dd4bf,color:#ccfbf1
-    style E fill:#2a1f1f,stroke:#a87171,color:#e8c4c4
+
+    class B,C,D success
+    class E warn
 ```
 
 **What the buyer sees:** Independently computed metrics, cross-exchange consistency scores, and real-cost impact — not self-reported numbers.
@@ -167,7 +171,7 @@ ClyptQ's advantages are **structural, not incremental**:
 1. **Code parity** is built into the architecture (StatefulGraph + TradingSpec), not bolted on
 2. **Lookahead prevention** is structural (RollingBuffer), not runtime checks
 3. **Cross-exchange validation** requires exchange-agnostic operators (TaggedArray), which is an architectural decision made from day one
-4. **213+ operators** form a growing library that increases switching costs
+4. **380+ operators** form a growing library that increases switching costs
 
 These are not features that can be added to existing platforms — they require rebuilding from the ground up.
 
@@ -183,7 +187,7 @@ These are not features that can be added to existing platforms — they require 
   <Card title="Code Parity" icon="equals" href="/competitive/code-parity">
     Deep dive into why backtest = live
   </Card>
-  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/why-clyptq">
+  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/overview">
     Detailed technical comparison with competitors
   </Card>
 </CardGroup>

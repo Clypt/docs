@@ -15,7 +15,13 @@ This page documents **3 operators** (role: `SCORE`).
 
 Score symbols by dollar volume (price * volume).
 
-Requires two inputs: close price and volume.
+Computes dollar volume as close price multiplied by volume for each bar,
+then averages over the lookback window to produce a continuous liquidity
+score. Requires two inputs (close price and volume). For single-bar
+(1-D) data the raw dollar volume is used directly; for multi-bar (2-D)
+data the trailing window average is computed. Higher dollar volume
+results in a higher score. Symbols with invalid or missing data receive
+NaN.
 
 **Role**: `SCORE` | **Ephemeral**: No
 
@@ -23,7 +29,7 @@ Requires two inputs: close price and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of two Input signals: the first provides close price |
 
 ### Usage
 
@@ -36,6 +42,58 @@ score = LiquidityScore(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list) and len(data) >= 2:
+        close_data = data[0]
+        volume_data = data[1]
+        close_values = close_data.value
+        volume_values = volume_data.value
+
+        last = close_data[-1] if len(close_data) > 0 else close_data
+        exists = last.exists
+        valid = last.valid
+    else:
+        if isinstance(data, list):
+            data = data[0]
+        close_values = data.value
+        volume_values = np.ones_like(close_values)
+
+        last = data[-1] if len(data) > 0 else data
+        exists = last.exists
+        valid = last.valid
+
+    dollar_volume = close_values * volume_values
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(dollar_volume.shape) == 1:
+        result[compute_mask] = dollar_volume[compute_mask]
+    else:
+        window = min(self._lookback, len(dollar_volume))
+        avg_dv = np.mean(dollar_volume[-window:], axis=0)
+        result[compute_mask] = avg_dv[compute_mask]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/score/liquidity.py`</sub>
 
 
@@ -45,16 +103,24 @@ score = LiquidityScore(
 
 Score symbols by volatility (lower vol = higher score by default).
 
+Computes the standard deviation of simple returns over the lookback
+window and assigns it as a continuous score for each symbol. Returns
+can optionally be annualized by multiplying by sqrt(periods_per_year).
+When inverse is True, the volatility is negated so that lower-volatility
+symbols receive higher scores (useful for risk-averse ranking). Requires
+at least two bars of data. Symbols with invalid or missing data receive
+NaN.
+
 **Role**: `SCORE` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `inverse` | `bool` | `True` |  |
-| `annualize` | `bool` | `True` |  |
-| `periods_per_year` | `int` | `252` |  |
+| `input` | `'Input'` | Required | Input signal providing close price data. timeframe specifies |
+| `inverse` | `bool` | `True` | Whether to negate volatility so lower vol scores higher |
+| `annualize` | `bool` | `True` | Whether to annualize volatility |
+| `periods_per_year` | `int` | `252` | Number of periods per year used for annualization |
 
 ### Usage
 
@@ -67,6 +133,55 @@ score = VolatilityScore(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        vol = np.nanstd(returns[-window:], axis=0, ddof=1)
+
+        if self._annualize:
+            vol = vol * np.sqrt(self._periods_per_year)
+
+        if self._inverse:
+            vol = -vol
+
+        result[compute_mask] = vol[compute_mask]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/score/volatility.py`</sub>
 
 
@@ -76,13 +191,19 @@ score = VolatilityScore(
 
 Score symbols by average volume.
 
+Computes the mean trading volume over a lookback window and assigns
+it as a continuous score for each symbol. For single-bar (1-D) data
+the raw volume value is used directly; for multi-bar (2-D) data the
+trailing window average is computed. Higher volume results in a higher
+score. Symbols with invalid or missing data receive NaN.
+
 **Role**: `SCORE` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal providing volume data. timeframe specifies data |
 
 ### Usage
 
@@ -90,6 +211,47 @@ Score symbols by average volume.
 score = VolumeScore(
     Input("FIELD:volume", timeframe="1m", lookback=20),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) == 1:
+        result[compute_mask] = values[compute_mask]
+    else:
+        window = min(self._lookback, len(values))
+        avg_volume = np.mean(values[-window:], axis=0)
+        result[compute_mask] = avg_volume[compute_mask]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/universe/score/volume.py`</sub>

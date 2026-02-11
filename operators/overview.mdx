@@ -1,30 +1,30 @@
 ---
 title: "Operator Reference"
-description: "Complete catalog of 213+ prebuilt operators across 13 roles"
+description: "Complete catalog of 380+ prebuilt operators across 14 roles"
 ---
 
 ## Overview
 
-ClyptQ provides **213+ prebuilt operators** organized across **13 roles**. Every operator follows the same protocol: receive [TaggedArray](/engine/tagged-array) inputs, return TaggedArray outputs. The [StatefulGraph](/engine/stateful-graph) handles all state management, buffering, and execution ordering.
+ClyptQ provides **380+ prebuilt operators** organized across **14 roles**. Every operator follows the same protocol: receive [TaggedArray](/engine/tagged-array) inputs, return TaggedArray outputs. The [StatefulGraph](/engine/stateful-graph) handles all state management, buffering, and execution ordering.
 
 ## Operator Roles
 
 | Role | Count | Purpose | Output |
 |---|---|---|---|
-| **INDICATOR** | 40+ | Technical indicators (SMA, RSI, MACD, Bollinger) | Numeric values |
-| **ALPHA** | 21 | Predictive signals for future returns | Signal in [-1, 1] |
+| **INDICATOR** | 138 | Technical indicators (SMA, RSI, MACD, Bollinger, 60 candlestick patterns) | Numeric values |
+| **ALPHA** | 122 | Predictive signals for future returns (21 custom + 101 Alpha#101) | Signal in [-1, 1] |
 | **FACTOR** | 8 | Cross-sectional systematic exposure | Rank/score per symbol |
-| **TRANSFORM** | 20+ | Cross-sectional normalization (ZScore, Rank, Neutralize) | Transformed values |
+| **TRANSFORM** | 18 | Cross-sectional normalization (ZScore, Rank, Neutralize) | Transformed values |
 | **OPTIMIZER** | 5 | Portfolio weight optimization (MVO, RiskParity) | Weights summing to 1.0 |
 | **POSITION** | 7 | Position sizing and constraints (turnover, clip) | Position sizes |
 | **FILTER** | 6 | Boolean universe selection (volume, volatility) | 1.0 or 0.0 |
 | **SCORE** | 3 | Continuous ranking scores | Score per symbol |
-| **METRIC** | 21 | Performance measurement (Sharpe, drawdown) | Rolling or cumulative |
+| **METRIC** | 33 | Performance measurement (Sharpe, drawdown, IC) | Rolling or cumulative |
 | **BALANCE** | 7 | Portfolio state queries (cash, equity, positions) | State values |
 | **ORDER** | 6 | Order intention generation (spot, futures, arbitrage) | TradingIntention |
 | **SEMANTIC** | 3 | LLM/WebSearch/Sentiment (ephemeral) | AI-generated signals |
 | **CONTROL** | 3 | Conditional gates (if/and/or) | Gate values (0 or 1) |
-| **UTILITY** | 7 | Data routing (Identity, Resample, Merge, Select/Drop) | Transformed data |
+| **UTILITY** | 25 | Data routing (Identity, Resample, Merge, Select/Drop, TopN) | Transformed data |
 
 ## Operator Protocol
 
@@ -53,25 +53,25 @@ Technical indicators computed from price/volume data.
 
 <CardGroup cols={2}>
   <Card title="Moving Averages" icon="chart-line" href="/operators/indicators/moving-averages">
-    SMA, EMA, DEMA, TEMA, WMA, TRIMA, T3, KAMA, MAMA, MA (10)
+    SMA, EMA, DEMA, TEMA, WMA, TRIMA, T3, KAMA, MAMA, MA, HMA, FRAMA (12)
   </Card>
   <Card title="Momentum" icon="gauge" href="/operators/indicators/momentum">
-    RSI, MACD, MOM, ROC, CMO, APO, PPO, STOCH, STOCHRSI, WILLR, ULTOSC, BOP, TRIX (13)
+    RSI, MACD, MOM, ROC, CMO, APO, PPO, STOCH, STOCHRSI, WILLR, ULTOSC, BOP, TRIX, CCI, etc. (17)
   </Card>
   <Card title="Trend" icon="arrow-trend-up" href="/operators/indicators/trend">
-    ADX, AROON, SAR, ICHIMOKU, DI (5)
+    ADX, ADXR, AROON, SAR, ICHIMOKU, DI, PLUS_DI, MINUS_DI, etc. (12)
   </Card>
   <Card title="Volatility" icon="wave-pulse" href="/operators/indicators/volatility">
-    ATR, BBANDS, STDDEV (3)
+    ATR, NATR, BBANDS, STDDEV, TRANGE, AVGRANGE (6)
   </Card>
   <Card title="Volume" icon="chart-bar" href="/operators/indicators/volume">
-    OBV, AD, ADOSC, MFI, VWAP (5+)
+    OBV, AD, ADOSC, MFI, VWAP (5)
   </Card>
   <Card title="Statistics" icon="calculator" href="/operators/indicators/statistics">
-    LINEARREG, BETA, CORREL, VAR, TSF, MINMAX (6+)
+    LINEARREG, BETA, CORREL, VAR, TSF, MINMAX, MEDIAN, etc. (26)
   </Card>
   <Card title="Candlestick Patterns" icon="candle-holder" href="/operators/indicators/patterns">
-    48+ CDL pattern recognizers (CDLDOJI, CDLHAMMER, CDLENGULFING, etc.)
+    60 CDL pattern recognizers (CDLDOJI, CDLHAMMER, CDLENGULFING, etc.)
   </Card>
 </CardGroup>
 
@@ -87,7 +87,7 @@ Alpha signals and factor exposures for portfolio construction.
     8 cross-sectional factors: Momentum, MeanReversion, Volatility, etc.
   </Card>
   <Card title="Alpha 101" icon="flask" href="/operators/signals/alpha-101">
-    101 formulaic alphas from WorldQuant's Alpha#101 paper
+    101 formulaic alphas from Kakushadze (2016)
   </Card>
 </CardGroup>
 
@@ -97,7 +97,7 @@ Cross-sectional normalization and portfolio optimization.
 
 <CardGroup cols={2}>
   <Card title="Scalers" icon="arrows-maximize" href="/operators/transforms/scalers">
-    ZScore, Rank, MinMax, L1Norm, Softmax, etc. (10)
+    ZScore, Rank, MinMax, L1Norm, L2Norm, Softmax, Clip, Winsorize, etc. (11)
   </Card>
   <Card title="Neutralizers" icon="scale-balanced" href="/operators/transforms/neutralizers">
     Demean, Neutralize, BarraNeutralizer, etc. (7)
@@ -127,7 +127,7 @@ Filtering and scoring for tradable asset selection.
 
 <CardGroup cols={3}>
   <Card title="Metrics" icon="chart-mixed" href="/operators/metrics">
-    Rolling (11) + Accumulative (10) performance metrics
+    Rolling (17) + Accumulative (16) performance metrics
   </Card>
   <Card title="Balance" icon="wallet" href="/operators/balance">
     Cash, equity, positions, margin queries via STATE

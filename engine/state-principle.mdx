@@ -85,10 +85,17 @@ Notice how FIELD and STATE inputs are **mixed in the same operator**. The graph 
 STATE follows the exact same consumer-based routing as FIELD:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     Update["Portfolio State Updated (after fill)"]
     Update --> Distribute["_distribute_source_inputs<br>For each STATE consumer:<br>buffer.append(state)"]
     Distribute --> Execute["Execute Operators (topological order)<br>Operators see updated portfolio state"]
+
+    class Update source
+    class Execute action
 ```
 
 The graph maintains `_field_consumers` for both FIELD and STATE sources. Both are pre-computed at graph construction time for O(1) distribution.
@@ -249,13 +256,18 @@ drawdown = graph.add_node("drawdown", DrawdownFromPeak(),
 ClyptQ's execution pipeline is split into three **memoryless** components:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     Graph["Operator Graph (Stateless)<br>Signal → Weights → Metrics"]
     Intention["Intention Node (Stateless)<br>Weights → Delta → Intention"]
     Exec["Executor (Memoryless)<br>Delta → Order → Fill → STATE"]
 
     Graph --> Intention --> Exec
     Exec -- "STATE feedback" --> Graph
+
+    class Exec action
 ```
 
 | Component | Role | Memory |
@@ -332,7 +344,7 @@ Both protocols use the same graph infrastructure — consumer maps, RollingBuffe
 
 ## Relationship to Other Concepts
 
-- **[FIELD Data Principle](/engine/field-data-principle)**: FIELD is the counterpart for market data — same protocol, external source
+- **[FIELD Data Principle](/engine/field-state)**: FIELD is the counterpart for market data — same protocol, external source
 - **[TaggedArray](/engine/tagged-array)**: STATE data is delivered as TaggedArrays, just like FIELD data
 - **[StatefulGraph](/engine/stateful-graph)**: The graph manages both FIELD and STATE distribution identically
 - **[Execution Pipeline](/engine/execution-pipeline)**: The execution engine updates STATE after order fills

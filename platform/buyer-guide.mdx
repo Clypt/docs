@@ -55,42 +55,15 @@ Every marketplace strategy shows independently verified metrics. All core metric
 
 ### Cross-exchange validation
 
-This is ClyptQ's unique trust mechanism. Because operators process `TaggedArray`s (not exchange-specific data), the same strategy can run on any exchange's data:
-
-```
-Builder submits: Tested on Binance futures
-Platform verifies:
-  ✓ Binance futures  → Sharpe 1.8, MDD -12%  (builder's data)
-  ✓ Bybit futures    → Sharpe 1.5, MDD -15%  (builder never saw)
-  ✓ Gateio futures   → Sharpe 1.3, MDD -18%  (builder never saw)
-  ✗ Coinbase futures → Sharpe 0.4, MDD -35%  (poor — noted in listing)
-```
-
-**What to look for:**
-- High **consistency score** = strategy works across venues = more robust
-- Large gap between primary and cross-exchange = possible overfitting
-- Poor performance on specific exchanges may be due to different fee structures or liquidity
+The platform tests every strategy on exchanges the builder never saw, producing a **consistency score** that reveals how well the strategy generalizes across venues. Look for high consistency and minimal gap between primary and cross-exchange performance.
 
 ### Scale testing results
 
-Every listing shows how the strategy performs at larger capital levels:
+Every listing shows how the strategy performs at 2x, 5x, and 10x the builder's declared capital, along with an **estimated capacity** -- the maximum AUM where the strategy maintains acceptable performance. If you plan to deploy more than the declared capital, check these results carefully.
 
-```
-1× ($10K)   → Sharpe 1.8   ← builder's declared capital
-2× ($20K)   → Sharpe 1.7   ← minimal degradation ✓
-5× ($50K)   → Sharpe 1.2   ← moderate degradation ⚠️
-10× ($100K) → Sharpe 0.6   ← significant degradation ✗
-
-Estimated capacity: $50K
-```
-
-**Why this matters for you:** If you plan to deploy $50K, but the strategy was only tested at $10K, you need to know whether it scales. The platform tests this for you — so you don't discover capacity limits with real money.
-
-| Scale Result | What It Means | Your Action |
-|-------------|--------------|------------|
-| **Stable at 10×** | High capacity | Safe to deploy with significant capital |
-| **Drops at 5×** | Moderate capacity | Deploy up to estimated capacity |
-| **Drops at 2×** | Low capacity | Only deploy at or below declared capital |
+<Card title="Marketplace Validation" icon="shield-check" href="/platform/marketplace">
+  Full details on cross-exchange validation, consistency scoring, scale testing, and how to interpret verification results
+</Card>
 
 ### Evaluation checklist
 

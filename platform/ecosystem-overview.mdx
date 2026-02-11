@@ -16,13 +16,18 @@ ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative s
 ## Trading Commerce Ecosystem
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
     Builder["Builder<br><br>Develop in Jupyter<br>Backtest → Paper → Live<br>Submit to Marketplace"]
     Platform["ClyptQ Platform<br><br>Reproduce backtest<br>Cross-exchange validation<br>Compute all metrics"]
     Buyer["Buyer<br><br>Evaluate verified metrics<br>Paper trade 2-4 weeks<br>Deploy live"]
     Revenue["Revenue<br><br>Flows back<br>to Builder"]
 
     Builder --> Platform --> Buyer --> Revenue
+    class Platform highlight
+    class Revenue success
 ```
 
 <CardGroup cols={3}>
@@ -50,7 +55,11 @@ flowchart LR
 ClyptQ consists of **4 layers**:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     subgraph L1["TradingSpec"]
         direction TB
         DS["DataSpec"]
@@ -68,6 +77,9 @@ flowchart LR
     end
 
     L1 --> L2 --> L3 --> L4
+    class Driver highlight
+    class Graph source
+    class Exec action
 ```
 
 <AccordionGroup>
@@ -79,8 +91,8 @@ flowchart LR
     - **TradingDriver**: Warmup → tick loop → shutdown orchestration
   </Accordion>
 
-  <Accordion title="2. Operator Layer — 213+ Strategy Components">
-    - **[Indicators](/operators/overview)**: SMA, EMA, RSI, MACD, Bollinger, ATR, and 40+ more
+  <Accordion title="2. Operator Layer — 380+ Strategy Components">
+    - **[Indicators](/operators/overview)**: SMA, EMA, RSI, MACD, Bollinger, ATR, and 130+ more
     - **[Signals](/operators/signals/alphas)**: 21 alpha generators + 8 factor models + Alpha-101
     - **[Transforms](/operators/transforms/scalers)**: ZScore, Rank, MVO, RiskParity, EqualWeight
     - **[Universe](/operators/universe/filters)**: Volume/volatility filters and liquidity scores
@@ -90,13 +102,12 @@ flowchart LR
   <Accordion title="3. Trading Layer — Execution & State Management">
     - **[TradingSpec](/engine/trading-spec)**: Unified configuration hierarchy
     - **[Execution Pipeline](/engine/execution-pipeline)**: Intention → Delta → Order → Fill
-    - **[FIELD/STATE](/engine/field-data-principle)**: Market data (FIELD) and portfolio state (STATE) separation
+    - **[FIELD/STATE](/engine/field-state)**: Market data (FIELD) and portfolio state (STATE) separation
     - **[Cost Models](/backtesting/cost-models)**: Exchange-specific fees, slippage, funding rates
   </Accordion>
 
   <Accordion title="4. Data Layer — Multi-Source Integration">
-    - **Crypto**: 6 exchanges (Binance, Bybit, OKX, Gateio, Coinbase, Kraken)
-    - **Stocks**: Alpaca, Interactive Brokers (via Tiingo/YFinance data)
+    - **Crypto**: 5 exchanges (Binance, Bybit, Gateio, Coinbase, Kraken)
     - **Storage**: Parquet files with automatic caching
     - **Live**: WebSocket feeds with automatic reconnection
   </Accordion>
@@ -144,7 +155,7 @@ Two data namespaces power every strategy:
 - **FIELD** — Market data from exchanges: `FIELD:binance:futures:ohlcv:close`
 - **STATE** — Portfolio state from the executor: `STATE:binance:futures:cash`
 
-See [FIELD Data Principle](/engine/field-data-principle) and [STATE Principle](/engine/state-principle).
+See [FIELD Data Principle](/engine/field-state) and [STATE Principle](/engine/field-state).
 
 ### Code Parity
 
@@ -170,11 +181,11 @@ See [Code Parity](/competitive/code-parity) for the full comparison.
 | **Code Parity** | Same graph runs in all modes | Research ≠ Live | Same engine | Backtest only |
 | **Lookahead Prevention** | Structural (RollingBuffer) | Runtime checks | Runtime checks | None — manual discipline |
 | **Language** | Python (any library) | C# primary | Rust only | Python |
-| **Data Included** | 6 exchanges, stocks | Limited | None | None |
+| **Data Included** | 5 crypto exchanges | Limited | None | None |
 | **Marketplace** | Cross-exchange verified | Community (unverified) | None | None |
 | **Cost Modeling** | Exchange-specific (auto CCXT) | Generic | Generic | Basic |
 
-See [Why ClyptQ](/competitive/why-clyptq) for the detailed comparison.
+See [Why ClyptQ](/competitive/overview) for the detailed comparison.
 
 ## Next Steps
 
@@ -191,7 +202,7 @@ See [Why ClyptQ](/competitive/why-clyptq) for the detailed comparison.
     How to evaluate, deploy, and manage strategies
   </Card>
 
-  <Card title="Engine Concepts" icon="gears" href="/engine/field-data-principle">
+  <Card title="Engine Concepts" icon="gears" href="/engine/field-state">
     Deep dive into FIELD, STATE, TaggedArray, and StatefulGraph
   </Card>
 </CardGroup>

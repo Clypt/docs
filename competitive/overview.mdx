@@ -1,0 +1,178 @@
+---
+title: "Why ClyptQ?"
+description: "What makes ClyptQ different from every other quant trading platform"
+---
+
+## The Problem: Research Never Equals Live
+
+Every quant trader has experienced this: a backtest shows 40% annual returns, but the live strategy loses money. The gap between research code and production code is the single biggest source of failure in algorithmic trading.
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
+flowchart LR
+    subgraph RC[" Research Code "]
+        direction TB
+        RT["Python / pandas<br>Backtest: +40%"]
+        R1["Vectorized operations<br>Full dataset in memory<br>No execution logic<br>No costs, no slippage<br>Accidental lookahead"]
+        RT ~~~ R1
+    end
+    RC -- " ≠ " --- PC
+    subgraph PC[" Production Code "]
+        direction TB
+        PT["Different framework<br>Live: -15%"]
+        P1["Event-driven architecture<br>Tick-by-tick processing<br>Order management, fills<br>Fee models, latency<br>State management"]
+        PT ~~~ P1
+    end
+```
+
+This gap exists because:
+1. **Different code paths** — Research uses pandas vectorization; live uses event-driven loops
+2. **Implicit lookahead** — Future data leaks are invisible in vectorized backtests
+3. **Missing costs** — Backtests ignore fees, slippage, funding rates, liquidation
+4. **State management** — Research doesn't track positions, cash, margin — live must
+5. **Warmup differences** — Research has full history; live has partial warmup
+
+Top quantitative hedge funds solved this decades ago with custom infrastructure costing millions. ClyptQ brings that same architecture to every quant trader.
+
+## Five Pillars
+
+### 1. Research = Backtest = Live
+
+The same `TradingSpec` and `for result in driver` loop run identically in all modes:
+
+```python
+spec = TradingSpec(
+    strategy=my_strategy,
+    data=my_data_config,
+    execution=ExecutionSpec(
+        mode="backtest",    # → "paper" → "live"
+    ),
+)
+
+# This SAME loop runs in backtest, paper, and live
+for result in TradingDriver(spec):
+    equity_curve.append(result.equity)
+```
+
+No translation layer. No rewrite. No "production adapter."
+
+<Card title="Deep Dive: Code Parity" icon="equals" href="/competitive/code-parity">
+  How TradingSpec guarantees identical execution across all modes
+</Card>
+
+### 2. Tick-by-Tick State Machine
+
+Each operator sees **only past data** through its [RollingBuffer](/engine/lookback-buffers). There is no array of future prices to accidentally index into. Lookahead bias is **structurally impossible**.
+
+```python
+# Vectorized (dangerous): entire price array is visible
+signals = np.where(prices > sma(prices, 20), 1, -1)
+
+# ClyptQ (safe): operator only sees [t-lookback : t]
+class MyAlpha(BaseOperator):
+    def compute(self, inputs, timestamp, context):
+        close = inputs[0]  # Only lookback ticks available
+```
+
+<Card title="Deep Dive: Lookahead Prevention" icon="shield" href="/backtesting/lookahead-bias-prevention">
+  How RollingBuffers, warmup, and topological execution prevent future data leaks
+</Card>
+
+### 3. Full Python Freedom
+
+Operators are **pure Python**. Use any library without restrictions:
+
+```python
+import torch, xgboost as xgb
+from scipy.optimize import minimize
+from transformers import pipeline
+
+class MyOperator(BaseOperator):
+    def compute(self, inputs, timestamp, context):
+        # PyTorch, XGBoost, HuggingFace — anything Python can do
+        ...
+```
+
+No sandbox. No language restrictions. No "approved library list."
+
+### 4. Institutional-Grade Data Included
+
+- **5 exchanges**: Binance, Gate.io, Bybit, Kraken, Coinbase
+- **Spot + Futures** with full historical depth
+- **1-minute resolution**, pre-aligned and gap-filled
+- No separate data subscriptions needed
+
+### 5. Verified Strategy Marketplace
+
+A marketplace where backtests are **independently verified** against cross-exchange data:
+
+- **Builders**: Monetize without revealing source code. Platform computes all metrics.
+- **Buyers**: Independently verified performance with cross-exchange validation.
+- **Investors**: Transparent risk metrics and portfolio-level reporting.
+
+<Card title="How Verification Works" icon="check" href="/platform/marketplace">
+  Cross-exchange validation, metric computation, and trust mechanism
+</Card>
+
+## How ClyptQ Compares
+
+| Capability | ClyptQ | QuantConnect | Nautilus | QuantRocket | Freqtrade |
+|---|---|---|---|---|---|
+| **Research = Live** | Yes | No | Partial | Partial | No |
+| **Lookahead prevention** | Structural | Manual | Structural | Manual | Manual |
+| **Language** | Python (any library) | C#/Python (limited) | Rust/Cython | Python (pandas) | Python (rigid) |
+| **Data included** | Yes (5 exchanges) | Partial (delayed) | No | IB data | No |
+| **Futures support** | Full | Yes | Yes | Basic | Limited |
+| **Marketplace** | Verified | Alpha Streams | No | No | No |
+| **Cost modeling** | Exchange-specific | Basic fees | Configurable | IB fees | Basic fees |
+| **AI operators** | LLM, WebSearch, Sentiment | No | No | No | No |
+
+## vs Research-Oriented Frameworks
+
+Some open-source projects focus on **specific domains** — RL (FinRL), factor research (Qlib), or quick prototyping (bt, PyAlgoTrade). They solve one problem well but cannot serve as production trading foundations:
+
+| Limitation | FinRL | Qlib | PyAlgoTrade | bt |
+|---|---|---|---|---|
+| **Backtesting only** | Mostly | Yes | Yes | Yes |
+| **Domain-specific** | RL only | ML/factor | Basic event-driven | Vectorized |
+| **Simplified cost model** | Yes | Yes | Yes | Yes |
+| **No multi-exchange** | Yes | Yes | Yes | Yes |
+| **No production execution** | Mostly | Yes | Limited | Yes |
+
+<Info>
+ClyptQ's operator architecture is compatible with these tools. Train a model in Qlib or FinRL, export it, and deploy as a ClyptQ operator via `BaseOperator` inheritance. See [ML/DL Integration](/engine/operator-protocol#ml-and-dl-integration).
+</Info>
+
+## The Technical Moat
+
+ClyptQ's advantages are **structural, not incremental**:
+
+1. **Code parity** is built into the architecture ([StatefulGraph](/engine/stateful-graph) + [TradingSpec](/engine/trading-spec)), not bolted on
+2. **Lookahead prevention** is structural ([RollingBuffer](/engine/lookback-buffers)), not runtime checks
+3. **Cross-exchange validation** requires exchange-agnostic operators ([TaggedArray](/engine/tagged-array)) — an architectural decision from day one
+4. **380+ operators** form a growing library that increases switching costs
+
+These cannot be added to existing platforms — they require rebuilding from the ground up.
+
+## Competitive Deep Dives
+
+<CardGroup cols={2}>
+  <Card title="Code Parity" icon="equals" href="/competitive/code-parity">
+    How TradingSpec guarantees backtest = live
+  </Card>
+  <Card title="vs Vectorized" icon="bolt" href="/competitive/vs-vectorized">
+    Why tick-by-tick produces more accurate results
+  </Card>
+  <Card title="vs QuantConnect" icon="chart-mixed" href="/competitive/vs-quantconnect">
+    How ClyptQ improves on QuantConnect
+  </Card>
+  <Card title="vs QuantRocket" icon="docker" href="/competitive/vs-quantrocket">
+    Docker pipeline vs unified SaaS
+  </Card>
+  <Card title="vs Nautilus" icon="rocket" href="/competitive/vs-nautilus">
+    Performance vs accessibility
+  </Card>
+  <Card title="AI-Powered Trading" icon="brain" href="/competitive/semantic-operators">
+    LLM, web search, and sentiment as first-class operators
+  </Card>
+</CardGroup>

@@ -69,7 +69,11 @@ Funding is applied at the standard 8-hour intervals:
 hour in (0, 8, 16) and minute == 0 and second == 0
 ```
 
-This matches the settlement schedule of major exchanges (Binance, Bybit, Gateio, OKX). Some exchanges use different intervals — see [Exchange Specifics](/backtesting/exchange-specifics) for details.
+This matches the settlement schedule of Binance, Bybit, and Gateio. Kraken uses 4h intervals and Coinbase uses 1h intervals — see [Exchange Specifics](/backtesting/exchange-specifics) for details.
+
+<Warning>
+The current executor checks only the standard 8h settlement times (00:00, 08:00, 16:00 UTC). For Kraken (4h intervals) and Coinbase (1h intervals), funding settlements at non-standard hours are not yet applied in backtest. This may result in understated funding costs for these venues. A per-exchange settlement schedule is planned.
+</Warning>
 
 ### Payment Calculation
 
@@ -114,14 +118,15 @@ Not all exchanges provide full historical funding rate data:
 | **Binance** | Full history | Yes | Standard 8h intervals |
 | **Bybit** | Full history | Yes | Standard 8h intervals |
 | **Gateio** | Full history | Yes | Standard 8h intervals |
-| **OKX** | Full history | Yes | Standard 8h intervals |
-| **Kraken** | Full history | Yes | Some pairs use 4h intervals |
-| **Coinbase** | Limited (~42 days) | No | Insufficient for long backtests |
+| **Kraken** | Full history | Yes | 4h intervals (6× per day) — only 8h settlements applied in backtest |
+| **Coinbase** | Limited (~42 days) | No | 1h intervals — live funding rate API unsupported (falls back to 0) |
 
 For exchanges with `has_funding_rate=False`, ClyptQ logs an info message and skips auto-injection. The backtest will run without funding simulation for that venue.
 
 <Warning>
-If you backtest a futures strategy on Coinbase, funding costs will **not** be simulated. Be aware that live P&L will differ from backtest due to unmodeled funding payments.
+**Coinbase**: Funding costs are not simulated in backtest (limited historical data, no live API). Live P&L will differ from backtest due to unmodeled funding payments.
+
+**Kraken**: Historical funding data is available, but the executor only applies settlements at 8h boundaries. The three additional 4h settlements (04:00, 12:00, 20:00) are not yet applied, understating funding costs by approximately half.
 </Warning>
 
 ## Missing Rate Handling
