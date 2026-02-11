@@ -42,9 +42,14 @@
   ],
   "navigation": [
     {
+      "group": "",
+      "pages": [
+        "index"
+      ]
+    },
+    {
       "group": "Getting Started",
       "pages": [
-        "index",
         "quickstart",
         "getting-started/core-concepts",
         "getting-started/architecture-overview"

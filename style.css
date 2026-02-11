@@ -110,3 +110,14 @@ header a[href="https://clypt.ai"] > * {
   color: #000000 !important;
   -webkit-text-fill-color: #000000 !important;
 }
+
+/* ===== Hide Mermaid diagram zoom/pan controls ===== */
+[class*="DiagramControls"],
+[class*="diagram-controls"],
+[class*="mermaid-controls"],
+[class*="mermaidControls"],
+[class*="MermaidControls"],
+[class*="zoom-controls"],
+[class*="ZoomControls"] {
+  display: none !important;
+}
