@@ -49,6 +49,64 @@ factor = LiquidityFactor(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("LiquidityFactor requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1 and len(close) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
+
+        abs_returns = np.abs(returns)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            illiquidity = abs_returns / volume[1:]
+
+        window = min(self._lookback - 1, len(illiquidity))
+        avg_illiquidity = np.nanmean(illiquidity[-window:], axis=0)
+
+        # Liquidity = negative illiquidity
+        liquidity = -avg_illiquidity
+        compute_mask = exists & valid
+        result[compute_mask] = liquidity[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/factor/liquidity.py`</sub>
 
 
@@ -72,6 +130,52 @@ Mean Reversion Factor (Z-score of price deviation).
 factor = MeanReversionFactor(
     Input("FIELD:close", timeframe="1m", lookback=20),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            mean = np.mean(recent, axis=0)
+            std = np.std(recent, axis=0, ddof=1)
+            current = values[-1]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                zscore = (current - mean) / std
+
+            compute_mask = exists & valid
+            result[compute_mask] = zscore[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/factor/mean_reversion.py`</sub>
@@ -99,6 +203,50 @@ factor = MomentumFactor(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._lookback, len(values) - 1)
+        if window >= 1:
+            current = values[-1]
+            past = values[-(window + 1)]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                momentum = (current - past) / past
+
+            compute_mask = exists & valid
+            result[compute_mask] = momentum[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/factor/momentum.py`</sub>
 
 
@@ -122,6 +270,52 @@ Short-Term Reversal Factor (5-day return reversal).
 factor = ShortTermReversalFactor(
     Input("FIELD:close", timeframe="1m", lookback=5),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._lookback, len(values) - 1)
+        if window >= 1:
+            current = values[-1]
+            past = values[-(window + 1)]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                momentum = (current - past) / past
+
+            # Reversal: negate momentum
+            reversal = -momentum
+            compute_mask = exists & valid
+            result[compute_mask] = reversal[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/factor/momentum.py`</sub>
@@ -149,6 +343,53 @@ factor = QualityFactor(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            mean_vol = np.mean(recent, axis=0)
+            std_vol = np.std(recent, axis=0, ddof=1)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                cv = std_vol / mean_vol
+
+            # Negate: lower CV = higher quality
+            quality = -cv
+            compute_mask = exists & valid
+            result[compute_mask] = quality[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/factor/quality.py`</sub>
 
 
@@ -172,6 +413,45 @@ Size Factor (volume-based size proxy).
 factor = SizeFactor(
     Input("FIELD:volume", timeframe="1m", lookback=20),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        avg_volume = np.mean(values[-window:], axis=0)
+
+        compute_mask = exists & valid
+        result[compute_mask] = avg_volume[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/factor/size.py`</sub>
@@ -201,6 +481,52 @@ factor = VolatilityFactor(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        if window >= 2:
+            vol = np.std(returns[-window:], axis=0, ddof=1)
+
+            if self._annualize:
+                vol = vol * np.sqrt(252)
+
+            compute_mask = exists & valid
+            result[compute_mask] = vol[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/factor/volatility.py`</sub>
 
 
@@ -224,6 +550,50 @@ Volume Trend Factor (rate of change in volume).
 factor = VolumeTrendFactor(
     Input("FIELD:volume", timeframe="1m", lookback=10),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._lookback, len(values) - 1)
+        if window >= 1:
+            current = values[-1]
+            past = values[-(window + 1)]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                trend = (current - past) / past
+
+            compute_mask = exists & valid
+            result[compute_mask] = trend[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/factor/volume.py`</sub>

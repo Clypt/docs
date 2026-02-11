@@ -72,11 +72,9 @@ ClyptQ resolves fees through `VenueFeeResolver` with a clear priority chain:
 ```
 1. User override (CostModelSpec in AccountSpec)
      ↓ if not set
-2. CCXT auto-fetch (for crypto exchanges)
+2. CCXT auto-fetch (from exchange API)
      ↓ if fetch fails
-3. Known venue defaults (for stock brokers)
-     ↓ if unknown venue
-4. Fallback default (0.1% maker/taker)
+3. Fallback default (0.1% maker/taker)
 ```
 
 ### 1. User Override (Highest Priority)
@@ -109,16 +107,7 @@ fees = ccxt_exchange.fetch_trading_fees()
 
 Auto-fetch returns the **default tier** (non-VIP) rates. If you have VIP status, use a manual override.
 
-### 3. Known Venue Defaults (Stock Brokers)
-
-For stock brokers that aren't CCXT-compatible:
-
-| Venue | Maker | Taker | Slippage | Notes |
-|-------|-------|-------|----------|-------|
-| **Alpaca** | 0.0% | 0.0% | 1.0 bps | Commission-free US equities |
-| **Interactive Brokers** | 0.0% | 0.005% | 1.0 bps | Ultra-low professional rates |
-
-### 4. Fallback Default
+### 3. Fallback Default
 
 If all resolution methods fail:
 

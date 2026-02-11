@@ -225,7 +225,11 @@ df_equity.plot(title="Multi-Factor Equity Curve", figsize=(14, 5))
 ## The Complete Graph
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     CLOSE["FIELD:close"] --> alpha_mom["MomentumAlpha"]
     CLOSE --> alpha_rsi["RSIAlpha"]
     CLOSE --> alpha_boll["BollingerAlpha"]
@@ -254,6 +258,9 @@ flowchart TB
 
     intention --> executor["Executor"]
     liq --> executor
+
+    class CLOSE,CLOSE2,VOL,STATE_CASH,STATE_POS source
+    class executor action
 ```
 
 ## Variations

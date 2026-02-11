@@ -24,6 +24,10 @@ Helper.data_catalog()
 
 Every ClyptQ strategy is a **directed acyclic graph (DAG)** of operators. Data flows from FIELD inputs through operators to intentions:
 
+<Info>
+Terms like `StatefulGraph`, `FIELD`, `Input`, and `TaggedArray` are explained in [Core Concepts](/getting-started/core-concepts). For now, just follow the pattern — everything will make sense after reading that page.
+</Info>
+
 ```python
 from clyptq.system.graph import StatefulGraph, Input
 from clyptq.apps.trading.operators.indicator import SMA
@@ -183,11 +187,11 @@ for result in driver:  # ← Same loop, now trading real money
 ## What's Next?
 
 <CardGroup cols={2}>
-  <Card title="FIELD/STATE Principles" icon="database" href="/engine/field-data-principle">
+  <Card title="FIELD/STATE Principles" icon="database" href="/engine/field-state">
     Understand how data flows through the graph
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse 213+ operators: indicators, signals, transforms, AI
+    Browse 380+ operators: indicators, signals, transforms, AI
   </Card>
   <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
     Cost models, funding rates, liquidation simulation

@@ -27,7 +27,7 @@ for result in driver:
 
 <CardGroup cols={3}>
   <Card title="Builders" icon="code" href="/platform/builder-guide">
-    **Strategy developers** who want to go from research to live trading without rewriting code. Use any Python library — PyTorch, XGBoost, HuggingFace — inside 213+ composable operators.
+    **Strategy developers** who want to go from research to live trading without rewriting code. Use any Python library — PyTorch, XGBoost, HuggingFace — inside 380+ composable operators.
   </Card>
 
   <Card title="Buyers" icon="chart-line" href="/platform/buyer-guide">
@@ -39,59 +39,20 @@ for result in driver:
   </Card>
 </CardGroup>
 
-## Five Pillars
-
-| Pillar | What It Means |
-|--------|---------------|
-| **Research = Backtest = Live** | Same `TradingSpec`, same `for result in driver` loop, same analysis code across all modes |
-| **Tick-by-Tick State Machine** | Each operator sees only past data through `RollingBuffer`. Lookahead bias is structurally impossible |
-| **Full Python Freedom** | Any Python library works inside operators. No sandbox, no restrictions, no "approved list" |
-| **Data Included** | 5 exchanges × spot + futures × 1-minute OHLCV. Pre-aligned, gap-filled, ready to use |
-| **Verified Marketplace** | Sell strategies without revealing source code. Buy strategies with independently verified backtests |
-
-## Architecture at a Glance
-
-```mermaid
-flowchart TB
-    subgraph TradingSpec[" TradingSpec "]
-        direction LR
-        DataSpec["DataSpec<br>Exchanges, Symbols, Timeframes"]
-        StrategySpec["StrategySpec<br>Graph, Operators, Connections"]
-        ExecutionSpec["ExecutionSpec<br>mode: backtest → paper → live"]
-    end
-
-    TradingSpec --> FIELD["FIELD Protocol"]
-    TradingSpec --> Graph["StatefulGraph (DAG)"]
-    TradingSpec --> Executor["Executor (Memoryless)"]
-
-    FIELD --> Graph
-    Graph --> Executor
-    Executor -- "STATE" --> Graph
-```
-
-**FIELD** delivers market data (prices, volumes, funding rates) to the graph.
-**STATE** feeds portfolio data (cash, positions, margin) back from the executor.
-The graph processes both through operators in topological order, producing intentions that the executor fills.
-
-## Quick Start
+## Get Started
 
 <Steps>
   <Step title="Explore">
     ```python
     from clyptq import Helper
     Helper.exchanges()          # Available exchanges
-    Helper.symbols("binance", "futures", quote="USDT")  # Available symbols
-    Helper.data_catalog()       # Local data inventory
+    Helper.symbols("binance", "futures", quote="USDT")
     ```
   </Step>
 
-  <Step title="Build a Graph">
+  <Step title="Build">
     ```python
-    from clyptq.system.graph import StatefulGraph, Input
-    from clyptq.apps.trading.operators.indicator import SMA
-
     graph = StatefulGraph()
-    close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
     graph.add_node("sma_fast", SMA(span=10), inputs=[close])
     graph.add_node("sma_slow", SMA(span=50), inputs=[close])
     ```
@@ -99,37 +60,36 @@ The graph processes both through operators in topological order, producing inten
 
   <Step title="Run">
     ```python
-    driver = TradingDriver.from_spec(spec)
-    for result in driver:
+    for result in TradingDriver.from_spec(spec):
         equity_curve.append(result.outputs["equity"])
     ```
   </Step>
 </Steps>
 
 <Card title="Full Quickstart Guide" icon="rocket" href="/quickstart">
-  Step-by-step guide: install → build strategy → backtest → analyze results
+  Step-by-step: install → build strategy → backtest → analyze results
 </Card>
 
 ## Documentation Map
 
 <CardGroup cols={2}>
-  <Card title="Engine Concepts" icon="gears" href="/engine/field-data-principle">
-    FIELD/STATE protocols, TaggedArray, StatefulGraph, operator system, TradingSpec
+  <Card title="Core Concepts" icon="lightbulb" href="/getting-started/core-concepts">
+    TradingSpec, StatefulGraph, FIELD/STATE, TaggedArray, Operators
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/getting-started/architecture-overview">
+    4-layer architecture and Trading Commerce ecosystem
+  </Card>
+  <Card title="Engine Fundamentals" icon="gears" href="/engine/field-state">
+    FIELD/STATE, TaggedArray, StatefulGraph, operator protocol
   </Card>
   <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
     Cost models, funding rates, liquidation, lookahead prevention
   </Card>
-  <Card title="Competitive Edge" icon="bolt" href="/competitive/why-clyptq">
-    vs QuantConnect, Nautilus, QuantRocket, vectorized frameworks
-  </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    213+ operators: indicators, signals, transforms, metrics, AI
+    380+ operators: indicators, signals, transforms, metrics, AI
   </Card>
   <Card title="Tutorials" icon="graduation-cap" href="/tutorials/first-strategy">
     SMA crossover, multi-factor, AI-augmented, cross-exchange arbitrage
-  </Card>
-  <Card title="Roadmap" icon="road" href="/roadmap/overview">
-    US stocks, data marketplace, Rust conversion, competitions
   </Card>
 </CardGroup>
 

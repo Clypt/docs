@@ -294,7 +294,11 @@ df_signal.plot(title="Basis (Futures Premium)", figsize=(14, 3))
 ## The Complete Graph
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     SPOT_CLOSE["FIELD:spot:close"] --> sma_spot["SMA(spot)"]
     FUT_CLOSE["FIELD:futures:close"] --> sma_spot
     FUT_CLOSE --> sma_fut["SMA(futures)"]
@@ -328,6 +332,9 @@ flowchart TB
 
     spot_int --> exec_spot["Executor (spot)"]
     fut_int --> exec_fut["Executor (futures)"]
+
+    class SPOT_CLOSE,FUT_CLOSE,S_CASH,S_POS,F_CASH,F_POS source
+    class exec_spot,exec_fut action
 ```
 
 ## Multi-Exchange Variant

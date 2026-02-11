@@ -16,6 +16,7 @@ Unlike most platforms that provide a single backtesting engine, QuantRocket offe
 QuantRocket runs as a collection of Docker containers:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
     subgraph DC["Docker Compose"]
         JN["Jupyter<br>Notebook"]
@@ -33,7 +34,10 @@ flowchart TB
 ### ClyptQ: Unified SaaS
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     subgraph TS["TradingSpec"]
         DS["Data<br>Spec"]
         SG["Strategy<br>(Graph)"]
@@ -42,6 +46,8 @@ flowchart TB
     DS --> FP["FIELD Protocol"]
     SG --> DAG["DAG"]
     ES --> ME["Memoryless<br>Executor"]
+    class FP,DAG source
+    class ME action
 ```
 
 Everything in one `TradingSpec`. No Docker. No microservices. No infrastructure management.
@@ -78,7 +84,7 @@ QuantRocket requires Docker familiarity and system administration. ClyptQ requir
 | | QuantRocket | ClyptQ |
 |---|---|---|
 | **Primary focus** | US equities, futures (via IB) | Crypto (5 exchanges) |
-| **Crypto support** | Limited (through IB crypto or manual) | Native (Binance, Gate.io, Bybit, OKX, Coinbase) |
+| **Crypto support** | Limited (through IB crypto or manual) | Native (Binance, Gate.io, Bybit, Kraken, Coinbase) |
 | **Futures modeling** | Basic (no funding rate, no liquidation) | Full (funding, margin, liquidation) |
 | **Data** | IB data + third-party (Sharadar, EDI) | Included (exchange-quality OHLCV) |
 | **Multi-exchange** | Single broker (IB) | Native multi-exchange (FIELD protocol) |
@@ -139,7 +145,7 @@ ClyptQ achieves both — accurate event-driven backtesting with full code parity
 |---|---|---|
 | **Strategy pattern** | Function/class returning pandas DataFrames | Composable operator DAG |
 | **Composability** | Limited (monolithic functions) | High (independent operators) |
-| **Operator library** | No pre-built operators (DIY with pandas/ta-lib) | 213+ pre-built operators |
+| **Operator library** | No pre-built operators (DIY with pandas/ta-lib) | 380+ pre-built operators |
 | **AI operators** | None | LLMScorer, WebSearch, Sentiment |
 | **Custom indicators** | pandas/ta-lib | BaseOperator inheritance |
 
@@ -166,7 +172,7 @@ ClyptQ achieves both — accurate event-driven backtesting with full code parity
 | **Multi-exchange** | Native (FIELD protocol) | Single broker (IB) |
 | **Deployment** | SaaS (managed) | Docker (self-hosted) |
 | **Setup time** | Minutes | Hours |
-| **Operator library** | 213+ pre-built | None (DIY) |
+| **Operator library** | 380+ pre-built | None (DIY) |
 | **AI operators** | Yes | No |
 | **Marketplace** | Verified strategies | None |
 | **Scheduling** | Managed | Cron-based (self-managed) |
@@ -189,14 +195,14 @@ ClyptQ is the better choice if you:
 - **Trade crypto** — native multi-exchange support with exchange-specific cost modeling
 - **Want zero infrastructure** — SaaS with no Docker, no servers, no maintenance
 - **Need accurate crypto backtests** — funding rates, liquidation, tiered fees
-- **Want composable strategies** — 213+ operators in a DAG vs monolithic pandas functions
+- **Want composable strategies** — 380+ operators in a DAG vs monolithic pandas functions
 - **Want AI-powered trading** — LLM, web search, sentiment as first-class operators
 - **Want to sell strategies** — verified marketplace
 - **Value code parity without accuracy trade-offs** — event-driven AND single codebase
 
 ## Relationship to Other Concepts
 
-- **[Why ClyptQ?](/competitive/why-clyptq)**: Complete overview of all competitive advantages
+- **[Why ClyptQ?](/competitive/overview)**: Complete overview of all competitive advantages
 - **[vs Vectorized Frameworks](/competitive/vs-vectorized)**: Why Moonshot's vectorized approach has structural limitations
 - **[vs QuantConnect](/competitive/vs-quantconnect)**: Comparison with another cloud-based platform
 - **[Research = Backtest = Live](/competitive/code-parity)**: The code parity guarantee in detail

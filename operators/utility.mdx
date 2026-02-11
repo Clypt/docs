@@ -45,9 +45,11 @@ This page documents **25 operators** (role: various).
 
 Time-based gate that opens on timeframe boundaries.
 
-Outputs 1.0 when current timestamp is on the specified interval boundary,
-0.0 otherwise. Use this to control execution frequency of operators
-that don't have internal data to aggregate (e.g., WebSearch, LLM).
+Outputs 1.0 when the current timestamp falls on a specified interval
+boundary, and 0.0 otherwise. Used to control execution frequency of
+operators that lack internal data aggregation (e.g., WebSearch, LLM).
+The gate checks whether the timestamp is aligned to the interval grid.
+Formula: output = 1.0 if timestamp % interval == 0, else 0.0
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -55,9 +57,87 @@ that don't have internal data to aggregate (e.g., WebSearch, LLM).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `trigger_input` | `Input` | Required |  |
-| `interval` | `str` | `'5m'` |  |
-| `output_timeframe` | `Optional[str]` | `None` | Output timeframe (defaults to trigger input timeframe) |
+| `trigger_input` | `Input` | Required | Any input to trigger computation and infer n_symbols. |
+| `interval` | `str` | `'5m'` | Target interval string (e.g., "5m", "1h", "1d") |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe. Defaults to the trigger input's |
+
+### Usage
+
+```python
+# Gate that opens every 5 minutes
+graph.add_node("every_5m", IntervalGate(
+    trigger_input=Input("rsi", timeframe="1m", lookback=1),
+    interval="5m",
+))
+
+# Use with GateAnd to combine with conditions
+graph.add_node("search_gate", GateAnd([
+    Input("every_5m", timeframe="1m", lookback=1),
+    Input("rsi_extreme_gate", timeframe="1m", lookback=1),
+]))
+
+# Then use as gate for WebSearch
+graph.add_node("news", WebSearchOperator(
+    query_template="BTC news",
+    gate_input=Input("search_gate", timeframe="1m", lookback=1),
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute gate value based on timestamp boundary.
+
+    Returns 1.0 if timestamp is on interval boundary, 0.0 otherwise.
+    """
+    # Extract input to get n_symbols
+    if isinstance(data, list):
+        input_data = data[0]
+    else:
+        input_data = data
+
+    if len(input_data) > 0:
+        last_tick = input_data[-1]
+        n_symbols = len(last_tick.value)
+        exists = last_tick.exists
+    else:
+        n_symbols = 1
+        exists = np.array([True])
+
+    # Check if on boundary
+    is_boundary = False
+
+    if timestamp is not None:
+        # Method 1: Use context boundary info (from graph)
+        if context and "is_boundary" in context:
+            is_boundary = context["is_boundary"].get(self.interval, False)
+        else:
+            # Method 2: Check timestamp directly
+            is_boundary = self._check_boundary(timestamp)
+
+    # Create output
+    gate_value = 1.0 if is_boundary else 0.0
+
+    # Log gate status
+    ts_str = timestamp.strftime('%H:%M:%S') if timestamp else 'N/A'
+    gate_status = "🔓 OPEN" if is_boundary else "🔒 CLOSED"
+    logger.info(f"IntervalGate[{self.interval}] @ {ts_str}: {gate_status}")
+
+    return TaggedArray(
+        value=np.full(n_symbols, gate_value),
+        exists=exists,
+        valid=np.ones(n_symbols, dtype=bool),
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `operator/interval_gate.py`</sub>
 
@@ -66,7 +146,12 @@ that don't have internal data to aggregate (e.g., WebSearch, LLM).
 
 ## ZScore
 
-Standardize to mean=0, std=1.
+Standardize values to zero mean and unit variance (z-score normalization).
+
+Subtracts the mean and divides by the standard deviation computed over the
+rolling window or cross-sectionally. Returns 0.0 when std is near zero
+to avoid division-by-zero artifacts.
+Formula: z = (x - mean) / std, where std uses ddof degrees of freedom
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -74,9 +159,70 @@ Standardize to mean=0, std=1.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
-| `ddof` | `int` | `1` |  |
+| `window` | `int` | `20` | Rolling window size for computing mean and std |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to normalize. "Time" for rolling, "__primary__" |
+| `ddof` | `int` | `1` | Delta degrees of freedom for std denominator |
+
+### Usage
+
+```python
+graph.add_node("zscore", ZScore(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute z-score."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        data_np = clean_v
+        mean = np.nanmean(data_np, axis=0)
+        std = np.nanstd(data_np, axis=0, ddof=self.ddof)
+
+        current_np = data_np[-1] if len(data_np) > 0 else np.array([])
+
+        result_values = np.where(std > 1e-10, (current_np - mean) / std, 0.0)
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+    else:
+        if len(data) > 1:
+            current = data[-1]
+            clean_current = clean_v[-1]
+        else:
+            current = data[0] if len(data) > 0 else data
+            clean_current = clean_v[0] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten()
+        valid_data = current_np[~np.isnan(current_np)]
+
+        if len(valid_data) > 1:
+            mean = np.mean(valid_data)
+            std = np.std(valid_data, ddof=self.ddof)
+            result_values = np.where(std > 1e-10, (current_np - mean) / std, 0.0)
+        else:
+            result_values = np.zeros_like(current_np)
+
+        result_exists = current.exists
+        result_valid = current.valid
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/normalization.py`</sub>
 
@@ -85,7 +231,12 @@ Standardize to mean=0, std=1.
 
 ## Demean
 
-Subtract mean from values.
+Remove the mean from values (center around zero).
+
+Subtracts the mean computed over the rolling window or cross-sectionally
+from the current values. Useful for removing level effects while
+preserving relative differences between symbols.
+Formula: result = x - mean(x) over the specified axis
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -93,8 +244,66 @@ Subtract mean from values.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `20` | Rolling window size for computing mean |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to demean. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("demeaned", Demean(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute demeaned values."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        data_np = clean_v
+        mean = np.nanmean(data_np, axis=0)
+        current_np = data_np[-1] if len(data_np) > 0 else np.array([])
+
+        result_values = current_np - mean
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+    else:
+        if len(data) > 1:
+            current = data[-1]
+            clean_current = clean_v[-1]
+        else:
+            current = data[0] if len(data) > 0 else data
+            clean_current = clean_v[0] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten()
+        valid_data = current_np[~np.isnan(current_np)]
+
+        if len(valid_data) > 0:
+            mean = np.mean(valid_data)
+            result_values = current_np - mean
+        else:
+            result_values = np.zeros_like(current_np)
+
+        result_exists = current.exists
+        result_valid = current.valid
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/normalization.py`</sub>
 
@@ -103,7 +312,14 @@ Subtract mean from values.
 
 ## Scale
 
-Divide by std or range.
+Scale values by dividing by standard deviation or range.
+
+Divides values by a scale factor computed over the rolling window or
+cross-sectionally. Supports two methods: "std" divides by standard
+deviation, "range" divides by (max - min). Returns 0.0 when scale
+factor is near zero to avoid division-by-zero artifacts.
+Formula (std): result = x / std(x)
+Formula (range): result = x / (max(x) - min(x))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -111,9 +327,76 @@ Divide by std or range.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
-| `method` | `str` | `'std'` |  |
+| `window` | `int` | `20` | Rolling window size for computing scale factor |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to scale. "Time" for rolling, "__primary__" |
+| `method` | `str` | `'std'` | Scaling method, either "std" or "range" |
+
+### Usage
+
+```python
+graph.add_node("scaled", Scale(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+    method="std",
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute scaled values."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        data_np = clean_v
+        current_np = data_np[-1] if len(data_np) > 0 else np.array([])
+
+        if self.method == "std":
+            scale = np.nanstd(data_np, axis=0)
+        else:
+            scale = np.nanmax(data_np, axis=0) - np.nanmin(data_np, axis=0)
+
+        result_values = np.where(scale > 1e-10, current_np / scale, 0.0)
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+    else:
+        if len(data) > 1:
+            current = data[-1]
+            clean_current = clean_v[-1]
+        else:
+            current = data[0] if len(data) > 0 else data
+            clean_current = clean_v[0] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten()
+        valid_data = current_np[~np.isnan(current_np)]
+
+        if len(valid_data) > 1:
+            if self.method == "std":
+                scale = np.std(valid_data)
+            else:
+                scale = np.max(valid_data) - np.min(valid_data)
+
+            result_values = np.where(scale > 1e-10, current_np / scale, 0.0)
+        else:
+            result_values = np.zeros_like(current_np)
+
+        result_exists = current.exists
+        result_valid = current.valid
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/normalization.py`</sub>
 
@@ -122,7 +405,12 @@ Divide by std or range.
 
 ## Rank
 
-Fractional rank in [0, 1].
+Compute fractional rank normalized to [0, 1].
+
+Ranks values along the specified axis and normalizes to the unit interval.
+Along the Time axis, the current value is ranked within its rolling window.
+Along the Symbol axis, values are ranked cross-sectionally at each time step.
+Formula: rank_i = position_i / (N - 1), where N is the count of valid values
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -130,8 +418,95 @@ Fractional rank in [0, 1].
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Symbol'` |  |
+| `window` | `int` | `1` | Rolling window size when axis is "Time" |
+| `axis` | `Union[str, int]` | `'Symbol'` | Axis along which to rank. "Time" for temporal ranking, "Symbol" |
+
+### Usage
+
+```python
+graph.add_node("ranked", Rank(
+    Input("signal", timeframe="1m", lookback=1),
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute fractional rank."""
+    if self.axis == "Time" or self.axis == 0:
+        clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+        data_np = clean_v
+
+        num_symbols = data_np.shape[1] if len(data_np.shape) > 1 else 1
+
+        result_values = np.zeros(num_symbols)
+        for i in range(num_symbols):
+            col = data_np[:, i] if len(data_np.shape) > 1 else data_np
+            valid_mask = ~np.isnan(col)
+
+            if np.sum(valid_mask) > 1:
+                valid_data = col[valid_mask]
+                current_val = col[-1]
+
+                if not np.isnan(current_val):
+                    rank = np.sum(valid_data <= current_val) - 1
+                    result_values[i] = rank / (len(valid_data) - 1) if len(valid_data) > 1 else 0.5
+                else:
+                    result_values[i] = 0.0
+            elif np.sum(valid_mask) == 1:
+                result_values[i] = 0.5
+            else:
+                result_values[i] = 0.0
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+    else:
+        if len(data) > 1:
+            current = data[-1]
+        else:
+            current = data[0] if len(data) > 0 else data
+
+        clean_v = np.where(current.exists & current.valid, current.value, np.nan)
+
+        current_flat = clean_v.flatten()
+        current_np = current_flat
+
+        valid_mask = ~np.isnan(current_np)
+
+        if np.sum(valid_mask) == 0:
+            result_values = np.zeros(len(current_np))
+        else:
+            result_values = np.full(len(current_np), 0.0)
+            valid_data = current_np[valid_mask]
+
+            if len(valid_data) > 1:
+                ranks = np.argsort(np.argsort(valid_data)).astype(float)
+                result_values[valid_mask] = ranks / (len(valid_data) - 1)
+            elif len(valid_data) == 1:
+                result_values[valid_mask] = 0.5
+
+        result_exists = current.exists
+        result_valid = current.valid
+        result_updated = current.updated
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+```
 
 <sub>Source: `operator/ranking.py`</sub>
 
@@ -140,7 +515,12 @@ Fractional rank in [0, 1].
 
 ## Quantile
 
-Compute q-th quantile.
+Compute the q-th quantile of values along the specified axis.
+
+Returns the value at the given quantile from the distribution of valid
+observations. Along the Time axis, computes the rolling quantile per
+symbol. Along the Symbol axis, computes the cross-sectional quantile.
+Formula: result = value at position q * (N - 1) in sorted valid data
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -148,9 +528,70 @@ Compute q-th quantile.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `q` | `float` | `0.5` |  |
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `q` | `float` | `0.5` | Quantile to compute, must be in [0, 1]. 0.5 gives the median |
+| `window` | `int` | `20` | Rolling window size when axis is "Time" |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("median", Quantile(
+    Input("signal", timeframe="1m", lookback=20),
+    q=0.5,
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute quantile."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        data_np = clean_v
+        result_values = np.nanquantile(data_np, self.q, axis=0)
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+    else:
+        if len(data) > 1:
+            current = data[-1]
+            clean_current = clean_v[-1]
+        else:
+            current = data[0] if len(data) > 0 else data
+            clean_current = clean_v[0] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten()
+        valid_data = current_np[~np.isnan(current_np)]
+
+        if len(valid_data) > 0:
+            result_value = np.quantile(valid_data, self.q)
+        else:
+            result_value = 0.0
+
+        result_exists = np.array([np.any(current.exists.flatten())])
+        result_valid = np.array([np.any(current.valid.flatten())])
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+        return TaggedArray(
+            value=np.array([result_value]),
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+```
 
 <sub>Source: `operator/ranking.py`</sub>
 
@@ -161,8 +602,52 @@ Compute q-th quantile.
 
 Time-axis compression (1m -> 1h, 1d, etc.).
 
-Converts higher-frequency data to lower-frequency.
-Must be used explicitly when timeframe conversion is needed.
+Converts higher-frequency data to lower-frequency by aggregating ticks
+at time boundaries. The Graph detects boundaries using timestamp.floor(rule)
+and passes is_boundary via context.
+
+Why timeframe in Input matters:
+    Graph uses Input.timeframe to:
+    1. Validate timeframe compatibility between connected nodes
+    2. Compute required buffer sizes (lookback * timeframe_seconds)
+    3. Register resample rules for boundary detection
+
+    Even if your data source is 1m, you can build indicators on any
+    higher timeframe by chaining Resample.
+
+Multi-timeframe pattern:
+    # Raw 1m data -> 1h candles -> indicators on 1h
+    graph.add_node("close_1h", Resample(
+        input=Input("FIELD:close", timeframe="1m"),
+        rule="1h",
+        method="last",
+    ))
+    graph.add_node("sma_1h", SMA(
+        Input("close_1h", timeframe="1h", lookback=20),
+        period=20,
+    ))
+
+    # 4h from the same 1m source
+    graph.add_node("close_4h", Resample(
+        input=Input("FIELD:close", timeframe="1m"),
+        rule="4h",
+    ))
+
+    # Volume bars (sum aggregation)
+    graph.add_node("vol_1h", Resample(
+        input=Input("FIELD:volume", timeframe="1m"),
+        rule="1h",
+        method="sum",
+    ))
+
+Available aggregation methods:
+    - "last": Last value in window (default, for close prices)
+    - "first": First value (for open prices)
+    - "mean": Average (for indicators)
+    - "sum": Sum (for volume)
+    - "min": Minimum (for low prices)
+    - "max": Maximum (for high prices)
+    - "ohlc": Full OHLC (returns close as main value)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -170,10 +655,134 @@ Must be used explicitly when timeframe conversion is needed.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required | close", timeframe="1m", lookback=60), |
-| `rule` | `str` | `'1h'` |  |
+| `input` | `'Input'` | Required | Source Input. timeframe must match the raw data frequency. |
+| `rule` | `str` | `'1h'` | Target timeframe string (e.g., "1h", "5m", "1d", "4h") |
 | `method` | `Literal['last', 'first', 'mean', 'sum', 'min', 'max', 'ohlc']` | `'last'` | Aggregation method |
-| `min_valid_ratio` | `float` | `0.5` | Minimum ratio of valid ticks required |
+| `min_valid_ratio` | `float` | `0.5` | Minimum ratio of valid ticks in window |
+
+### Usage
+
+```python
+# 1m close -> 1h close
+resample = Resample(
+    input=Input("FIELD:close", timeframe="1m"),
+    rule="1h",
+)
+graph.add_node("close_1h", resample)
+
+# Then use the resampled output as input to other operators
+momentum = MomentumAlpha(Input("close_1h", timeframe="1h", lookback=20))
+graph.add_node("momentum_1h", momentum)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: TaggedArray,
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Resample data at time boundaries."""
+    if len(data) == 0:
+        return TaggedArray(
+            value=np.array([]),
+            exists=np.array([], dtype=bool),
+            valid=np.array([], dtype=bool),
+            updated=np.array([], dtype=bool),
+        )
+
+    is_boundary = False
+    if context and "is_boundary" in context:
+        is_boundary = context["is_boundary"].get(self.rule, False)
+
+    if not is_boundary:
+        current = data[-1] if len(data) > 0 else data
+
+        if self._last_value is not None:
+            result_value = self._last_value
+            result_exists = self._last_exists
+            result_valid = self._last_valid
+        else:
+            result_value = current.value
+            result_exists = current.exists
+            result_valid = current.valid
+
+        return TaggedArray(
+            value=result_value,
+            exists=result_exists,
+            valid=result_valid,
+            updated=np.zeros_like(result_exists, dtype=bool),
+        )
+
+    # Check which ticks have updates (any symbol updated in that tick)
+    tick_has_update = np.any(data.updated, axis=-1) if data.updated.ndim > 1 else data.updated
+
+    if not np.any(tick_has_update):
+        current = data[-1]
+        if self._last_value is not None:
+            result_value = self._last_value
+            result_exists = self._last_exists
+            result_valid = self._last_valid
+        else:
+            result_value = current.value
+            result_exists = current.exists
+            result_valid = current.valid
+
+        return TaggedArray(
+            value=result_value,
+            exists=result_exists,
+            valid=result_valid,
+            updated=np.zeros_like(result_exists, dtype=bool),
+        )
+
+    # Filter to updated ticks only
+    updated_values = data.value[tick_has_update]
+    updated_exists = data.exists[tick_has_update]
+    updated_valid = data.valid[tick_has_update]
+
+    num_ticks = len(updated_values)
+    valid_count = np.sum(np.any(updated_valid, axis=-1) if updated_valid.ndim > 1 else updated_valid)
+    valid_ratio = valid_count / num_ticks if num_ticks > 0 else 0.0
+
+    if valid_ratio < self.min_valid_ratio:
+        current = data[-1]
+        if self._last_value is not None:
+            result_value = self._last_value
+            result_exists = self._last_exists
+            result_valid = self._last_valid
+        else:
+            result_value = current.value
+            result_exists = current.exists
+            result_valid = current.valid
+
+        return TaggedArray(
+            value=result_value,
+            exists=result_exists,
+            valid=result_valid,
+            updated=np.zeros_like(result_exists, dtype=bool),
+        )
+
+    result_values, result_exists, result_valid = self._aggregate(
+        updated_values, updated_exists, updated_valid
+    )
+
+    self._last_value = result_values
+    self._last_exists = result_exists
+    self._last_valid = result_valid
+
+    result_updated = np.ones_like(result_exists, dtype=bool)
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/resample.py`</sub>
 
@@ -182,7 +791,12 @@ Must be used explicitly when timeframe conversion is needed.
 
 ## Mean
 
-Mean along specified axis.
+Compute rolling or cross-sectional arithmetic mean.
+
+Calculates the arithmetic mean of valid values over a rolling window or
+across the symbol axis. NaN values from invalid/non-existent data are
+excluded from the computation.
+Formula: mean = (1/N) * sum(x_i) for i in valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -190,8 +804,52 @@ Mean along specified axis.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `20` | Rolling window size for computing mean |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("mean_signal", Mean(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute mean."""
+    is_valid = data.exists & data.valid
+    clean_v = np.where(is_valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        res_val = np.nanmean(clean_v, axis=0)
+
+        res_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        res_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        res_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        current = data[-1] if len(data) > 1 else (data[0] if len(data) > 0 else data)
+        clean_current = clean_v[-1] if len(data) > 1 else (clean_v[0] if len(clean_v) > 0 else clean_v)
+
+        clean_np = clean_current.flatten()
+        res_val = np.array([np.nanmean(clean_np[~np.isnan(clean_np)])])
+
+        res_exists = np.array([np.any(current.exists.flatten())])
+        res_valid = np.array([np.any(current.valid.flatten())])
+        res_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=res_val,
+        exists=res_exists,
+        valid=res_valid,
+        updated=res_updated,
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -200,7 +858,11 @@ Mean along specified axis.
 
 ## Std
 
-Standard deviation operator.
+Compute rolling or cross-sectional standard deviation.
+
+Calculates the standard deviation of valid values over a rolling window
+or across the symbol axis. NaN values are excluded from computation.
+Formula: std = sqrt((1/(N-ddof)) * sum((x_i - mean)^2))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -208,9 +870,53 @@ Standard deviation operator.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
-| `ddof` | `int` | `1` |  |
+| `window` | `int` | `20` | Rolling window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+| `ddof` | `int` | `1` | Delta degrees of freedom for variance denominator |
+
+### Usage
+
+```python
+graph.add_node("std_signal", Std(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute standard deviation."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_value = np.array([np.nanstd(clean_v[:, i], ddof=self.ddof)
+                     for i in range(len(clean_v[0]) if len(clean_v) > 0 else 0)]) if len(clean_v) > 0 else np.array([])
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        current = data[-1] if len(data) > 1 else (data[0] if len(data) > 0 else data)
+        clean_current = clean_v[-1] if len(data) > 1 else (clean_v[0] if len(clean_v) > 0 else clean_v)
+
+        clean_np = clean_current.flatten()
+        result_value = np.array([np.nanstd(clean_np[~np.isnan(clean_np)], ddof=self.ddof)])
+
+        result_exists = np.array([np.any(current.exists.flatten())])
+        result_valid = np.array([np.any(current.valid.flatten())])
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_value,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -219,7 +925,11 @@ Standard deviation operator.
 
 ## Sum
 
-Sum operator.
+Compute rolling or cross-sectional sum.
+
+Calculates the sum of valid values over a rolling window or across the
+symbol axis. NaN values from invalid/non-existent data are excluded.
+Formula: result = sum(x_i) for i in valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -227,8 +937,52 @@ Sum operator.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `20` | Rolling window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("sum_signal", Sum(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute sum."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_value = np.array([np.nansum(clean_v[:, i])
+                     for i in range(len(clean_v[0]) if len(clean_v) > 0 else 0)]) if len(clean_v) > 0 else np.array([])
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        current = data[-1] if len(data) > 1 else (data[0] if len(data) > 0 else data)
+        clean_current = clean_v[-1] if len(data) > 1 else (clean_v[0] if len(clean_v) > 0 else clean_v)
+
+        clean_np = clean_current.flatten()
+        result_value = np.array([np.nansum(clean_np[~np.isnan(clean_np)])])
+
+        result_exists = np.array([np.any(current.exists.flatten())])
+        result_valid = np.array([np.any(current.valid.flatten())])
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_value,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -237,7 +991,11 @@ Sum operator.
 
 ## Min
 
-Minimum operator.
+Compute rolling or cross-sectional minimum.
+
+Returns the minimum value from valid observations over a rolling window
+or across the symbol axis. NaN values are excluded from comparison.
+Formula: result = min(x_i) for i in valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -245,8 +1003,52 @@ Minimum operator.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `20` | Rolling window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("min_signal", Min(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute minimum."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_value = np.array([np.nanmin(clean_v[:, i])
+                     for i in range(len(clean_v[0]) if len(clean_v) > 0 else 0)]) if len(clean_v) > 0 else np.array([])
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        current = data[-1] if len(data) > 1 else (data[0] if len(data) > 0 else data)
+        clean_current = clean_v[-1] if len(data) > 1 else (clean_v[0] if len(clean_v) > 0 else clean_v)
+
+        clean_np = clean_current.flatten()
+        result_value = np.array([np.nanmin(clean_np[~np.isnan(clean_np)])])
+
+        result_exists = np.array([np.any(current.exists.flatten())])
+        result_valid = np.array([np.any(current.valid.flatten())])
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_value,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -255,7 +1057,11 @@ Minimum operator.
 
 ## Max
 
-Maximum operator.
+Compute rolling or cross-sectional maximum.
+
+Returns the maximum value from valid observations over a rolling window
+or across the symbol axis. NaN values are excluded from comparison.
+Formula: result = max(x_i) for i in valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -263,8 +1069,52 @@ Maximum operator.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `20` | Rolling window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("max_signal", Max(
+    Input("signal", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute maximum."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_value = np.array([np.nanmax(clean_v[:, i])
+                     for i in range(len(clean_v[0]) if len(clean_v) > 0 else 0)]) if len(clean_v) > 0 else np.array([])
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        current = data[-1] if len(data) > 1 else (data[0] if len(data) > 0 else data)
+        clean_current = clean_v[-1] if len(data) > 1 else (clean_v[0] if len(clean_v) > 0 else clean_v)
+
+        clean_np = clean_current.flatten()
+        result_value = np.array([np.nanmax(clean_np[~np.isnan(clean_np)])])
+
+        result_exists = np.array([np.any(current.exists.flatten())])
+        result_valid = np.array([np.any(current.valid.flatten())])
+        result_updated = np.array([np.any(current.updated.flatten())])
+
+    return TaggedArray(
+        value=result_value,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -273,7 +1123,12 @@ Maximum operator.
 
 ## Correlation
 
-Correlation over Time axis (requires two inputs).
+Compute Pearson correlation coefficient over the Time axis.
+
+Calculates the pairwise Pearson correlation between two input signals
+over a rolling window. Requires exactly two inputs. Only time steps
+where both inputs have valid, non-NaN values are included.
+Formula: corr(X, Y) = cov(X, Y) / (std(X) * std(Y))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -281,7 +1136,57 @@ Correlation over Time axis (requires two inputs).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
+| `window` | `int` | `20` | Rolling window size for correlation computation |
+
+### Usage
+
+```python
+graph.add_node("corr", Correlation(
+    Input("signal_a", timeframe="1m", lookback=20),
+    Input("signal_b", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, inputs: Union[TaggedArray, list]) -> TaggedArray:
+    """Compute correlation."""
+    if isinstance(inputs, list):
+        data1, data2 = inputs[0], inputs[1]
+    else:
+        raise ValueError("Correlation requires two inputs")
+
+    clean_v1 = np.where(data1.exists & data1.valid, data1.value, np.nan)
+    clean_v2 = np.where(data2.exists & data2.valid, data2.value, np.nan)
+
+    d1_np = clean_v1
+    d2_np = clean_v2
+
+    num_symbols = d1_np.shape[1] if len(d1_np.shape) > 1 else 1
+    result_values = np.zeros(num_symbols)
+
+    if len(d1_np.shape) == 1:
+        mask = ~(np.isnan(d1_np) | np.isnan(d2_np))
+        result_values[0] = np.corrcoef(d1_np[mask], d2_np[mask])[0, 1] if np.sum(mask) > 1 else np.nan
+    else:
+        for i in range(num_symbols):
+            mask = ~(np.isnan(d1_np[:, i]) | np.isnan(d2_np[:, i]))
+            result_values[i] = np.corrcoef(d1_np[mask, i], d2_np[mask, i])[0, 1] if np.sum(mask) > 1 else np.nan
+
+    result_exists = (data1.exists[-1] & data2.exists[-1]) if len(data1) > 0 else np.array([])
+    result_valid = (np.any(data1.valid, axis=0) & np.any(data2.valid, axis=0)) if len(data1) > 0 else np.array([])
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones_like(result_values, dtype=bool),
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -290,7 +1195,12 @@ Correlation over Time axis (requires two inputs).
 
 ## Covariance
 
-Covariance over Time axis (requires two inputs).
+Compute sample covariance over the Time axis.
+
+Calculates the pairwise sample covariance between two input signals
+over a rolling window. Requires exactly two inputs. Only time steps
+where both inputs have valid, non-NaN values are included.
+Formula: cov(X, Y) = (1/(N-1)) * sum((x_i - mean_X) * (y_i - mean_Y))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -298,7 +1208,57 @@ Covariance over Time axis (requires two inputs).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `20` |  |
+| `window` | `int` | `20` | Rolling window size for covariance computation |
+
+### Usage
+
+```python
+graph.add_node("cov", Covariance(
+    Input("signal_a", timeframe="1m", lookback=20),
+    Input("signal_b", timeframe="1m", lookback=20),
+    window=20,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, inputs: Union[TaggedArray, list]) -> TaggedArray:
+    """Compute covariance."""
+    if isinstance(inputs, list):
+        data1, data2 = inputs[0], inputs[1]
+    else:
+        raise ValueError("Covariance requires two inputs")
+
+    clean_v1 = np.where(data1.exists & data1.valid, data1.value, np.nan)
+    clean_v2 = np.where(data2.exists & data2.valid, data2.value, np.nan)
+
+    d1_np = clean_v1
+    d2_np = clean_v2
+
+    num_symbols = d1_np.shape[1] if len(d1_np.shape) > 1 else 1
+    result_values = np.zeros(num_symbols)
+
+    if len(d1_np.shape) == 1:
+        mask = ~(np.isnan(d1_np) | np.isnan(d2_np))
+        result_values[0] = np.cov(d1_np[mask], d2_np[mask])[0, 1] if np.sum(mask) > 1 else np.nan
+    else:
+        for i in range(num_symbols):
+            mask = ~(np.isnan(d1_np[:, i]) | np.isnan(d2_np[:, i]))
+            result_values[i] = np.cov(d1_np[mask, i], d2_np[mask, i])[0, 1] if np.sum(mask) > 1 else np.nan
+
+    result_exists = (data1.exists[-1] & data2.exists[-1]) if len(data1) > 0 else np.array([])
+    result_valid = (np.any(data1.valid, axis=0) & np.any(data2.valid, axis=0)) if len(data1) > 0 else np.array([])
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones_like(result_values, dtype=bool),
+    )
+```
 
 <sub>Source: `operator/statistics.py`</sub>
 
@@ -307,7 +1267,13 @@ Covariance over Time axis (requires two inputs).
 
 ## TopN
 
-Select top/bottom N symbols by ranking.
+Select the top or bottom N symbols by value for universe filtering.
+
+Performs partial sorting to efficiently extract the N highest, lowest,
+or most/least extreme (by absolute value) symbols from the input.
+Returns a compressed TaggedArray containing only the selected symbols
+with their original indices preserved for downstream mapping.
+Algorithm: argpartition for O(N) selection, then sort the selected subset
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -315,9 +1281,95 @@ Select top/bottom N symbols by ranking.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `n` | `int` | `10` |  |
-| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` |  |
-| `axis` | `str` | `'__primary__'` |  |
+| `n` | `int` | `10` | Number of symbols to select. Must be positive |
+| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` | Selection criterion. One of "largest", "smallest", |
+| `axis` | `str` | `'__primary__'` | Symbol axis name |
+
+### Usage
+
+```python
+graph.add_node("top10", TopN(
+    Input("alpha", timeframe="1m", lookback=1),
+    n=10,
+    method="largest",
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Select top N symbols."""
+    if len(data) > 1:
+        current = data[-1]
+    else:
+        current = data[0] if len(data) > 0 else data
+
+    if len(current.value) == 0:
+        return TaggedArray(
+            value=np.array([]),
+            exists=np.array([], dtype=bool),
+            valid=np.array([], dtype=bool),
+            updated=np.array([], dtype=bool),
+        )
+
+    valid_mask = current.exists & current.valid
+    valid_indices = np.arange(len(current.value))[valid_mask.flatten()]
+    valid_values = current.value.flatten()[valid_mask.flatten()]
+
+    if len(valid_values) == 0:
+        return TaggedArray(
+            value=np.array([]),
+            exists=np.array([], dtype=bool),
+            valid=np.array([], dtype=bool),
+            updated=np.array([], dtype=bool),
+        )
+
+    n_actual = min(self.n, len(valid_values))
+
+    if self.method == "largest":
+        top_indices_within_valid = np.argpartition(valid_values, -n_actual)[-n_actual:]
+        top_indices_within_valid = top_indices_within_valid[np.argsort(valid_values[top_indices_within_valid])[::-1]]
+
+    elif self.method == "smallest":
+        top_indices_within_valid = np.argpartition(valid_values, n_actual)[:n_actual]
+        top_indices_within_valid = top_indices_within_valid[np.argsort(valid_values[top_indices_within_valid])]
+
+    elif self.method == "abs_largest":
+        abs_values = np.abs(valid_values)
+        top_indices_within_valid = np.argpartition(abs_values, -n_actual)[-n_actual:]
+        top_indices_within_valid = top_indices_within_valid[np.argsort(abs_values[top_indices_within_valid])[::-1]]
+
+    elif self.method == "abs_smallest":
+        abs_values = np.abs(valid_values)
+        top_indices_within_valid = np.argpartition(abs_values, n_actual)[:n_actual]
+        top_indices_within_valid = top_indices_within_valid[np.argsort(abs_values[top_indices_within_valid])]
+
+    else:
+        raise ValueError(f"Unknown method: {self.method}")
+
+    selected_original_indices = valid_indices[top_indices_within_valid]
+
+    all_values = current.value.flatten()
+    all_exists = current.exists.flatten()
+    all_valid = current.valid.flatten()
+    all_updated = current.updated.flatten()
+
+    result_values = all_values[selected_original_indices]
+    result_exists = all_exists[selected_original_indices]
+    result_valid = all_valid[selected_original_indices]
+    result_updated = all_updated[selected_original_indices]
+
+    return TaggedArray(
+        value=result_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+        indices=selected_original_indices,
+    )
+```
 
 <sub>Source: `operator/topn.py`</sub>
 
@@ -326,7 +1378,12 @@ Select top/bottom N symbols by ranking.
 
 ## TopNPercent
 
-Select top N% of symbols.
+Select the top N percent of symbols by value for universe filtering.
+
+Computes n = ceil(pct * valid_count) and delegates to TopN for the
+actual selection. Useful when the desired subset size should scale
+with the total universe size rather than being a fixed count.
+Algorithm: n = max(1, int(valid_count * pct)), then TopN selection
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -334,9 +1391,56 @@ Select top N% of symbols.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `pct` | `float` | `0.1` |  |
-| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` |  |
-| `axis` | `str` | `'__primary__'` |  |
+| `pct` | `float` | `0.1` | Fraction of valid symbols to select, must be in (0, 1] |
+| `method` | `Literal['largest', 'smallest', 'abs_largest', 'abs_smallest']` | `'largest'` | Selection criterion. One of "largest", "smallest", |
+| `axis` | `str` | `'__primary__'` | Symbol axis name |
+
+### Usage
+
+```python
+graph.add_node("top10pct", TopNPercent(
+    Input("alpha", timeframe="1m", lookback=1),
+    pct=0.1,
+    method="largest",
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Select top N% of symbols."""
+    if len(data) > 1:
+        current = data[-1]
+    else:
+        current = data[0] if len(data) > 0 else data
+
+    if len(current.value) == 0:
+        return TaggedArray(
+            value=np.array([]),
+            exists=np.array([], dtype=bool),
+            valid=np.array([], dtype=bool),
+            updated=np.array([], dtype=bool),
+        )
+
+    valid_mask = current.exists & current.valid
+    valid_count = np.sum(valid_mask.flatten())
+
+    if valid_count == 0:
+        return TaggedArray(
+            value=np.array([]),
+            exists=np.array([], dtype=bool),
+            valid=np.array([], dtype=bool),
+            updated=np.array([], dtype=bool),
+        )
+
+    n = max(1, int(valid_count * self.pct))
+
+    topn = TopN(n=n, method=self.method, axis=self.axis)
+    return topn.compute(data, timestamp)
+```
 
 <sub>Source: `operator/topn.py`</sub>
 
@@ -345,7 +1449,13 @@ Select top N% of symbols.
 
 ## Delta
 
-Difference between current and lagged values.
+Compute the difference between current and lagged values.
+
+Calculates the first difference over the time axis, or subtracts the
+cross-sectional mean when applied along the symbol axis. Useful for
+computing momentum, changes, or demeaning signals.
+Formula (Time axis): delta = x[t] - x[t - periods]
+Formula (Symbol axis): delta = x_i - mean(x)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -353,8 +1463,75 @@ Difference between current and lagged values.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `periods` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `periods` | `int` | `1` | Number of periods to lag for differencing |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. "Time" for temporal difference, |
+
+### Usage
+
+```python
+graph.add_node("delta", Delta(
+    Input("signal", timeframe="1m", lookback=2),
+    periods=1,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute difference."""
+    if self.axis == "Time" or self.axis == 0:
+        if len(data) < self.periods + 1:
+            current = data[-1] if len(data) > 0 else data
+            num_symbols = len(current.value) if hasattr(current, 'value') else 0
+            return TaggedArray(
+                value=np.zeros(num_symbols),
+                exists=np.zeros(num_symbols, dtype=bool),
+                valid=np.zeros(num_symbols, dtype=bool),
+                updated=np.zeros(num_symbols, dtype=bool),
+            )
+
+        current = data[-1]
+        lagged = data[-(self.periods + 1)]
+
+        current_v = np.where(current.exists & current.valid, current.value, np.nan)
+        lagged_v = np.where(lagged.exists & lagged.valid, lagged.value, np.nan)
+
+        result_values = current_v - lagged_v
+
+        result_exists = current.exists & lagged.exists
+        result_valid = current.valid & lagged.valid
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+
+    else:
+        current = data[-1] if len(data) > 0 else data
+
+        clean_v = np.where(current.exists & current.valid, current.value, np.nan)
+        clean_np = clean_v.flatten() if hasattr(clean_v, 'flatten') else np.asarray(clean_v).flatten()
+        valid_data = clean_np[~np.isnan(clean_np)]
+
+        if len(valid_data) > 0:
+            mean_val = np.mean(valid_data)
+            result_values = clean_np - mean_val
+        else:
+            result_values = np.zeros_like(clean_np)
+
+        return TaggedArray(
+            value=result_values,
+            exists=current.exists,
+            valid=current.valid,
+            updated=np.array([np.any(current.updated)]),
+        )
+```
 
 <sub>Source: `operator/transform.py`</sub>
 
@@ -363,7 +1540,11 @@ Difference between current and lagged values.
 
 ## Log
 
-Natural logarithm transform.
+Apply natural logarithm transform to input values.
+
+Computes the element-wise natural logarithm of valid positive values.
+Values that are zero or negative produce NaN and are marked invalid.
+Formula: result = ln(x) for x above 0, NaN otherwise
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -371,8 +1552,49 @@ Natural logarithm transform.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `1` | Lookback window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to operate |
+
+### Usage
+
+```python
+graph.add_node("log_signal", Log(
+    Input("signal", timeframe="1m", lookback=1),
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute natural logarithm."""
+    current = data[-1] if len(data) > 0 else data
+
+    clean_v = np.where(current.exists & current.valid, current.value, np.nan)
+    clean_np = clean_v.flatten() if hasattr(clean_v, 'flatten') else np.asarray(clean_v).flatten()
+
+    result_values = np.full(len(clean_np), np.nan)
+    valid_mask = (clean_np > 0) & ~np.isnan(clean_np)
+
+    if np.any(valid_mask):
+        result_values[valid_mask] = np.log(clean_np[valid_mask])
+
+    result_valid = current.valid & (clean_np > 0)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        result_updated = np.array([np.any(current.updated)])
+
+    return TaggedArray(
+        value=result_values,
+        exists=current.exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/transform.py`</sub>
 
@@ -381,7 +1603,12 @@ Natural logarithm transform.
 
 ## Clip
 
-Limit values to specified range.
+Clip (winsorize) values to a specified min/max range.
+
+Constrains each element to lie within [min_val, max_val]. Values below
+min_val are set to min_val; values above max_val are set to max_val.
+Either bound may be None to leave that side unconstrained.
+Formula: result = max(min_val, min(x, max_val))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -389,10 +1616,54 @@ Limit values to specified range.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `min_val` | `float` | `None` |  |
-| `max_val` | `float` | `None` |  |
-| `window` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `min_val` | `float` | `None` | Lower bound for clipping. None means no lower bound |
+| `max_val` | `float` | `None` | Upper bound for clipping. None means no upper bound |
+| `window` | `int` | `1` | Lookback window size |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to operate |
+
+### Usage
+
+```python
+graph.add_node("clipped", Clip(
+    Input("signal", timeframe="1m", lookback=1),
+    min_val=-3.0,
+    max_val=3.0,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute clipping."""
+    current = data[-1] if len(data) > 0 else data
+
+    clean_v = np.where(current.exists & current.valid, current.value, np.nan)
+    clean_np = clean_v.flatten() if hasattr(clean_v, 'flatten') else np.asarray(clean_v).flatten()
+
+    result_values = clean_np.copy()
+    valid_mask = ~np.isnan(clean_np)
+
+    if np.any(valid_mask):
+        if self.min_val is not None:
+            result_values[valid_mask] = np.maximum(result_values[valid_mask], self.min_val)
+        if self.max_val is not None:
+            result_values[valid_mask] = np.minimum(result_values[valid_mask], self.max_val)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+    else:
+        result_updated = np.array([np.any(current.updated)])
+
+    return TaggedArray(
+        value=result_values,
+        exists=current.exists,
+        valid=current.valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/transform.py`</sub>
 
@@ -401,7 +1672,12 @@ Limit values to specified range.
 
 ## Identity
 
-Returns most recent tick. Can be used to alias FIELD inputs.
+Pass through the most recent tick unchanged.
+
+Returns the latest data slice without any transformation. Commonly used
+to alias FIELD inputs under shorter node names for cleaner graph
+definitions, or to adapt input specifications.
+Formula: result = x[t] (identity function, no transformation)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -409,18 +1685,33 @@ Returns most recent tick. Can be used to alias FIELD inputs.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input_spec` |  | `None` |  |
-| `window` | `int` | `1` |  |
-| `axes` | `Optional[List[str]]` | `None` |  |
+| `input_spec` |  | `None` | Optional Input specification for FIELD aliasing |
+| `window` | `int` | `1` | Lookback window size |
+| `axes` | `Optional[List[str]]` | `None` | Output axes override |
 
 ### Usage
 
 ```python
-# Alias a FIELD for shorter reference
-graph.add_node("close", Identity(Input("FIELD:binance:futures:close", timeframe="1d")))
+graph.add_node("close", Identity(
+    Input("FIELD:binance:futures:close", timeframe="1d"),
+))
 
 # Then use in other operators
-graph.add_node("mom", MomentumAlpha(Input("close", timeframe="1d", lookback=10)))
+graph.add_node("mom", MomentumAlpha(
+    Input("close", timeframe="1d", lookback=10),
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Return most recent tick."""
+    if len(data) > 0:
+        return data[-1]
+    return data
 ```
 
 <sub>Source: `operator/utility.py`</sub>
@@ -430,7 +1721,12 @@ graph.add_node("mom", MomentumAlpha(Input("close", timeframe="1d", lookback=10))
 
 ## Constant
 
-Returns a constant value.
+Emit a fixed constant value at every time step.
+
+Produces a TaggedArray filled with the specified constant value,
+shaped to match the input dimensions. Useful for thresholds,
+scaling factors, or any fixed parameter in the computation graph.
+Formula: result = c (constant for all elements)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -438,8 +1734,51 @@ Returns a constant value.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `value` | `Union[float, int, list, np.ndarray]` | Required |  |
-| `axes` | `Optional[List[str]]` | `None` |  |
+| `value` | `Union[float, int, list, np.ndarray]` | Required | The constant value to emit. Can be a scalar, list, or |
+| `axes` | `Optional[List[str]]` | `None` | Output axes override |
+
+### Usage
+
+```python
+graph.add_node("threshold", Constant(
+    Input("signal", timeframe="1m", lookback=1),
+    value=0.5,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Return constant value."""
+    current = data[-1] if len(data) > 0 else data
+
+    if isinstance(self.value, (int, float)):
+        if self._axes:
+            const_values = np.full_like(current.value, self.value)
+        else:
+            const_values = np.array([self.value])
+    else:
+        const_values = np.asarray(self.value)
+
+    if self._axes:
+        result_exists = np.ones_like(current.exists, dtype=bool)
+        result_valid = np.ones_like(current.valid, dtype=bool)
+        result_updated = current.updated
+    else:
+        result_exists = np.array([True])
+        result_valid = np.array([True])
+        result_updated = np.array([np.any(current.updated)])
+
+    return TaggedArray(
+        value=const_values,
+        exists=result_exists,
+        valid=result_valid,
+        updated=result_updated,
+    )
+```
 
 <sub>Source: `operator/utility.py`</sub>
 
@@ -448,7 +1787,12 @@ Returns a constant value.
 
 ## Shift
 
-Shift data by specified periods.
+Shift (lag) data by a specified number of periods along the Time axis.
+
+Returns values from a previous time step, effectively creating a lagged
+version of the input signal. Useful for accessing historical values or
+building features that depend on past observations.
+Formula: result[t] = x[t - periods]
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -456,8 +1800,49 @@ Shift data by specified periods.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `periods` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `periods` | `int` | `1` | Number of periods to shift/lag |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to shift. Only "Time" is supported for |
+
+### Usage
+
+```python
+graph.add_node("lagged", Shift(
+    Input("signal", timeframe="1m", lookback=2),
+    periods=1,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Return lagged values."""
+    if self.axis == "Time" or self.axis == 0:
+        if len(data) < self.periods + 1:
+            current = data[-1] if len(data) > 0 else data
+            num_symbols = len(current.value) if hasattr(current, 'value') else 0
+            return TaggedArray(
+                value=np.zeros(num_symbols),
+                exists=np.zeros(num_symbols, dtype=bool),
+                valid=np.zeros(num_symbols, dtype=bool),
+                updated=np.zeros(num_symbols, dtype=bool),
+            )
+
+        lagged = data[-(self.periods + 1)]
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=lagged.value,
+            exists=lagged.exists,
+            valid=lagged.valid,
+            updated=result_updated,
+        )
+    else:
+        current = data[-1] if len(data) > 0 else data
+        return current
+```
 
 <sub>Source: `operator/window.py`</sub>
 
@@ -466,7 +1851,12 @@ Shift data by specified periods.
 
 ## PctChange
 
-Percent change: (current - lagged) / lagged.
+Compute percentage change between current and lagged values.
+
+Calculates the fractional change from the lagged value to the current
+value. Returns NaN when the lagged value is near zero to avoid
+division-by-zero artifacts.
+Formula: pct_change = (x[t] - x[t - periods]) / x[t - periods]
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -474,8 +1864,61 @@ Percent change: (current - lagged) / lagged.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `periods` | `int` | `1` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `periods` | `int` | `1` | Number of periods to lag for computing change |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to compute. Only "Time" produces meaningful |
+
+### Usage
+
+```python
+graph.add_node("returns", PctChange(
+    Input("signal", timeframe="1m", lookback=2),
+    periods=1,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute percent change."""
+    if self.axis == "Time" or self.axis == 0:
+        if len(data) < self.periods + 1:
+            current = data[-1] if len(data) > 0 else data
+            num_symbols = len(current.value) if hasattr(current, 'value') else 0
+            return TaggedArray(
+                value=np.zeros(num_symbols),
+                exists=np.zeros(num_symbols, dtype=bool),
+                valid=np.zeros(num_symbols, dtype=bool),
+                updated=np.zeros(num_symbols, dtype=bool),
+            )
+
+        current = data[-1]
+        lagged = data[-(self.periods + 1)]
+
+        current_v = np.where(current.exists & current.valid, current.value, np.nan)
+        lagged_v = np.where(lagged.exists & lagged.valid, lagged.value, np.nan)
+
+        result_values = np.full(len(current_v), np.nan)
+        valid_mask = (~np.isnan(current_v)) & (~np.isnan(lagged_v)) & (np.abs(lagged_v) > 1e-10)
+
+        if np.any(valid_mask):
+            result_values[valid_mask] = (current_v[valid_mask] - lagged_v[valid_mask]) / lagged_v[valid_mask]
+
+        result_exists = current.exists & lagged.exists
+        result_valid = current.valid & lagged.valid & (np.abs(lagged_v) > 1e-10)
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+    else:
+        return data[-1] if len(data) > 0 else data
+```
 
 <sub>Source: `operator/window.py`</sub>
 
@@ -484,7 +1927,12 @@ Percent change: (current - lagged) / lagged.
 
 ## CumSum
 
-Running sum over time window.
+Compute cumulative (running) sum over a time window.
+
+Sums all valid values within the specified window along the Time axis,
+or sums across symbols on the cross-sectional axis. NaN values are
+treated as zero in the summation.
+Formula: result = sum(x[t-window+1], ..., x[t]) for valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -492,8 +1940,58 @@ Running sum over time window.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `None` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `None` | Rolling window size. None uses the full available history |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to sum. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("cumsum", CumSum(
+    Input("signal", timeframe="1m", lookback=10),
+    window=10,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute cumulative sum."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        result_values = np.nansum(clean_v, axis=0)
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+    else:
+        current = data[-1] if len(data) > 0 else data
+        clean_current = clean_v[-1] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten() if hasattr(clean_current, 'flatten') else np.asarray(clean_current).flatten()
+        result_value = np.nansum(current_np[~np.isnan(current_np)])
+
+        result_exists = np.array([np.any(current.exists)])
+        result_valid = np.array([np.any(current.valid)])
+        result_updated = np.array([np.any(current.updated)])
+
+        return TaggedArray(
+            value=np.array([result_value]),
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+```
 
 <sub>Source: `operator/window.py`</sub>
 
@@ -502,7 +2000,12 @@ Running sum over time window.
 
 ## CumProd
 
-Running product over time window.
+Compute cumulative (running) product over a time window.
+
+Multiplies all valid values within the specified window along the Time
+axis, or across symbols on the cross-sectional axis. NaN values are
+treated as 1.0 (identity element for multiplication).
+Formula: result = prod(x[t-window+1], ..., x[t]) for valid observations
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -510,8 +2013,60 @@ Running product over time window.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `window` | `int` | `None` |  |
-| `axis` | `Union[str, int]` | `'Time'` |  |
+| `window` | `int` | `None` | Rolling window size. None uses the full available history |
+| `axis` | `Union[str, int]` | `'Time'` | Axis along which to multiply. "Time" for rolling, "__primary__" |
+
+### Usage
+
+```python
+graph.add_node("cumprod", CumProd(
+    Input("signal", timeframe="1m", lookback=10),
+    window=10,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(self, data: Union[TaggedArray, List[TaggedArray]], timestamp: Optional[pd.Timestamp] = None, context: Optional[Dict[str, Any]] = None) -> TaggedArray:
+    """Compute cumulative product."""
+    clean_v = np.where(data.exists & data.valid, data.value, np.nan)
+
+    if self.axis == "Time" or self.axis == 0:
+        data_for_prod = np.where(np.isnan(clean_v), 1.0, clean_v)
+        result_values = np.prod(data_for_prod, axis=0)
+
+        result_exists = data.exists[-1] if len(data) > 0 else np.array([])
+        result_valid = np.any(data.valid, axis=0) if len(data) > 0 else np.array([])
+        result_updated = data.updated[-1] if len(data) > 0 else np.array([])
+
+        return TaggedArray(
+            value=result_values,
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+    else:
+        current = data[-1] if len(data) > 0 else data
+        clean_current = clean_v[-1] if len(clean_v) > 0 else clean_v
+
+        current_np = clean_current.flatten() if hasattr(clean_current, 'flatten') else np.asarray(clean_current).flatten()
+        valid_data = current_np[~np.isnan(current_np)]
+        result_value = np.prod(valid_data) if len(valid_data) > 0 else 1.0
+
+        result_exists = np.array([np.any(current.exists)])
+        result_valid = np.array([np.any(current.valid)])
+        result_updated = np.array([np.any(current.updated)])
+
+        return TaggedArray(
+            value=np.array([result_value]),
+            exists=result_exists,
+            valid=result_valid,
+            updated=result_updated,
+        )
+```
 
 <sub>Source: `operator/window.py`</sub>
 

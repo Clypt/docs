@@ -22,7 +22,7 @@ FIELD:{exchange}:{market_type}:ohlcv:{field_name}
 | Component | Description | Examples |
 |-----------|-------------|---------|
 | `FIELD` | Protocol prefix (literal) | Always `FIELD` |
-| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit`, `okx` |
+| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit`, `kraken`, `coinbase` |
 | `market_type` | Market category | `spot`, `futures`, `perpetual`, `linear` |
 | `ohlcv` | Data domain (currently OHLCV only) | `ohlcv` |
 | `field_name` | Data field | `close`, `open`, `high`, `low`, `volume` |
@@ -63,10 +63,17 @@ The `Input` declaration tells the graph three things:
 When new market data arrives (a "tick"), the graph distributes it through a consumer-based routing system:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     Tick["Market Tick Arrives"]
     Tick --> Distribute["_distribute_source_inputs<br>For each FIELD consumer:<br>buffer.append(tick)"]
     Distribute --> Execute["Execute Operators (topological order)<br>Each operator receives its buffered FIELD data"]
+
+    class Tick source
+    class Execute action
 ```
 
 Internally, the graph pre-computes a `_field_consumers` map during `add_node()`:
@@ -283,7 +290,7 @@ crossover = graph.add_node("crossover",
 
 ## Relationship to Other Concepts
 
-- **[STATE Principle](/engine/state-principle)**: While FIELD provides market data, STATE provides portfolio data (cash, positions, margin)
+- **[STATE Principle](/engine/field-state)**: While FIELD provides market data, STATE provides portfolio data (cash, positions, margin)
 - **[TaggedArray](/engine/tagged-array)**: FIELD data is delivered as TaggedArrays with 4 fields (value, exists, valid, updated)
 - **[Lookback Buffers](/engine/lookback-buffers)**: FIELD data is stored in pre-allocated RollingBuffers sized by `Input.lookback`
 - **[StatefulGraph](/engine/stateful-graph)**: The graph manages FIELD distribution to all consuming operators

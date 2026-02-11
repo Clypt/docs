@@ -10,7 +10,10 @@ The Clypt marketplace is not a typical app store. It's a **Trading Commerce** pl
 ## How It Works
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     subgraph Builder
         A["Submit TradingSpec"]
     end
@@ -25,6 +28,8 @@ flowchart TB
     end
     A --> B
     E --> F
+    class E highlight
+    class F action
 ```
 
 ## Submission Flow
@@ -64,7 +69,10 @@ spec = TradingSpec(
 The validation pipeline exists because **the buyer's capital is at stake**. Every validation step directly addresses a specific risk that the buyer faces:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
     subgraph BS["Builder Claims"]
         direction TB
         B1["Sharpe 2.0"]
@@ -90,6 +98,8 @@ flowchart LR
     B2 --> P2 --> Y2
     B3 --> P3 --> Y3
     B4 --> P4 --> Y4
+    class P1,P2,P3,P4 highlight
+    class Y1,Y2,Y3,Y4 success
 ```
 
 **Without this chain:** Buyers would have to trust self-reported metrics — the same broken trust model that plagues every existing copy-trading platform.

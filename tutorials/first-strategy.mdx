@@ -240,7 +240,11 @@ print(results["state"])
 Here's how data flows through the graph we built:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     FIELD["FIELD:binance:futures<br>:ohlcv:close"]
     FIELD --> sma_fast["sma_fast<br>(SMA, span=10)"]
     FIELD --> sma_slow["sma_slow<br>(SMA, span=50)"]
@@ -259,6 +263,9 @@ flowchart TB
     intention --> executor["Executor"]
     executor --> fill["Fill"]
     fill --> state_update["STATE update"]
+
+    class FIELD,STATE_CASH,STATE_POS,state_update source
+    class executor,fill action
 ```
 
 ## Next Steps
@@ -271,7 +278,7 @@ flowchart TB
     Combine multiple alpha signals with risk management
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse all 213+ available operators
+    Browse all 380+ available operators
   </Card>
   <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
     Understand cost models, funding, and liquidation

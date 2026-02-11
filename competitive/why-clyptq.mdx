@@ -56,6 +56,7 @@ for result in driver:
 ClyptQ processes data **one tick at a time**, maintaining proper state at every step:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
     subgraph TN["Tick N"]
         F1["FIELD data"] --> O1["Operators"] --> S1["Signal"] --> I1["Intention"] --> E1["Executor"] --> F1a["Fill"] --> ST1["STATE update"]
@@ -117,7 +118,7 @@ No sandbox. No language restrictions. No "approved library list." If it runs in 
 
 ClyptQ provides **exchange-quality OHLCV data** out of the box. No separate data subscriptions needed:
 
-- **5 exchanges**: Binance, Gate.io, Bybit, OKX, Coinbase
+- **5 exchanges**: Binance, Gate.io, Bybit, Kraken, Coinbase
 - **Spot + Futures**: Both market types with full historical depth
 - **1-minute resolution**: Tick-level granularity for accurate backtesting
 - **Automatic alignment**: Multi-symbol, multi-exchange data is pre-aligned and gap-filled
@@ -148,7 +149,10 @@ No other platform offers a marketplace where backtests are **independently verif
 ## Architecture at a Glance
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     subgraph TS["TradingSpec"]
         DS["DataSpec<br>Exchanges<br>Symbols<br>Timeframes"]
         SS["StrategySpec<br>Graph<br>Operators<br>Connections"]
@@ -160,6 +164,8 @@ flowchart TB
     FP --> SG
     SG --> EX
     EX -- "STATE" --> SG
+    class FP,SG source
+    class EX action
 ```
 
 Every component is designed for **one principle**: the same code, the same data flow, the same execution logic — regardless of whether you're researching in a Jupyter notebook or trading live on Binance.
@@ -196,7 +202,7 @@ Some open-source projects focus on **specific domains** within quantitative fina
 | **Live trading** | Experimental (Alpaca API) | Production-grade (5 exchanges) |
 | **Cost modeling** | Flat transaction cost | Exchange-specific fees, funding, liquidation |
 | **State management** | Gym observation space | FIELD/STATE protocol |
-| **Non-RL strategies** | Not designed for | 213+ operators (technical, factor, AI) |
+| **Non-RL strategies** | Not designed for | 380+ operators (technical, factor, AI) |
 
 **FinRL is great for**: Publishing RL research papers, experimenting with RL-based portfolio management.
 
@@ -247,7 +253,7 @@ ClyptQ's competitive advantage isn't any single feature — it's the **architect
 2. **TaggedArray 4-Field System** — `exists`, `valid`, `updated` masks handle missing data, warmup, and staleness without special-case code
 3. **Stateless Operators, Stateful Graph** — Same operator code produces identical results in any environment
 4. **Memoryless Executor** — All metrics are operators, making everything customizable and auditable
-5. **213+ Pre-built Operators** — From SMA to LLM scoring, all composable in the same DAG
+5. **380+ Pre-built Operators** — From SMA to LLM scoring, all composable in the same DAG
 
 These aren't features that can be bolted on. They're **foundational design decisions** that determine what's possible.
 

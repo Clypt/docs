@@ -8,11 +8,18 @@ description: "Deploy the same strategy from backtest through paper to live tradi
 ClyptQ's code parity means the deployment lifecycle is a parameter change, not a rewrite:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
+
     BT["Backtest<br>(mode=backtest)"]
     BT -- "Validate strategy logic,<br>measure Sharpe, check costs" --> PP["Paper<br>(mode=paper)"]
     PP -- "Verify on live data with<br>simulated fills, 2-4 weeks" --> LV["Live<br>(mode=live)"]
     LV -- "Real money, start small,<br>scale gradually" --> SC["Scale"]
+
+    class LV action
+    class SC success
 ```
 
 This tutorial uses the SMA crossover strategy from [Your First Strategy](/tutorials/first-strategy). The graph and operators don't change — only the `TradingExecutionSpec`.

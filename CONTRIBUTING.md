@@ -6,13 +6,7 @@ Thank you for your interest in contributing to our documentation! This guide wil
 
 ## How to contribute
 
-### Option 1: Edit directly on GitHub
-
-1. Navigate to the page you want to edit
-2. Click the "Edit this file" button (the pencil icon)
-3. Make your changes and submit a pull request
-
-### Option 2: Local development
+### Option 1: Local development
 
 1. Fork and clone this repository
 2. Install the Mintlify CLI: `npm i -g mint`

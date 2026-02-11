@@ -25,11 +25,12 @@ This page documents **7 operators** (role: various).
 
 ## Demean
 
-Remove cross-sectional mean.
+Remove cross-sectional mean from signal values.
 
-Example:
-    demean = Demean(Input("zscore", timeframe="1m", lookback=1))
-    graph.add_node("weights", demean)
+Subtracts the mean of all valid symbol values, centering the
+cross-section around zero. This is the simplest form of
+neutralization, removing the common level across symbols.
+Formula: result_i = x_i - mean(x)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -37,7 +38,51 @@ Example:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+demean = Demean(Input("zscore", timeframe="1m", lookback=1))
+graph.add_node("weights", demean)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        mean = np.mean(values[compute_mask])
+        result[compute_mask] = values[compute_mask] - mean
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -46,7 +91,12 @@ Example:
 
 ## Neutralize
 
-Neutralize to zero mean and unit exposure.
+Neutralize signal to zero mean with optional unit-variance scaling.
+
+Removes the cross-sectional mean and optionally divides by the
+cross-sectional standard deviation to produce a zero-mean, unit-
+variance signal. When scale is False, only demeaning is applied.
+Formula: result_i = (x_i - mean(x)) / std(x)  [when scale=True]
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -54,8 +104,63 @@ Neutralize to zero mean and unit exposure.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `scale` | `bool` | `True` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `scale` | `bool` | `True` | If True, also divide by standard deviation after demeaning |
+
+### Usage
+
+```python
+neutral = Neutralize(
+    Input("alpha", timeframe="1m", lookback=1),
+    scale=True,
+)
+graph.add_node("neutral", neutral)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        mean = np.mean(valid_values)
+        demeaned = valid_values - mean
+
+        if self._scale:
+            std = np.std(valid_values)
+            if std > 1e-10:
+                demeaned = demeaned / std
+
+        result[compute_mask] = demeaned
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -64,7 +169,12 @@ Neutralize to zero mean and unit exposure.
 
 ## GroupNeutralize
 
-Neutralize within groups (e.g., sectors).
+Neutralize signal within groups such as sectors or categories.
+
+Demeans each symbol within its assigned group so that every group
+has zero mean exposure. Symbols not found in the mapping are
+assigned to the "Unknown" group.
+Formula: result_i = x_i - mean(x_g), where g is the group of symbol i.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -72,9 +182,69 @@ Neutralize within groups (e.g., sectors).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `group_mapping` | `Dict[str, str]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `group_mapping` | `Dict[str, str]` | Required | Dict mapping symbol name to group name (e.g., &#123;"BTC": "layer1"&#125;). |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the array index positions. |
+
+### Usage
+
+```python
+sector_neutral = GroupNeutralize(
+    Input("alpha", timeframe="1m", lookback=1),
+    group_mapping={"BTC": "layer1", "ETH": "layer1", "SOL": "layer1", "DOGE": "meme"},
+    symbol_order=["BTC", "ETH", "SOL", "DOGE"],
+)
+graph.add_node("sector_neutral", sector_neutral)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        groups: Dict[str, List[int]] = {}
+        for i, symbol in enumerate(self._symbol_order):
+            if compute_mask[i]:
+                group = self._group_mapping.get(symbol, "Unknown")
+                if group not in groups:
+                    groups[group] = []
+                groups[group].append(i)
+
+        for group, indices in groups.items():
+            if len(indices) == 0:
+                continue
+            group_values = values[indices]
+            group_mean = np.mean(group_values)
+            result[indices] = group_values - group_mean
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -83,7 +253,13 @@ Neutralize within groups (e.g., sectors).
 
 ## BetaNeutralize
 
-Neutralize market beta exposure.
+Neutralize market beta exposure from a signal.
+
+Removes the beta-weighted market component from each symbol's value.
+Computes the beta-weighted average signal and subtracts each symbol's
+proportional beta contribution.
+Formula: adjustment = sum(x_i * beta_i) / sum(beta_i);
+         result_i = x_i - adjustment * beta_i
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -91,9 +267,71 @@ Neutralize market beta exposure.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `betas` | `Dict[str, float]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `betas` | `Dict[str, float]` | Required | Dict mapping symbol name to its market beta (default beta: 1.0 if missing). |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the array index positions. |
+
+### Usage
+
+```python
+beta_neutral = BetaNeutralize(
+    Input("alpha", timeframe="1m", lookback=1),
+    betas={"BTC": 1.0, "ETH": 1.2, "SOL": 1.5, "DOGE": 1.8},
+    symbol_order=["BTC", "ETH", "SOL", "DOGE"],
+)
+graph.add_node("beta_neutral", beta_neutral)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        beta_arr = np.array([
+            self._betas.get(sym, 1.0) for sym in self._symbol_order
+        ])
+
+        valid_values = values[compute_mask]
+        valid_betas = beta_arr[compute_mask]
+
+        weighted_sum = np.sum(valid_values * valid_betas)
+        total_beta = np.sum(valid_betas)
+
+        if abs(total_beta) < 1e-10:
+            result[compute_mask] = valid_values
+        else:
+            adjustment = weighted_sum / total_beta
+            beta_component = adjustment * valid_betas
+            result[compute_mask] = valid_values - beta_component
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -102,7 +340,14 @@ Neutralize market beta exposure.
 
 ## FactorNeutralize
 
-Remove factor exposures via OLS regression.
+Remove multiple factor exposures via OLS cross-sectional regression.
+
+Regresses the signal on a matrix of factor exposures (with an intercept)
+and returns the residuals. This removes any linear dependence on the
+specified factors. Falls back to simple demeaning if the factor matrix
+is singular.
+Formula: alpha = X * beta + residual, where X = [1, factors];
+         result = alpha - X * (X'X)^&#123;-1&#125; * X' * alpha
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -110,9 +355,86 @@ Remove factor exposures via OLS regression.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `factor_exposures` | `Dict[str, Dict[str, float]]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `factor_exposures` | `Dict[str, Dict[str, float]]` | Required | Dict of &#123;factor_name: &#123;symbol: exposure&#125;&#125; defining the factor loading matrix. |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the array index positions. |
+
+### Usage
+
+```python
+factor_neutral = FactorNeutralize(
+    Input("alpha", timeframe="1m", lookback=1),
+    factor_exposures={
+        "momentum": {"BTC": 0.5, "ETH": 0.8, "SOL": 1.2},
+        "size": {"BTC": 2.0, "ETH": 1.5, "SOL": 0.5},
+    },
+    symbol_order=["BTC", "ETH", "SOL"],
+)
+graph.add_node("factor_neutral", factor_neutral)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    n_valid = np.sum(compute_mask)
+    if n_valid > 0:
+        valid_indices = np.where(compute_mask)[0]
+        valid_symbols = [self._symbol_order[i] for i in valid_indices]
+        y = values[compute_mask]
+
+        factor_names = list(self._factor_exposures.keys())
+        n_factors = len(factor_names)
+
+        if n_factors == 0:
+            result[compute_mask] = y
+        else:
+            X = np.zeros((n_valid, n_factors))
+            for j, factor_name in enumerate(factor_names):
+                factor_dict = self._factor_exposures[factor_name]
+                for i, sym in enumerate(valid_symbols):
+                    X[i, j] = factor_dict.get(sym, 0.0)
+
+            X = np.column_stack([np.ones(n_valid), X])
+
+            try:
+                XtX_inv = np.linalg.inv(X.T @ X)
+                beta = XtX_inv @ X.T @ y
+                prediction = X @ beta
+                residuals = y - prediction
+            except np.linalg.LinAlgError:
+                residuals = y - np.mean(y)
+
+            result[compute_mask] = residuals
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -121,7 +443,12 @@ Remove factor exposures via OLS regression.
 
 ## Normalize
 
-Combined normalization: demean + scale to sum(abs) = 1.
+Combined demeaning and L1 normalization to produce dollar-neutral weights.
+
+First removes the cross-sectional mean, then scales the result so that
+the sum of absolute values equals one. This produces a zero-net-exposure,
+unit-leverage weight vector suitable for long-short portfolios.
+Formula: demeaned_i = x_i - mean(x); result_i = demeaned_i / sum(|demeaned|)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -129,7 +456,57 @@ Combined normalization: demean + scale to sum(abs) = 1.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+weights = Normalize(Input("alpha", timeframe="1m", lookback=1))
+graph.add_node("weights", weights)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        demeaned = valid_values - np.mean(valid_values)
+
+        total_abs = np.sum(np.abs(demeaned))
+        if total_abs < 1e-10:
+            result[compute_mask] = 0.0
+        else:
+            result[compute_mask] = demeaned / total_abs
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 
@@ -138,29 +515,17 @@ Combined normalization: demean + scale to sum(abs) = 1.
 
 ## BarraNeutralizer
 
-BARRA-style 2-stage factor neutralization.
+BARRA-style two-stage factor neutralization with rolling estimation.
 
-Full BARRA process:
-1. Estimate factor loading matrix B via time-series regression
-   R_i,t = Σ(β_i,k × F_k,t) + ε_i,t
+Performs a full BARRA neutralization process in two stages:
+Stage 1 -- Estimate factor loading matrix B via time-series regression:
+    R_i,t = sum(beta_i,k * F_k,t) + epsilon_i,t
+Stage 2 -- Neutralize alpha via cross-sectional regression:
+    alpha_raw = B * gamma + alpha_pure
+Formula: alpha_pure = alpha_raw - B * (B'B)^&#123;-1&#125; * B' * alpha_raw
 
-2. Neutralize alpha via cross-sectional regression
-   α_raw = B × γ + α_pure
-   Result: α_pure (residual) = pure alpha with factor exposure removed
-
-This operator maintains rolling history for loading estimation.
-
-Example:
-    graph.add_node("neutral_alpha", BarraNeutralizer(
-        alpha_input=Input("momentum", timeframe="1d", lookback=1),
-        returns_input=Input("returns", timeframe="1d", lookback=60),
-        factor_inputs=[
-            Input("volatility", timeframe="1d", lookback=60),
-            Input("size", timeframe="1d", lookback=60),
-        ],
-        factor_names=["VOL", "SIZE"],
-        estimation_window=60,
-    ))
+Maintains rolling history buffers for loading estimation. Falls back
+to simple demeaning when insufficient history is available.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -168,14 +533,74 @@ Example:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `alpha_input` | `'Input'` | Required |  |
-| `returns_input` | `'Input'` | Required |  |
-| `factor_inputs` | `List['Input']` | Required |  |
-| `factor_names` | `Optional[List[str]]` | `None` |  |
-| `estimation_window` | `int` | `60` |  |
-| `min_obs` | `int` | `30` |  |
-| `include_market` | `bool` | `True` |  |
-| `output_timeframe` | `Optional[str]` | `None` |  |
+| `alpha_input` | `'Input'` | Required | Raw alpha signal to neutralize. timeframe specifies data frequency. |
+| `returns_input` | `'Input'` | Required | Asset returns for loading estimation. |
+| `factor_inputs` | `List['Input']` | Required | List of factor characteristic inputs (e.g., volatility, size). |
+| `factor_names` | `Optional[List[str]]` | `None` | Human-readable names for factors, used for debugging |
+| `estimation_window` | `int` | `60` | Rolling window length for loading estimation |
+| `min_obs` | `int` | `30` | Minimum number of observations required for regression |
+| `include_market` | `bool` | `True` | If True, include an equal-weight market factor |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe override |
+
+### Usage
+
+```python
+graph.add_node("neutral_alpha", BarraNeutralizer(
+    alpha_input=Input("momentum", timeframe="1d", lookback=1),
+    returns_input=Input("returns", timeframe="1d", lookback=60),
+    factor_inputs=[
+        Input("volatility", timeframe="1d", lookback=60),
+        Input("size", timeframe="1d", lookback=60),
+    ],
+    factor_names=["VOL", "SIZE"],
+    estimation_window=60,
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2 + self._n_factors:
+        return self._passthrough(data, 0)
+
+    # Extract inputs
+    alpha = self._extract_values(data, 0)
+    returns = self._extract_values(data, 1)
+    factors = [self._extract_values(data, 2 + i) for i in range(self._n_factors)]
+
+    n_symbols = len(alpha)
+    if n_symbols == 0:
+        return self._empty_output()
+
+    # Update rolling history
+    self._update_history(returns, factors)
+
+    # Estimate loading matrix if enough history
+    if len(self._returns_history) >= self._min_obs:
+        self._estimate_loading_matrix()
+
+    # Neutralize alpha
+    if self._loading_matrix is not None:
+        neutralized = self._neutralize_alpha(alpha)
+    else:
+        # Not enough history - return demeaned alpha
+        neutralized = alpha - np.nanmean(alpha)
+
+    return TaggedArray(
+        value=neutralized,
+        exists=np.ones(n_symbols, dtype=bool),
+        valid=~np.isnan(neutralized),
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/neutralizers.py`</sub>
 

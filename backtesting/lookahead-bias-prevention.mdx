@@ -82,11 +82,19 @@ This is fundamentally different from vectorized frameworks where every operation
 Before the backtest starts, ClyptQ automatically computes how many ticks are needed to fill all `RollingBuffer`s. This **warmup phase** runs the graph without executing any trades:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart RL
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+    classDef warn fill:#2a1f1f,stroke:#f87171,stroke-width:1.5px,color:#fecaca
+
     FC1["FIELD:close"] -- "lookback=20" --> SMA20["sma_20"] --> SIG1["signal"] --> W1["weights"] --> INT1["intention"]
     FC2["FIELD:close"] -- "lookback=50" --> SMA50["sma_50"] --> SIG2["signal"] --> W2["weights"] --> INT2["intention"]
     MAX["Max path: 50 ticks + 5% safety buffer = 52 warmup ticks"]
-    style MAX fill:#1e1b16,stroke:#a1854a,color:#e8dcc4
+
+    class FC1,FC2 source
+    class INT1,INT2 action
+    class MAX warn
 ```
 
 The algorithm works by:
@@ -114,7 +122,11 @@ Warmup ticks are **automatically computed** — you never need to manually set w
 The graph executes operators in **dependency order** (Kahn's algorithm), ensuring that every operator's inputs are computed before the operator runs:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     FC["FIELD:close"] --> SF["sma_fast"]
     FC --> SS["sma_slow"]
     SF --> SIG["signal"]
@@ -126,6 +138,9 @@ flowchart LR
     W --> INT["intention"]
     SP --> INT
     FC --> INT
+
+    class FC,SC,SP source
+    class INT action
 ```
 
 Each operator sees only:
@@ -140,14 +155,22 @@ There is no global state, no shared mutable array, no way for operator 5 to acce
 These four mechanisms work together to create an environment where lookahead is structurally impossible:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+    classDef warn fill:#2a1f1f,stroke:#f87171,stroke-width:1.5px,color:#fecaca
+
     subgraph TN["Tick N"]
         FD["FIELD data<br>(tick N only)"] --> RB["RollingBuffer<br>[N-19] [N-18] ... [N]<br>(20 ticks only)"]
         RB --> OP["Operator<br>compute()"]
         OP --> TA["TaggedArray"]
     end
     NF["No tick N+1, N+2, ... in buffer<br>No global price array accessible<br>No future operator output readable<br>No trades during warmup"]
-    style NF fill:#2a1f1f,stroke:#a87171,color:#e8c4c4
+
+    class FD source
+    class TA action
+    class NF warn
 ```
 
 ## Comparison with Vectorized Frameworks

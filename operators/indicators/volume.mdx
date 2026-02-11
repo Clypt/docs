@@ -51,6 +51,65 @@ graph.add_node("ad", AD(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_output()
+
+    close_data, high_data, low_data, volume_data = data[0], data[1], data[2], data[3]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    # Get all values
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+    vol_values = np.array([volume_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+            vols = vol_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows) | np.isnan(vols))
+            if np.sum(valid_mask) > 0:
+                result[i] = self._calculate_ad(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask],
+                    vols[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
 
 
@@ -75,6 +134,75 @@ ADOSC = EMA(AD, fast) - EMA(AD, slow)
 | `fast_period` | `int` | `3` | Fast EMA period |
 | `slow_period` | `int` | `10` | Slow EMA period |
 
+### Usage
+
+```python
+op = ADOSC(
+    Input("FIELD:close", timeframe="1m", lookback=10),
+    Input("FIELD:high", timeframe="1m", lookback=10),
+    Input("FIELD:low", timeframe="1m", lookback=10),
+    Input("FIELD:volume", timeframe="1m", lookback=10),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_output()
+
+    close_data, high_data, low_data, volume_data = data[0], data[1], data[2], data[3]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+    vol_values = np.array([volume_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+            vols = vol_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows) | np.isnan(vols))
+            if np.sum(valid_mask) >= self._slow_period:
+                result[i] = self._calculate_adosc(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask],
+                    vols[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
 
 
@@ -86,7 +214,7 @@ On Balance Volume indicator.
 
 OBV adds volume on up days and subtracts volume on down days.
 If Close > PrevClose: OBV = PrevOBV + Volume
-If Close < PrevClose: OBV = PrevOBV - Volume
+If Close &lt; PrevClose: OBV = PrevOBV - Volume
 If Close = PrevClose: OBV = PrevOBV
 
 **Role**: `INDICATOR` | **Ephemeral**: No
@@ -97,6 +225,67 @@ If Close = PrevClose: OBV = PrevOBV
 |-----------|------|---------|-------------|
 | `close` | `'Input'` | Required | Close price input |
 | `volume` | `'Input'` | Required | Volume input |
+
+### Usage
+
+```python
+op = OBV(
+    Input("FIELD:close", timeframe="1m", lookback=10),
+    Input("FIELD:volume", timeframe="1m", lookback=10),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    close_data, volume_data = data[0], data[1]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    vol_values = np.array([volume_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            vols = vol_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(vols))
+            if np.sum(valid_mask) >= 2:
+                result[i] = self._calculate_obv(
+                    closes[valid_mask],
+                    vols[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
 
@@ -122,6 +311,76 @@ MFI = 100 - (100 / (1 + Money Flow Ratio))
 | `volume` | `'Input'` | Required | Volume input |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = MFI(
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:volume", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_output()
+
+    close_data, high_data, low_data, volume_data = data[0], data[1], data[2], data[3]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+    vol_values = np.array([volume_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+            vols = vol_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows) | np.isnan(vols))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_mfi(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask],
+                    vols[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
 
 
@@ -143,6 +402,72 @@ CCI = (Typical Price - SMA(Typical Price)) / (0.015 * Mean Deviation)
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `20` | Lookback period |
+
+### Usage
+
+```python
+op = CCI(
+    Input("FIELD:close", timeframe="1m", lookback=20),
+    Input("FIELD:high", timeframe="1m", lookback=20),
+    Input("FIELD:low", timeframe="1m", lookback=20),
+    period=20,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period:
+                result[i] = self._calculate_cci(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/volume.py`</sub>
 

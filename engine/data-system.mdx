@@ -10,8 +10,13 @@ ClyptQ's data system handles everything from historical Parquet files to live We
 ## Data Flow
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+
     A["<b>TradingDataSpec</b><br>symbol_source_map<br>observations<br>- OHLCVSpec<br>start / end"] --> B["<b>StatefulGraph</b><br>FIELD:binance:futures:ohlcv:<br>close, open, high, low, vol<br><br>RollingBuffer to Operator"]
+
+    class A highlight
 ```
 
 ## ObservationSpec
@@ -161,11 +166,18 @@ Helper.data_info("binance", "futures", "BTC/USDT:USDT", "1m")
 ### Backtest mode
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     A["TradingDataSpec(start, end)"] --> B["Load Parquet files for start–end range"]
     B --> C["Validate: coverage, NaN ratio, time range"]
     C --> D["Forward-fill missing bars"]
     D --> E["Feed into RollingBuffers → Graph"]
+
+    class A highlight
+    class E action
 ```
 
 All data is loaded upfront. The driver iterates through bars sequentially.
@@ -173,11 +185,18 @@ All data is loaded upfront. The driver iterates through bars sequentially.
 ### Paper/Live mode
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     A["TradingDataSpec<br>(no start/end)"] --> B["Historical warmup<br>Load last N bars from Parquet"]
     B --> C["Gap fill<br>Fetch missing bars via REST"]
     C --> D["Clock sync<br>Align to next bar boundary"]
     D --> E["Live stream<br>WebSocket feed → graph ticks"]
+
+    class A highlight
+    class E action
 ```
 
 The `warmup_info` property tracks how data was sourced:
@@ -226,7 +245,6 @@ Data loading includes automatic validation:
 |----------|-----------|----------------|-------------|
 | Binance | Yes | ~50-100ms | Automatic |
 | Bybit | Yes | ~50-100ms | Automatic |
-| OKX | Yes | ~50-100ms | Automatic |
 | Gateio | Yes | ~100-200ms | Automatic |
 | Coinbase | Yes | ~100-200ms | Automatic |
 | Kraken | Yes | ~100-200ms | Automatic |
@@ -247,7 +265,7 @@ The graph's `Input` declarations drive this computation — no manual `warmup_ti
 ## Related Pages
 
 <CardGroup cols={2}>
-  <Card title="FIELD Data Principle" icon="database" href="/engine/field-data-principle">
+  <Card title="FIELD Data Principle" icon="database" href="/engine/field-state">
     How FIELD inputs work in the graph
   </Card>
   <Card title="Lookback Buffers" icon="clock-rotate-left" href="/engine/lookback-buffers">

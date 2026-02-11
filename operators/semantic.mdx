@@ -1,324 +1,171 @@
 ---
 title: "Semantic Operators"
-description: "LLM scoring, web search, and sentiment analysis — ephemeral AI-powered signals"
+description: "SentimentParser, WebSearchOperator, LLMScorer"
 ---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
 
 ## Overview
 
-Semantic operators integrate **LLMs, web search, and NLP** into the operator graph. They produce signals from unstructured data — text, news, social sentiment — using external API calls.
+This page documents **3 operators** (role: various).
 
-<Info>
-Semantic operators are **ephemeral** — they make external API calls and cannot reproduce the same output for the same historical input. Strategies using semantic operators skip backtest validation and only run in **paper** or **live** mode.
-</Info>
+---
 
-## Ephemeral Pattern
+## LLMScorer
 
-Unlike standard operators, semantic operators:
+Generate trading signals from numeric indicators using an LLM.
 
-| Property | Standard Operator | Semantic Operator |
-|---|---|---|
-| **Deterministic** | Yes — same input → same output | No — API responses vary |
-| **Backtestable** | Yes | No — paper/live only |
-| **Cost** | Free (CPU only) | Paid (API calls per invocation) |
-| **Warmup** | Normal | Skipped (returns neutral values) |
-| **Latency** | Microseconds | Milliseconds to seconds |
+Feeds one or more numeric indicators (e.g., RSI, MACD, sentiment) into an
+LLM and returns a trading signal in the range [-1, 1]. This operator is a
+pure scorer -- it has no access to tools or external APIs. If you need web
+search data, pipe WebSearchOperator output through SentimentParser first
+and feed the result here. LLM calls are routed through BlackboxAI and
+require a BLACKBOX_API_KEY environment variable. Duplicate prompts across
+symbols are deduplicated so the LLM is called only once per unique prompt.
+A configurable call_interval lets you skip LLM calls on intermediate ticks
+and reuse the most recent cached scores.
 
-All semantic operators extend `SemanticOperator` base class, which handles warmup skipping, neutral default outputs, and metadata propagation.
+**Role**: `UNKNOWN` | **Ephemeral**: Yes
 
-## Operators
+### Parameters
 
-### LLMScorer
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `inputs` | `List[Input]` | Required | List of Input signals (numeric indicators such as RSI, MACD). |
+| `input_names` | `Optional[List[str]]` | `None` | Human-readable names for each input, used in the LLM prompt |
+| `model` | `str` | `'deepseek-v3'` | LLM model name |
+| `api_key` | `Optional[str]` | `None` | BlackboxAI API key |
+| `system_prompt` | `Optional[str]` | `None` | Custom system prompt for the LLM |
+| `user_prompt_template` | `Optional[str]` | `None` | Custom user prompt template; use &#123;symbol&#125;, |
+| `call_interval` | `int` | `1` | Call the LLM every N ticks; intermediate ticks return |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe |
+| `_provider` | `str` | `'blackbox'` |  |
 
-Use an LLM to generate a **trading signal** from numeric indicators.
-
-**Role**: `SEMANTIC` | **Ephemeral**: Yes
+### Usage
 
 ```python
-scorer = LLMScorer(
+# Combine technical indicators with LLM judgment
+graph.add_node("signal", LLMScorer(
     inputs=[
-        Input("rsi", "1h", lookback=1),
-        Input("macd", "1h", lookback=1),
-        Input("sentiment", "1h", lookback=1),
+        Input("rsi", timeframe="1h", lookback=1),
+        Input("macd", timeframe="1h", lookback=1),
+        Input("sentiment", timeframe="1h", lookback=1),
     ],
-    input_names=["RSI", "MACD", "Sentiment"],  # Labels for the prompt
-    model="deepseek-v3",           # LLM model to use
-    call_interval=60,              # Seconds between LLM calls (cost control)
-)
-
-graph.add_node("llm_score", scorer, inputs=[
-    Input("rsi", "1h", lookback=1),
-    Input("macd", "1h", lookback=1),
-    Input("sentiment", "1h", lookback=1),
-])
+    input_names=["RSI", "MACD", "Sentiment"],
+    model="claude-3-haiku",
+    system_prompt="You are a quant trader. Analyze indicators and give signal.",
+    call_interval=10,  # Only call LLM every 10 ticks
+))
 ```
 
-**Output**: Signal in range `[-1.0, 1.0]` per symbol:
-- `-1.0` = Strong SELL
-- `0.0` = NEUTRAL
-- `1.0` = Strong BUY
+<sub>Source: `apps/trading/operators/semantic/llm_scorer.py`</sub>
 
-#### Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `inputs` | `List[Input]` | Required | Numeric indicator inputs |
-| `input_names` | `List[str]` | Required | Human-readable names for prompt |
-| `model` | `str` | `"deepseek-v3"` | LLM model ID |
-| `call_interval` | `int` | `60` | Minimum seconds between API calls |
-| `system_prompt` | `str` | Built-in | Custom system prompt override |
-| `user_prompt_template` | `str` | Built-in | Custom user prompt template |
-
-#### Default Prompt
-
-```
-System: Analyze market indicators and return a trading signal between
--1 (strong sell) and 1 (strong buy). Return only the number, no explanation.
-
-User: Current indicators for {symbol}: {indicators}. Return signal:
-```
-
-#### Cost Control
-
-- **`call_interval`**: Minimum seconds between calls. Between calls, the last score is reused
-- **Prompt deduplication**: If indicators haven't changed, skip the API call
-- **Model choice**: Use cheaper models (`deepseek-v3`, `claude-3-haiku`) for frequent calls
 
 ---
 
-### WebSearchOperator
+## SentimentParser
 
-Search the web for **real-time news and information** about symbols.
+Parse text input and output sentiment scores.
 
-**Role**: `SEMANTIC` | **Ephemeral**: Yes
+Converts text (e.g., from WebSearchOperator) into numeric sentiment scores
+in the range [-1, 1] using either an LLM or a rule-based keyword matcher.
+LLM-based analysis routes through BlackboxAI and requires a BLACKBOX_API_KEY
+environment variable. Rule-based mode ("rule-based") uses local keyword
+matching with no API calls. Duplicate input texts are deduplicated so that
+the LLM is called only once per unique text.
 
-```python
-search = WebSearchOperator(
-    query_template="{symbol} market news analysis",
-    per_symbol=True,             # Search per symbol or single macro query
-    aggregate_open=True,         # Combine open symbols into fewer queries
-    gate_input=Input("vol_gate", "1h", lookback=1),  # Only search when gate is open
-    cache_results=True,          # Cache results within session
-)
+**Role**: `UNKNOWN` | **Ephemeral**: Yes
 
-graph.add_node("news", search, inputs=[
-    Input("vol_gate", "1h", lookback=1),
-])
-```
-
-**Output**: TaggedTensor with text metadata:
-- `value`: `1.0` if results found, `0.0` otherwise
-- `metadata["text"]`: Combined text from search results
-- `metadata["results"]`: Raw search result objects
-
-#### Parameters
+### Parameters
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
-| `query_template` | `str` | Required | Search query. Use `{symbol}` for per-symbol queries |
-| `per_symbol` | `bool` | `True` | Search individually per symbol |
-| `aggregate_open` | `bool` | `True` | Aggregate symbols into fewer queries |
-| `gate_input` | `Input` | None | Only search when gate value > 0 |
-| `cache_results` | `bool` | `True` | Cache search results within session |
+|-----------|------|---------|-------------|
+| `text_input` | `Input` | Required | Input containing text to analyze. timeframe specifies data frequency. |
+| `model` | `str` | `'deepseek-v3'` | Model name for sentiment analysis |
+| `api_key` | `Optional[str]` | `None` | BlackboxAI API key |
+| `system_prompt` | `Optional[str]` | `None` | Custom system prompt for the LLM |
+| `user_prompt_template` | `Optional[str]` | `None` | Custom user prompt template; use &#123;text&#125; as placeholder |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe |
+| `_provider` | `str` | `'blackbox'` |  |
 
-#### Gate Integration
-
-The `gate_input` is critical for cost control. Only search when market conditions warrant it:
-
-```python
-# Only search when ATR > 2% (high volatility)
-gate = ConditionalGate(
-    condition_input=Input("atr_pct", "1h", lookback=1),
-    threshold=0.02,
-    comparison="gt",
-)
-
-search = WebSearchOperator(
-    query_template="{symbol} breaking news",
-    gate_input=Input("vol_gate", "1h", lookback=1),
-)
-```
-
-When the gate is closed (0.0), the operator skips the API call and returns neutral output.
-
----
-
-### SentimentParser
-
-Convert **text into sentiment scores** using LLM or rule-based analysis.
-
-**Role**: `SEMANTIC` | **Ephemeral**: Depends on mode
+### Usage
 
 ```python
-sentiment = SentimentParser(
-    text_input=Input("news", "1h", lookback=1),
-    mode="llm",               # "llm" or "rule"
-    model="deepseek-v3",      # For LLM mode
-)
-
-graph.add_node("sentiment", sentiment, inputs=[
-    Input("news", "1h", lookback=1),
-])
-```
-
-**Output**: Sentiment score in range `[-1.0, 1.0]` per symbol:
-- `-1.0` = Very negative (bearish)
-- `0.0` = Neutral
-- `1.0` = Very positive (bullish)
-
-#### Modes
-
-**LLM mode** (`mode="llm"`):
-- Uses LLM to analyze text and return sentiment score
-- More accurate, but costs per API call
-- Ephemeral — non-deterministic
-
-**Rule-based mode** (`mode="rule"`):
-- Fast keyword matching — no API calls
-- Deterministic — same text → same score
-- Not ephemeral — can be used in backtesting
-
-#### Rule-Based Keywords
-
-| Category | Keywords | Score |
-|---|---|---|
-| **Positive** | "bullish", "surge", "rally", "breakout", "moon" | +0.7 to +0.8 |
-| **Negative** | "bearish", "crash", "dump", "collapse", "plunge" | -0.7 to -0.8 |
-| **Neutral** | "sideways", "consolidation", "range-bound" | ~0.0 |
-
-#### Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `text_input` | `Input` | Required | Text input (usually from WebSearchOperator) |
-| `mode` | `str` | `"llm"` | `"llm"` or `"rule"` |
-| `model` | `str` | `"deepseek-v3"` | LLM model for LLM mode |
-
-## Common Patterns
-
-### Pattern 1: Conditional News Search + LLM Scoring
-
-The most common semantic pipeline — search for news only during high volatility, then score with LLM:
-
-```python
-graph = StatefulGraph()
-
-# 1. Traditional indicators
-graph.add_node("rsi", RSI(period=14),
-    inputs=[Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=14)])
-
-graph.add_node("atr", ATR(period=14),
-    inputs=[
-        Input("FIELD:binance:futures:ohlcv:high", "1m", lookback=14),
-        Input("FIELD:binance:futures:ohlcv:low", "1m", lookback=14),
-        Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=14),
-    ])
-
-# 2. Gate: only trigger search during high volatility
-graph.add_node("vol_gate", ConditionalGate(
-    condition_input=Input("atr", "1h", lookback=1),
-    threshold=0.02,
-    comparison="gt",
+# Parse sentiment from news
+graph.add_node("sentiment", SentimentParser(
+    text_input=Input("news", timeframe="1h", lookback=1),
+    model="claude-3-haiku",
 ))
 
-# 3. Web search (gated)
+# Use rule-based sentiment (no API calls)
+graph.add_node("sentiment_fast", SentimentParser(
+    text_input=Input("news", timeframe="1h", lookback=1),
+    model="rule-based",
+))
+```
+
+<sub>Source: `apps/trading/operators/semantic/sentiment.py`</sub>
+
+
+---
+
+## WebSearchOperator
+
+Collect web search results as a Tagged Tensor.
+
+Executes web searches via the WebSearchClient and returns results as a
+Tagged Tensor whose value is 1.0 when results are found and 0.0 otherwise.
+Requires a BLACKBOX_API_KEY environment variable. Supports per-symbol
+queries (use &#123;symbol&#125; in query_template), aggregated multi-symbol queries,
+and single global queries. An optional gate input can suppress searches
+when its value is below 0.5. Results may be cached to reduce API calls.
+The output is ephemeral and cannot be referenced with lookback above 1.
+
+**Role**: `UNKNOWN` | **Ephemeral**: Yes
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query_template` | `str` | Required | Search query template. Use &#123;symbol&#125; for per-symbol queries. |
+| `gate_input` | `Optional[Input]` | `None` | Optional gate input; search is skipped when gate value &lt;= 0.5 |
+| `num_results` | `int` | `5` | Number of search results to return per query |
+| `provider` | `str` | `'serper'` | Search provider name, kept for backward compatibility |
+| `api_key` | `Optional[str]` | `None` | API key for search provider |
+| `cache_results` | `bool` | `True` | Whether to cache search results locally |
+| `cache_dir` | `Optional[str]` | `None` | Directory for the result cache |
+| `cache_ttl` | `int` | `3600` | Cache time-to-live in seconds |
+| `per_symbol` | `bool` | `True` | If True, issue a separate query per symbol; if False, run a |
+| `aggregate_open` | `bool` | `True` | If True and per_symbol is True, combine all open symbols |
+| `output_timeframe` | `Optional[str]` | `None` | Output timeframe |
+
+### Usage
+
+```python
+# Search for news about each symbol
 graph.add_node("news", WebSearchOperator(
-    query_template="{symbol} crypto market analysis",
-    gate_input=Input("vol_gate", "1h", lookback=1),
+    query_template="cryptocurrency {symbol} market news",
+    num_results=3,
     cache_results=True,
 ))
 
-# 4. Sentiment analysis
-graph.add_node("sentiment", SentimentParser(
-    text_input=Input("news", "1h", lookback=1),
-    mode="llm",
-    model="deepseek-v3",
-))
-
-# 5. LLM scoring with all signals
-graph.add_node("llm_signal", LLMScorer(
-    inputs=[
-        Input("rsi", "1h", lookback=1),
-        Input("sentiment", "1h", lookback=1),
-    ],
-    input_names=["RSI", "News Sentiment"],
-    model="claude-3-haiku",
-    call_interval=300,  # Every 5 minutes
-))
-
-# 6. Combine traditional + AI signals
-graph.add_node("final_signal", WeightedCombination(
-    inputs=[
-        Input("rsi_alpha", "1m", lookback=1),  # Traditional
-        Input("llm_signal", "1h", lookback=1), # AI
-    ],
-    weights=[0.6, 0.4],  # 60% traditional, 40% AI
+# Use gate to conditionally search
+graph.add_node("news_conditional", WebSearchOperator(
+    query_template="BTC breaking news",
+    gate_input=Input("volatility_gate", timeframe="1h", lookback=1),
 ))
 ```
 
-### Pattern 2: Gate Fallback
+<sub>Source: `apps/trading/operators/semantic/websearch.py`</sub>
 
-Use traditional signals when the LLM gate is closed:
 
-```python
-# LLM output (sometimes available)
-graph.add_node("llm_score", LLMScorer(...))
+## Related Pages
 
-# Traditional signal (always available)
-graph.add_node("momentum", MomentumAlpha(...))
-
-# Gate: use LLM when available, fallback to momentum
-graph.add_node("gated_signal", ConditionalGate(
-    condition_input=Input("llm_score", "1h", lookback=1),
-    threshold=0.0,
-    comparison="ne",  # LLM returned a non-zero score
-))
-
-graph.add_node("final", WeightedCombination(
-    inputs=[
-        Input("llm_score", "1h", lookback=1),
-        Input("momentum", "1m", lookback=1),
-    ],
-    weights=[
-        Input("gated_signal", "1h", lookback=1),   # Dynamic weight from gate
-        Input("inv_gate", "1h", lookback=1),        # 1 - gate
-    ],
-))
-```
-
-### Pattern 3: Rule-Based Sentiment (Backtestable)
-
-Use rule-based sentiment in backtest, LLM in live:
-
-```python
-# Rule-based: works in backtest (deterministic)
-graph.add_node("sentiment_rule", SentimentParser(
-    text_input=Input("news_data", "1h", lookback=1),
-    mode="rule",  # Keyword matching — no API calls
-))
-
-# Use in backtest-compatible strategy
-graph.add_node("signal", WeightedCombination(
-    inputs=[
-        Input("momentum", "1m", lookback=1),
-        Input("sentiment_rule", "1h", lookback=1),
-    ],
-    weights=[0.7, 0.3],
-))
-```
-
-## Cost Optimization
-
-| Strategy | Approach | Savings |
-|---|---|---|
-| **Gate API calls** | Use `ConditionalGate` with `gate_input` on WebSearchOperator | 50-80% fewer calls |
-| **Increase call interval** | `LLMScorer(call_interval=300)` — reuse last score between calls | Proportional to interval |
-| **Use cheaper models** | `model="deepseek-v3"` instead of GPT-4 | 10-100x cheaper |
-| **Aggregate queries** | `WebSearchOperator(aggregate_open=True)` — fewer search API calls | Proportional to symbol count |
-| **Cache results** | `WebSearchOperator(cache_results=True)` — avoid duplicate searches | Depends on market activity |
-| **Rule-based sentiment** | `SentimentParser(mode="rule")` — zero API cost | 100% savings |
-
-## Relationship to Other Concepts
-
-- **[Control Operators](/operators/control)**: Gates control when semantic operators fire
-- **[Strategy Framework](/engine/strategy-framework)**: AI-augmented strategy patterns
-- **[Operator Protocol](/engine/operator-protocol)**: Ephemeral flag and operator base class
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>
