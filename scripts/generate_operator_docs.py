@@ -74,6 +74,7 @@ class OperatorInfo:
     usage_example: str = ""  # extracted from docstring Usage section
     category: str = ""  # doc category (e.g., "indicators/momentum")
     subcategory: str = ""  # for grouping within a page
+    compute_source: str = ""  # full compute() method source code
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +143,14 @@ CATEGORY_MAP = {
     "metrics/accum": {
         "doc_dir": "",
         "subcategories": {"_default": "metrics"},
+    },
+    "order": {
+        "doc_dir": "",
+        "subcategories": {"_default": "order"},
+    },
+    "semantic": {
+        "doc_dir": "",
+        "subcategories": {"_default": "semantic"},
     },
 }
 
@@ -218,6 +227,13 @@ def extract_operators_from_file(filepath: Path) -> list[OperatorInfo]:
 
         # Parse docstring sections
         _parse_docstring_sections(op)
+
+        # Extract compute() source code
+        op.compute_source = _extract_compute_source(node, source)
+        if not op.compute_source:
+            op.compute_source = _extract_compute_source_from_parents(
+                node, tree, source
+            )
 
         operators.append(op)
 
@@ -347,6 +363,60 @@ def _extract_init_params(node: ast.ClassDef) -> list[ParamInfo]:
     return params
 
 
+def _extract_compute_source(node: ast.ClassDef, source: str) -> str:
+    """Extract the full compute() method source code from a class definition.
+
+    Uses AST line numbers (end_lineno available in Python 3.8+) to slice
+    the raw source text.  Falls back to searching parent private base
+    classes defined in the same file when the class itself doesn't define
+    compute().
+    """
+    source_lines = source.splitlines()
+
+    # Direct compute() on this class
+    for item in node.body:
+        if isinstance(item, ast.FunctionDef) and item.name == "compute":
+            start = item.lineno - 1  # 0-indexed
+            end = getattr(item, "end_lineno", None)
+            if end is None:
+                # Fallback: read until next def/class or end of class
+                end = start + 1
+                indent = len(source_lines[start]) - len(source_lines[start].lstrip())
+                for idx in range(start + 1, min(len(source_lines), node.end_lineno)):
+                    line = source_lines[idx]
+                    if line.strip() == "":
+                        continue
+                    line_indent = len(line) - len(line.lstrip())
+                    if line_indent <= indent and line.strip():
+                        break
+                    end = idx + 1
+            raw = source_lines[start:end]
+            return textwrap.dedent("\n".join(raw)).strip()
+
+    return ""
+
+
+def _extract_compute_source_from_parents(
+    node: ast.ClassDef, tree: ast.Module, source: str
+) -> str:
+    """If compute() is inherited from a private base class in the same file,
+    extract it from there."""
+    for base in node.bases:
+        base_name = base.id if isinstance(base, ast.Name) else (
+            base.attr if isinstance(base, ast.Attribute) else ""
+        )
+        if not base_name:
+            continue
+        # Find the base class definition in the same file
+        for top_node in ast.walk(tree):
+            if (isinstance(top_node, ast.ClassDef)
+                    and top_node.name == base_name):
+                src = _extract_compute_source(top_node, source)
+                if src:
+                    return src
+    return ""
+
+
 def _annotation_to_str(node: ast.expr) -> str:
     """Convert an AST annotation node to a string representation."""
     if isinstance(node, ast.Constant):
@@ -408,7 +478,7 @@ def _parse_docstring_sections(op: OperatorInfo) -> None:
         if stripped.lower().startswith("args:"):
             current_section = "args"
             continue
-        elif stripped.lower().startswith("usage:"):
+        elif stripped.lower().startswith("usage:") or stripped.lower().startswith("example:"):
             current_section = "usage"
             continue
         elif stripped.lower().startswith("returns:"):
@@ -545,7 +615,7 @@ PAGE_META = {
     "indicators/patterns": ("Candlestick Patterns", "48+ CDL pattern recognition operators"),
     "signals/alphas": ("Alpha Signals", "21 alpha signals across momentum, mean reversion, volatility, volume, and liquidity categories"),
     "signals/factors": ("Cross-Sectional Factors", "8 risk factors for portfolio construction"),
-    "signals/alpha-101": ("Alpha 101", "WorldQuant 101 formulaic alphas"),
+    "signals/alpha-101": ("Alpha 101", "101 Formulaic Alphas (Kakushadze, 2016)"),
     "transforms/scalers": ("Scalers", "ZScore, Rank, MinMaxScale, L1Norm, L2Norm, Softmax, Clip, Winsorize"),
     "transforms/neutralizers": ("Neutralizers", "Demean, Neutralize, GroupNeutralize, BetaNeutralize, FactorNeutralize, BarraNeutralizer"),
     "transforms/optimizers": ("Portfolio Optimizers", "MeanVarianceOptimizer, RiskParityOptimizer, EqualWeight, ClipWeights, MaxPositions"),
@@ -554,6 +624,8 @@ PAGE_META = {
     "universe/scores": ("Universe Scores", "VolumeScore, LiquidityScore, VolatilityScore"),
     "metrics": ("Performance Metrics", "Rolling and accumulated performance metrics"),
     "utility": ("Utility Operators", "Identity, Resample, FieldMerge, SymbolSelect, SymbolDrop, Constant, IntervalGate"),
+    "order": ("Order Operators", "TargetPositionIntention, FuturesTargetPositionIntention, DynamicUniverseIntention, ArbitrageIntention"),
+    "semantic": ("Semantic Operators", "SentimentParser, WebSearchOperator, LLMScorer"),
 }
 
 
@@ -679,6 +751,17 @@ def _generate_operator_section(op: OperatorInfo) -> list[str]:
         lines.append("```")
         lines.append("")
 
+    # Full compute() source code
+    if op.compute_source:
+        lines.append("### Source Code")
+        lines.append("")
+        lines.append(f"Full `compute()` implementation — no hidden logic.")
+        lines.append("")
+        lines.append("```python")
+        lines.append(op.compute_source)
+        lines.append("```")
+        lines.append("")
+
     # Source location
     lines.append(f'<sub>Source: `{op.module_path}`</sub>')
     lines.append("")
@@ -715,28 +798,40 @@ def _format_key_params(params: list[ParamInfo]) -> str:
 
 
 def _escape_mdx(text: str) -> str:
-    """Escape characters that break MDX rendering."""
+    """Escape characters that break MDX rendering in table cells."""
     # Replace < and > with HTML entities to prevent JSX parsing
     text = text.replace("<", "&lt;").replace(">", "&gt;")
+    # Replace { and } with HTML entities to prevent JSX expression parsing
+    text = text.replace("{", "&#123;").replace("}", "&#125;")
     return text
 
 
 def _escape_mdx_content(text: str) -> str:
     """Escape MDX-unsafe characters in content blocks.
 
-    Specifically handles < and > in formulas (e.g., RSI > 70) that MDX
-    interprets as JSX tags. Also handles patterns like <-50 which MDX
-    parses as JSX elements.
+    Handles characters that MDX interprets as JSX:
+    - < and > in formulas (e.g., RSI > 70, x <= threshold)
+    - { and } in descriptions (e.g., dict literals, format strings)
+    - Patterns like <-50 which MDX parses as JSX elements
     """
     import re
 
+    # Replace { and } with HTML entities to prevent JSX expression parsing
+    text = text.replace("{", "&#123;").replace("}", "&#125;")
+
     # Replace <-NUMBER patterns first (e.g., "<-50" → "below -50")
     text = re.sub(r'<-(\d+)', r'below -\1', text)
+
+    # Replace <= and >= operators in prose
+    text = text.replace("<=", "&lt;=").replace(">=", "&gt;=")
 
     # Replace comparison operators in prose (not inside code blocks)
     # Pattern: word/number followed by < or > followed by word/number
     text = re.sub(r'(?<!\`)\b(\w+)\s*>\s*(\d+)', r'\1 above \2', text)
     text = re.sub(r'(?<!\`)\b(\w+)\s*<\s*(\d+)', r'\1 below \2', text)
+
+    # Replace standalone < and > that look like JSX tags (not already escaped)
+    text = re.sub(r'<(?!/?\w|!--|&)', '&lt;', text)
 
     # Replace standalone > at start of line followed by number (MDX blockquote)
     text = re.sub(r'^>\s*(\d+)', r'Above \1', text, flags=re.MULTILINE)
@@ -754,14 +849,14 @@ def generate_alpha101_page(operators: list[OperatorInfo]) -> str:
 
     lines.append("---")
     lines.append('title: "Alpha 101"')
-    lines.append('description: "WorldQuant 101 formulaic alphas — systematic alpha generation"')
+    lines.append('description: "101 Formulaic Alphas — systematic alpha generation from Kakushadze (2016)"')
     lines.append("---")
     lines.append("")
     lines.append("{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}")
     lines.append("")
     lines.append("## Overview")
     lines.append("")
-    lines.append("Implementation of the [WorldQuant 101 Formulaic Alphas](https://arxiv.org/abs/1601.00991) paper.")
+    lines.append("Implementation of [101 Formulaic Alphas](https://arxiv.org/abs/1601.00991) (Kakushadze, Z., 2016).")
     lines.append(f"**{len(operators)} alphas** available, each as a standalone operator.")
     lines.append("")
     lines.append("All Alpha 101 operators share: **Role**: `ALPHA` | **Ephemeral**: No")
@@ -774,8 +869,9 @@ def generate_alpha101_page(operators: list[OperatorInfo]) -> str:
     lines.append("|-------|-------------|----------------|")
 
     for op in sorted(operators, key=lambda o: o.class_name):
-        desc = _extract_description(op.docstring)[:80] if op.docstring else ""
-        desc = _escape_mdx(desc.replace("\n", " "))
+        # Use only the first line of the docstring for the table
+        desc = op.docstring.split("\n")[0].strip() if op.docstring else ""
+        desc = _escape_mdx(desc)
         key_params = _format_key_params(op.params)
         lines.append(f"| **{op.class_name}** | {desc} | {key_params} |")
 
@@ -794,6 +890,29 @@ def generate_alpha101_page(operators: list[OperatorInfo]) -> str:
     lines.append("))")
     lines.append("```")
     lines.append("")
+
+    # Full source code for each alpha
+    alphas_with_source = [op for op in sorted(operators, key=lambda o: o.class_name) if op.compute_source]
+    if alphas_with_source:
+        lines.append("## Source Code")
+        lines.append("")
+        lines.append("Full `compute()` implementations — no hidden logic.")
+        lines.append("")
+        lines.append("<AccordionGroup>")
+        for op in alphas_with_source:
+            desc = _extract_description(op.docstring).split("\n")[0] if op.docstring else ""
+            desc = _escape_mdx(desc)
+            lines.append(f'<Accordion title="{op.class_name}">')
+            if desc:
+                lines.append(f"")
+                lines.append(f"{desc}")
+                lines.append("")
+            lines.append("```python")
+            lines.append(op.compute_source)
+            lines.append("```")
+            lines.append("</Accordion>")
+        lines.append("</AccordionGroup>")
+        lines.append("")
 
     lines.append("## Related Pages")
     lines.append("")

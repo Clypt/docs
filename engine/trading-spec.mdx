@@ -19,7 +19,10 @@ spec = TradingSpec(
 ## Hierarchy Overview
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 graph TD
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+
     TS["<b>TradingSpec</b>"]
     DS["<b>TradingDataSpec</b><br>symbol_source_map: SymbolSourceMap<br>observations: List[ObservationSpec]<br>start / end: Optional[datetime]<br>storage: local or db"]
     SS["<b>TradingStrategySpec</b><br>graph: StatefulGraph<br>name / version / description<br>output_nodes: Optional[List[str]]"]
@@ -36,6 +39,8 @@ graph TD
     TS --> MD
     TS --> MT
     TS --> DB
+
+    class TS highlight
 ```
 
 ## TradingDataSpec
@@ -209,7 +214,7 @@ AccountSpec(
 
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
-| `exchange` | `str` | Required | `"binance"`, `"gateio"`, `"bybit"`, `"okx"`, `"coinbase"` |
+| `exchange` | `str` | Required | `"binance"`, `"gateio"`, `"bybit"`, `"coinbase"`, `"kraken"` |
 | `market_type` | `str` | Required | `"spot"`, `"futures"`, `"perpetual"`, `"linear"` |
 | `base_currency` | `str` | Required | `"USDT"`, `"USDC"`, `"USD"` (must be uppercase) |
 | `initial_cash` | `Optional[float]` | `None` | Required for backtest. Forbidden for live. Defaults to 10000 if unset. |
@@ -293,7 +298,7 @@ spec = TradingSpec(
 | Binance | USDT, FDUSD, USDC, BTC, ETH | USDT, USDC | 125x | |
 | Gate.io | USDT, BTC, ETH | USDT | 100x | |
 | Bybit | USDT, USDC | USDT, USDC | 100x | Also supports `linear` |
-| OKX | USDT, USDC | USDT, USDC | 125x | Requires passphrase |
+| Kraken | USD | USD | 50x | 4h funding intervals |
 | Coinbase | USD, USDC | USDC | 10x | Perpetual (limited) |
 
 ## Validation
@@ -476,7 +481,7 @@ AccountSpec(
 ## Relationship to Other Concepts
 
 - **[StatefulGraph](/engine/stateful-graph)**: `TradingStrategySpec.graph` holds the graph
-- **[FIELD Data Principle](/engine/field-data-principle)**: Observations define available FIELD sources
-- **[STATE Principle](/engine/state-principle)**: AccountSpec defines STATE namespaces
+- **[FIELD Data Principle](/engine/field-state)**: Observations define available FIELD sources
+- **[STATE Principle](/engine/field-state)**: AccountSpec defines STATE namespaces
 - **[Execution Pipeline](/engine/execution-pipeline)**: TradingExecutionSpec configures the executor
 - **[Lookback Buffers](/engine/lookback-buffers)**: Warmup is computed from graph + data specs

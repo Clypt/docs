@@ -57,6 +57,61 @@ graph.add_node("adx", ADX(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period * 2:
+                result[i] = self._calculate_adx(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
 
 
@@ -80,6 +135,72 @@ ADXR = (ADX_today + ADX_period_days_ago) / 2
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = ADXR(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period * 3:
+                result[i] = self._calculate_adxr(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
 
 
@@ -101,6 +222,72 @@ DX = (|+DI - -DI| / (+DI + -DI)) * 100
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
+
+### Usage
+
+```python
+op = DX(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_dx(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/adx.py`</sub>
 
@@ -137,6 +324,66 @@ graph.add_node("aroon_up", AROON(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[-period:, i]
+            lows = low_values[-period:, i]
+
+            if not np.any(np.isnan(highs)) and not np.any(np.isnan(lows)):
+                # Find periods since highest high and lowest low
+                high_idx = np.argmax(highs)
+                low_idx = np.argmin(lows)
+
+                periods_since_high = period - 1 - high_idx
+                periods_since_low = period - 1 - low_idx
+
+                aroon_up = ((period - periods_since_high) / period) * 100
+                aroon_down = ((period - periods_since_low) / period) * 100
+
+                result[i] = aroon_down if self._output == "down" else aroon_up
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/aroon.py`</sub>
 
 
@@ -161,6 +408,75 @@ Positive values indicate uptrend, negative values indicate downtrend.
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = AROONOSC(
+    Input("FIELD:high", timeframe="1m", lookback=25),
+    Input("FIELD:low", timeframe="1m", lookback=25),
+    period=25,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[-period:, i]
+            lows = low_values[-period:, i]
+
+            if not np.any(np.isnan(highs)) and not np.any(np.isnan(lows)):
+                high_idx = np.argmax(highs)
+                low_idx = np.argmin(lows)
+
+                periods_since_high = period - 1 - high_idx
+                periods_since_low = period - 1 - low_idx
+
+                aroon_up = ((period - periods_since_high) / period) * 100
+                aroon_down = ((period - periods_since_low) / period) * 100
+
+                result[i] = aroon_up - aroon_down
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/aroon.py`</sub>
 
 
@@ -183,6 +499,72 @@ Plus Directional Indicator (+DI).
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
+
+### Usage
+
+```python
+op = PLUS_DI(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_plus_di(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/di.py`</sub>
 
@@ -207,6 +589,72 @@ Minus Directional Indicator (-DI).
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = MINUS_DI(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_minus_di(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/di.py`</sub>
 
 
@@ -216,7 +664,7 @@ Minus Directional Indicator (-DI).
 
 Plus Directional Movement (+DM).
 
-+DM = High - Previous High (if is greater than 0 and > -DM, else 0)
++DM = High - Previous High (if above 0 and > -DM, else 0)
 
 **Role**: `INDICATOR` | **Ephemeral**: No
 
@@ -227,6 +675,68 @@ Plus Directional Movement (+DM).
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period for smoothing |
+
+### Usage
+
+```python
+op = PLUS_DM(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_plus_dm(
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/di.py`</sub>
 
@@ -237,7 +747,7 @@ Plus Directional Movement (+DM).
 
 Minus Directional Movement (-DM).
 
--DM = Previous Low - Low (if is greater than 0 and > +DM, else 0)
+-DM = Previous Low - Low (if above 0 and > +DM, else 0)
 
 **Role**: `INDICATOR` | **Ephemeral**: No
 
@@ -248,6 +758,68 @@ Minus Directional Movement (-DM).
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period for smoothing |
+
+### Usage
+
+```python
+op = MINUS_DM(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_minus_dm(
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/di.py`</sub>
 
@@ -290,6 +862,61 @@ graph.add_node("ichimoku_tenkan", ICHIMOKU(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    high_data, low_data, close_data = data[0], data[1], data[2]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+            closes = close_values[:, i]
+
+            valid_mask = ~(np.isnan(highs) | np.isnan(lows) | np.isnan(closes))
+            if np.sum(valid_mask) >= self._senkou_b_period:
+                result[i] = self._calculate_ichimoku(
+                    highs[valid_mask],
+                    lows[valid_mask],
+                    closes[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/ichimoku.py`</sub>
 
 
@@ -325,6 +952,58 @@ graph.add_node("sar", SAR(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= 5:
+                result[i] = self._calculate_sar(
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/sar.py`</sub>
 
 
@@ -352,6 +1031,71 @@ Extended version of SAR with more configurable parameters.
 | `accel_init_short` | `float` | `0.02` | Initial AF for short |
 | `accel_short` | `float` | `0.02` | AF increment for short |
 | `accel_max_short` | `float` | `0.2` | Max AF for short |
+
+### Usage
+
+```python
+op = SAREXT(
+    Input("FIELD:high", timeframe="1m", lookback=1),
+    Input("FIELD:low", timeframe="1m", lookback=1),
+    accel_init_long=0.02,
+    accel_max_long=0.2,
+    accel_init_short=0.02,
+    accel_max_short=0.2,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_output()
+
+    high_data, low_data = data[0], data[1]
+
+    n_time = len(high_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = high_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= 5:
+                result[i] = self._calculate_sarext(
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/sar.py`</sub>
 

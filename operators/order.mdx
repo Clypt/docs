@@ -1,426 +1,1477 @@
 ---
 title: "Order Operators"
-description: "Generate order intentions from portfolio targets — spot, futures, and arbitrage"
+description: "TargetPositionIntention, FuturesTargetPositionIntention, DynamicUniverseIntention, ArbitrageIntention"
 ---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
 
 ## Overview
 
-Order operators translate **portfolio targets** into **order intentions**. They bridge the gap between portfolio construction (what positions do I want?) and execution (what orders should I send?).
+This page documents **6 operators** (role: `ORDER`, `POSITION`).
 
-The flow:
-```
-Signal → Weights → BookSize → Order Operator → TradingIntention → Executor
-```
+## Quick Reference
 
-Order operators output `TradingIntention` objects — not actual orders. The execution engine converts intentions into orders, applies risk checks, and routes to the exchange.
-
-## Operators
-
-### TargetPositionIntention
-
-Generate order intentions for **spot/equity** positions.
-
-**Role**: `ORDER`
-
-**Two input modes:**
-
-1. **Weight-based** — Provide portfolio weights + book size. The operator computes target notional.
-2. **Target-based** — Provide target notional directly.
-
-#### Weight-Based Mode
-
-```python
-intention = TargetPositionIntention(
-    weights=Input("signal_weights", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-    execution_routing=symbol_source_map.execution_routing,
-    # Safety guards
-    max_exposure_ratio=1.0,     # Max total exposure as ratio of equity
-    max_delta_notional=5000.0,  # Max order value per tick
-)
-```
-
-**Logic:**
-```
-target_notional = weights × book_size
-target_qty = target_notional / price
-delta = target_qty - current_qty
-→ Create TradingIntention(symbol, order_amount=delta)
-```
-
-#### Target-Based Mode
-
-```python
-intention = TargetPositionIntention(
-    target_notional=Input("sizing_output", "1m", lookback=1),
-    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-    execution_routing=symbol_source_map.execution_routing,
-)
-```
-
-**Spot constraint**: `TargetPositionIntention` rejects negative `target_notional` — spot markets don't support shorting.
-
-#### Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `weights` | `Input` | None | Portfolio weights (weight-based mode) |
-| `book_size` | `Input` | None | Tradeable capital (weight-based mode) |
-| `target_notional` | `Input` | None | Target notional directly (target-based mode) |
-| `positions` | `Input` | Required | Current positions from STATE |
-| `prices` | `Input` | Required | Current prices from FIELD |
-| `axis_keys` | `Tuple[str]` | Required | Symbol axis keys for this venue |
-| `execution_routing` | `Dict` | None | Axis key → execution venue mapping |
-| `max_exposure_ratio` | `float` | None | Max total exposure / equity |
-| `max_delta_notional` | `float` | None | Max order size per tick |
-| `tp_pct` | `float` or `Input` | None | Take-profit percentage (static or dynamic) |
-| `sl_pct` | `float` or `Input` | None | Stop-loss percentage (static or dynamic) |
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **TargetPositionIntention** | `ORDER` | `weights=None`, `book_size=None`, `target_notional=None` | No |
+| **FuturesTargetPositionIntention** | `ORDER` | `weights=None`, `book_size=None`, `target_notional=None` | No |
+| **DynamicUniverseIntention** | `ORDER` | `weights`, `book_size`, `positions` | No |
+| **ArbitrageIntention** | `ORDER` | `spread`, `book_size`, `long_positions` | No |
+| **VenueAwareSizing** | `POSITION` | `signal`, `total_equity`, `venue_configs=None` | No |
+| **PairIdGenerator** | `POSITION` | `signal`, `axis_keys`, `execution_routing` | No |
 
 ---
 
-### FuturesTargetPositionIntention
+## TargetPositionIntention
 
-Generate order intentions for **futures** positions with leverage, margin, and directional support.
+Build TradingIntention from normalized weights OR target_notional (delta trading).
 
-**Role**: `ORDER`
+Supports TWO input modes:
+1. Weight-based (legacy): weights + book_size → target_notional computed internally
+2. Target-based (new): target_notional provided directly for maximum flexibility
 
-```python
-intention = FuturesTargetPositionIntention(
-    target_notional=Input("sizing_output", "1m", lookback=1),
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-    execution_routing=symbol_source_map.execution_routing,
-    # Futures-specific
-    leverage=3.0,                # Static leverage (or Input for dynamic)
-    margin_type="CROSS",         # CROSS or ISOLATED
-    position_side="BOTH",        # LONG, SHORT, or BOTH
-    reduce_only=False,           # Only reduce existing positions
-    # Safety guards
-    max_exposure_ratio=1.5,
-    max_delta_notional=10000.0,
-)
-```
+Precedence: If target_notional is provided, weights and book_size are IGNORED.
 
-**Key differences from spot:**
-- Supports both **long and short** positions
-- **Leverage amplification**: `target_notional = weights × book_size × leverage`
-- **TP/SL direction**: LONG → TP above entry / SL below. SHORT → TP below / SL above
+Flow:
+    1. Get target_notional (from input OR weights * book_size)
+    2. Apply safety guards (max_exposure, delta_capping)
+    3. Compute target_qty = target_notional / price
+    4. Compute delta = target_qty - current_qty
+    5. Apply lot size rounding
+    6. Create TradingIntention(entity_id=symbol, order_amount=delta)
 
-#### Futures-Specific Parameters
+Input Modes:
+    Mode 1 (Weight-based):
+        - weights: Normalized signal (Input from signal node)
+        - book_size: Total tradeable capital (Input from BookSize)
+
+    Mode 2 (Target-based):
+        - target_notional: Pre-computed target notional per symbol (Input)
+          Allows upstream SizingOperator to handle complex allocation logic
+
+Common Required Inputs:
+    - positions: Current positions (Input from STATE:pos_quantity)
+    - prices: Execution prices (Input from FIELD:close or similar)
+
+Safety Guards:
+    - max_exposure_ratio: Max total exposure as ratio of equity (requires equity input)
+    - max_delta_notional: Max order value per tick (prevents slippage in illiquid markets)
+
+Paired TP/SL (for arbitrage):
+    - pair_id: External Input to link orders across different Intentions
+    - static_pair_id: Static string for simple cases
+
+Usage (Weight-based - legacy):
+    intention = TargetPositionIntention(
+        weights=Input("signal_weights", ...),
+        book_size=Input("book_size", ...),
+        positions=Input("STATE:alpaca:equity:pos_quantity", ...),
+        prices=Input("FIELD:close", ...),
+        axis_keys=symbol_source_map.axis_keys_for("alpaca:equity"),
+        execution_routing=symbol_source_map.execution_routing,
+    )
+
+Usage (Target-based - recommended for multi-venue):
+    # First, create EquityCalculator for the venue
+    spot_equity = EquityCalculator(
+        cash=Input("STATE:gateio:spot:cash", timeframe="1m", lookback=0),
+        positions=Input("STATE:gateio:spot:pos_quantity", timeframe="1m", lookback=0),
+        prices=Input("FIELD:gateio:spot:ohlcv:close", timeframe="1m", lookback=0),
+        entry_prices=Input("STATE:gateio:spot:pos_entry_price", timeframe="1m", lookback=0),
+        axis_keys=symbol_source_map.axis_keys_for("gateio:spot"),
+        # market_type auto-detected from cash Input source ("spot" from "STATE:gateio:spot:cash")
+    )
+
+    intention = TargetPositionIntention(
+        target_notional=Input("sizing_operator", field="spot_target"),
+        positions=Input("STATE:gateio:spot:pos_quantity", timeframe="1m", lookback=0),
+        prices=Input("FIELD:gateio:spot:ohlcv:close", timeframe="1m", lookback=1),
+        axis_keys=symbol_source_map.axis_keys_for("gateio:spot"),
+        execution_routing=symbol_source_map.execution_routing,
+        equity=Input("spot_equity", timeframe="1m", lookback=1),  # From EquityCalculator
+        max_exposure_ratio=1.5,
+        max_delta_notional=50000,  # Max $50k per tick
+        pair_id=Input("pair_id_gen"),  # For paired TP/SL
+    )
+
+Output:
+    Returns intention data as numpy array that TradingDriver extracts.
+    Format: [&#123;entity_id, order_amount, venue, pair_id, ...&#125;, ...]
+    order_amount is the delta: positive=BUY, negative=SELL (spot only allows BUY)
+
+**Role**: `ORDER` | **Ephemeral**: No
+
+### Parameters
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
-| `leverage` | `float` or `Input` | 1.0 | Static or per-symbol dynamic leverage |
-| `margin_type` | `str` | `"CROSS"` | `"CROSS"` or `"ISOLATED"` |
-| `position_side` | `str` | `"BOTH"` | `"LONG"`, `"SHORT"`, or `"BOTH"` |
-| `reduce_only` | `bool` | `False` | Only reduce, never increase positions |
+|-----------|------|---------|-------------|
+| `weights` | `Optional['Input']` | `None` |  |
+| `book_size` | `Optional['Input']` | `None` |  |
+| `target_notional` | `Optional['Input']` | `None` |  |
+| `positions` | `'Input'` | `None` |  |
+| `prices` | `'Input'` | `None` |  |
+| `axis_keys` | `List[str]` | `None` |  |
+| `execution_routing` | `Dict[str, str]` | `None` |  |
+| `order_type` | `OrderType` | `OrderType.MARKET` |  |
+| `time_in_force` | `TimeInForce` | `TimeInForce.GTC` |  |
+| `limit_price_offset_bps` | `float` | `0.0` |  |
+| `urgency` | `Urgency` | `Urgency.NORMAL` |  |
+| `max_slippage_bps` | `float` | `50.0` |  |
+| `min_notional` | `float` | `10.0` |  |
+| `max_exposure_ratio` | `Optional[float]` | `None` |  |
+| `equity` | `Optional['Input']` | `None` |  |
+| `max_delta_notional` | `Optional[float]` | `None` |  |
+| `take_profit_pct` | `Optional[float]` | `None` |  |
+| `stop_loss_pct` | `Optional[float]` | `None` |  |
+| `take_profit` | `Optional['Input']` | `None` |  |
+| `stop_loss` | `Optional['Input']` | `None` |  |
+| `pair_id` | `Optional['Input']` | `None` |  |
+| `static_pair_id` | `Optional[str]` | `None` |  |
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute intentions from target_notional OR weights+book_size.
+
+    Supports two input modes:
+    1. Target-based: target_notional provided directly (recommended for multi-venue)
+    2. Weight-based: weights + book_size → target_notional computed internally
+
+    For multi-venue trading:
+    - Input arrays are aligned to the full PRIMARY AXIS (source-prefixed axis_keys)
+    - This operator only processes axis_keys in self._axis_keys
+    - Uses index mapping to extract relevant values from full arrays
+
+    Safety guards applied:
+    1. Max Exposure Check: Scale down if total exposure > equity * max_exposure_ratio
+    2. Delta Capping: Limit per-tick order size to max_delta_notional
+    3. Spot Validation: Reject negative target_notional (no shorting)
+
+    Vectorized implementation using numpy operations.
+    """
+    # Skip intention generation during warmup
+    if context and context.get("is_warmup", False):
+        return self._empty_result()
+
+    min_inputs = 3 if self._use_target_mode else 4
+    if not isinstance(data, list) or len(data) < min_inputs:
+        return self._empty_result()
+
+    # Get full axis_keys from Graph's primary axis
+    all_axis_keys = self._get_axis_keys_from_context(context)
+    n_all = len(all_axis_keys)
+
+    # Get indices of this operator's axis_keys in the full array
+    axis_indices = self._get_axis_indices(all_axis_keys, self._axis_keys)
+    if not axis_indices:
+        return self._empty_result()
+
+    n_keys = len(axis_indices)
+
+    # Get venue info
+    first_venue = self._execution_routing.get(self._axis_keys[0], "")
+    market_type = first_venue.split(":")[-1] if ":" in first_venue else ""
+
+    # === Extract inputs based on mode ===
+    if self._use_target_mode:
+        # Target-based mode: target_notional provided directly
+        target_notional_data = data[self._target_notional_idx]
+        positions_data = data[self._positions_idx]
+        prices_data = data[self._prices_idx]
+
+        target_notional_full = self._extract_array_aligned(target_notional_data, n_all)
+        if target_notional_full is None:
+            return self._empty_result()
+        target_notional = target_notional_full[axis_indices]
+    else:
+        # Weight-based mode: compute target_notional = weights * book_size
+        weights_data = data[self._weights_idx]
+        book_size_data = data[self._book_size_idx]
+        positions_data = data[self._positions_idx]
+        prices_data = data[self._prices_idx]
+
+        weights_full = self._extract_array_aligned(weights_data, n_all)
+        if weights_full is None:
+            return self._empty_result()
+        weights = weights_full[axis_indices]
+
+        book_size = self._extract_scalar(book_size_data)
+        if book_size <= 0:
+            return self._empty_result()
+
+        target_notional = weights * book_size
+
+    # === SPOT MARKET VALIDATION: No negative target_notional (no shorting) ===
+    if market_type in ("spot", "equity"):
+        negative_targets = target_notional < -1e-10
+        if np.any(negative_targets):
+            negative_keys = [self._axis_keys[i] for i in np.where(negative_targets)[0]]
+            negative_values = target_notional[negative_targets]
+            error_msg = (
+                f"SPOT/EQUITY market does not allow SHORT positions (negative target_notional). "
+                f"Venue: {first_venue}. "
+                f"Axis keys with negative targets: {list(zip(negative_keys, negative_values.tolist()))}. "
+                f"For SPOT/EQUITY trading, use long-only strategies (target_notional >= 0). "
+                f"Switch to FUTURES market if shorting is intended."
+            )
+            print(f"[ERROR TargetPositionIntention] {error_msg}")
+            raise ValueError(error_msg)
+
+    # === Extract positions and prices ===
+    positions_full = self._extract_array_aligned(positions_data, n_all)
+    if positions_full is None:
+        positions = np.zeros(n_keys, dtype=np.float64)
+    else:
+        positions = positions_full[axis_indices]
+
+    prices_full = self._extract_array_aligned(prices_data, n_all)
+    if prices_full is None:
+        return self._empty_result()
+    prices = prices_full[axis_indices]
+
+    # === Safety Guard 1: Max Exposure Check ===
+    if self._max_exposure_ratio is not None and self._equity_idx is not None:
+        equity = self._extract_scalar(data[self._equity_idx])
+        if equity > 0:
+            total_exposure = np.sum(np.abs(target_notional))
+            max_allowed = equity * self._max_exposure_ratio
+            if total_exposure > max_allowed:
+                scale = max_allowed / total_exposure
+                target_notional = target_notional * scale
+                print(f"[WARN TargetPositionIntention] Exposure scaled down by {scale:.2f} "
+                      f"(total={total_exposure:.0f} > max={max_allowed:.0f})")
+
+    # === Compute target_qty and delta ===
+    safe_prices = np.where(prices > 0, prices, 1.0)
+    target_qty = target_notional / safe_prices
+    delta = target_qty - positions
+
+    # === Safety Guard 2: Delta Capping ===
+    if self._max_delta_notional is not None:
+        delta_notional = np.abs(delta * safe_prices)
+        capped_mask = delta_notional > self._max_delta_notional
+        if np.any(capped_mask):
+            for i in np.where(capped_mask)[0]:
+                direction = np.sign(delta[i])
+                max_delta_qty = self._max_delta_notional / safe_prices[i]
+                delta[i] = direction * max_delta_qty
+            print(f"[WARN TargetPositionIntention] Delta capped for {np.sum(capped_mask)} symbols "
+                  f"(max_delta_notional={self._max_delta_notional})")
+
+    # === SPOT/EQUITY VALIDATION: Final position cannot be negative ===
+    if market_type in ("spot", "equity"):
+        final_positions = positions + delta
+        short_positions = final_positions < -1e-10
+        if np.any(short_positions):
+            short_keys = [self._axis_keys[i] for i in np.where(short_positions)[0]]
+            short_values = final_positions[short_positions]
+            error_msg = (
+                f"SPOT/EQUITY market does not allow SHORT positions. "
+                f"Venue: {first_venue}. "
+                f"Axis keys attempting short: {list(zip(short_keys, short_values.tolist()))}. "
+                f"Reduce delta to avoid negative final position."
+            )
+            print(f"[ERROR TargetPositionIntention] {error_msg}")
+            raise ValueError(error_msg)
+
+    # === Extract optional inputs ===
+    tp_array = None
+    sl_array = None
+    pair_id_array = None
+
+    if self._tp_input_idx is not None and len(data) > self._tp_input_idx:
+        tp_full = self._extract_array_aligned(data[self._tp_input_idx], n_all)
+        if tp_full is not None:
+            tp_array = tp_full[axis_indices]
+
+    if self._sl_input_idx is not None and len(data) > self._sl_input_idx:
+        sl_full = self._extract_array_aligned(data[self._sl_input_idx], n_all)
+        if sl_full is not None:
+            sl_array = sl_full[axis_indices]
+
+    if self._pair_id_idx is not None and len(data) > self._pair_id_idx:
+        pair_id_full = self._extract_array_aligned(data[self._pair_id_idx], n_all)
+        if pair_id_full is not None:
+            pair_id_array = pair_id_full[axis_indices]
+
+    # === Build compute mask ===
+    valid_targets = ~np.isnan(target_notional)
+    valid_prices = (prices > 0) & ~np.isnan(prices)
+    compute_mask = valid_targets & valid_prices
+
+    order_indices = np.where(compute_mask)[0]
+    if len(order_indices) == 0:
+        return self._empty_result()
+
+    # === Build intentions ===
+    if timestamp is None:
+        raise ValueError(
+            "TargetPositionIntention.compute() requires timestamp. "
+            "Graph.on_tick() must provide it."
+        )
+    ts = timestamp.timestamp()
+    intentions = []
+
+    use_limit = self._order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
+    offset_rate = self._limit_price_offset_bps / 10000.0 if use_limit else 0.0
+
+    for idx in order_indices:
+        axis_key = self._axis_keys[idx]
+        venue = self._execution_routing.get(axis_key, "")
+        raw_symbol = self._extract_symbol(axis_key)
+
+        d = delta[idx]
+        p = prices[idx]
+
+        # Determine pair_id
+        effective_pair_id = None
+        if pair_id_array is not None and len(pair_id_array) > idx:
+            effective_pair_id = pair_id_array[idx]
+        elif self._static_pair_id:
+            effective_pair_id = self._static_pair_id
+
+        # Calculate TP/SL prices
+        take_profit_price = None
+        stop_loss_price = None
+
+        effective_tp_pct = None
+        effective_sl_pct = None
+
+        if tp_array is not None and len(tp_array) > idx and not np.isnan(tp_array[idx]):
+            effective_tp_pct = tp_array[idx]
+        elif self._take_profit_pct is not None:
+            effective_tp_pct = self._take_profit_pct
+
+        if sl_array is not None and len(sl_array) > idx and not np.isnan(sl_array[idx]):
+            effective_sl_pct = sl_array[idx]
+        elif self._stop_loss_pct is not None:
+            effective_sl_pct = self._stop_loss_pct
+
+        # TP/SL for SPOT (LONG only): BUY → TP above, SL below
+        if d > 0:
+            if effective_tp_pct is not None:
+                take_profit_price = p * (1 + effective_tp_pct / 100)
+            if effective_sl_pct is not None:
+                stop_loss_price = p * (1 - effective_sl_pct / 100)
+
+        intention = {
+            "entity_id": raw_symbol,
+            "order_amount": float(d),
+            "venue": venue,
+            "order_type": self._order_type.value,
+            "time_in_force": self._time_in_force.value,
+            "urgency": self._urgency.value,
+            "timestamp": ts,
+            "max_slippage_bps": self._max_slippage_bps,
+            "take_profit": float(take_profit_price) if take_profit_price is not None else None,
+            "stop_loss": float(stop_loss_price) if stop_loss_price is not None else None,
+            "pair_id": effective_pair_id,  # For paired TP/SL (arbitrage)
+        }
+
+        if use_limit:
+            if d > 0:
+                intention["limit_price"] = float(p * (1 + offset_rate))
+            else:
+                intention["limit_price"] = float(p * (1 - offset_rate))
+
+        intentions.append(intention)
+
+    return np.array(intentions)
+```
+
+<sub>Source: `apps/trading/operators/order/intention.py`</sub>
+
 
 ---
 
-### DynamicUniverseIntention
+## FuturesTargetPositionIntention
 
-**Dynamic universe** support — handles symbols entering and exiting the tradeable universe during execution.
+Build FuturesIntention from target_notional OR weights+book_size (delta trading).
 
-**Role**: `ORDER`
+Same as TargetPositionIntention but with futures-specific parameters:
+leverage, margin_type, position_side, reduce_only, take_profit, stop_loss.
+
+Supports TWO input modes (same as TargetPositionIntention):
+1. Weight-based (legacy): weights + book_size → target_notional computed internally
+2. Target-based (new): target_notional provided directly for maximum flexibility
+
+Precedence: If target_notional is provided, weights and book_size are IGNORED.
+
+Output contains order_amount (delta already computed):
+- order_amount above 0: BUY order (LONG)
+- order_amount below 0: SELL order (SHORT)
+
+Input Modes:
+    Mode 1 (Weight-based):
+        - weights: Normalized signal (Input from signal node)
+        - book_size: Total tradeable capital (Input from BookSize)
+
+    Mode 2 (Target-based):
+        - target_notional: Pre-computed target notional per symbol (Input)
+          Allows upstream SizingOperator to handle complex allocation logic
+
+Futures-specific Parameters:
+    - leverage: Static float or dynamic Input (per-symbol array)
+    - margin_type: CROSS or ISOLATED
+    - position_side: LONG, SHORT, or BOTH
+    - reduce_only: If True, only reduces existing position
+
+Safety Guards (same as TargetPositionIntention):
+    - max_exposure_ratio: Max total exposure as ratio of equity
+    - max_delta_notional: Max order value per tick
+
+Usage (Weight-based - legacy):
+    intention = FuturesTargetPositionIntention(
+        weights=Input("signal_weights", ...),
+        book_size=Input("book_size", ...),
+        positions=Input("STATE:gateio:futures:pos_quantity", ...),
+        prices=Input("FIELD:close", ...),
+        axis_keys=symbol_source_map.axis_keys_for("gateio:futures"),
+        execution_routing=symbol_source_map.execution_routing,
+        leverage=5.0,
+        margin_type=MarginType.CROSS,
+    )
+
+Usage (Target-based - recommended for multi-venue):
+    # First, create EquityCalculator for the venue
+    # NOTE: For futures, equity = cash + unrealized_pnl (NOT cash + position_value)
+    futures_equity = EquityCalculator(
+        cash=Input("STATE:binance:futures:cash", timeframe="1m", lookback=0),
+        positions=Input("STATE:binance:futures:pos_quantity", timeframe="1m", lookback=0),
+        prices=Input("FIELD:binance:futures:ohlcv:close", timeframe="1m", lookback=0),
+        entry_prices=Input("STATE:binance:futures:pos_entry_price", timeframe="1m", lookback=0),
+        axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+        # market_type auto-detected from cash Input source ("futures" from "STATE:binance:futures:cash")
+    )
+
+    intention = FuturesTargetPositionIntention(
+        target_notional=Input("sizing_operator", field="futures_target"),
+        positions=Input("STATE:binance:futures:pos_quantity", timeframe="1m", lookback=0),
+        prices=Input("FIELD:binance:futures:ohlcv:close", timeframe="1m", lookback=1),
+        axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+        execution_routing=symbol_source_map.execution_routing,
+        leverage=3.0,
+        equity=Input("futures_equity", timeframe="1m", lookback=1),  # From EquityCalculator
+        max_exposure_ratio=1.5,
+        max_delta_notional=50000,
+        pair_id=Input("pair_id_gen"),  # For paired TP/SL
+        take_profit_pct=0.5,
+        stop_loss_pct=0.1,
+    )
+
+**Role**: `ORDER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `weights` | `Optional['Input']` | `None` |  |
+| `book_size` | `Optional['Input']` | `None` |  |
+| `target_notional` | `Optional['Input']` | `None` |  |
+| `positions` | `'Input'` | `None` |  |
+| `prices` | `'Input'` | `None` |  |
+| `axis_keys` | `List[str]` | `None` |  |
+| `execution_routing` | `Dict[str, str]` | `None` |  |
+| `leverage` | `Union[float, 'Input']` | `1.0` |  |
+| `margin_type` | `MarginType` | `MarginType.CROSS` |  |
+| `position_side` | `PositionSide` | `PositionSide.BOTH` |  |
+| `reduce_only` | `bool` | `False` |  |
+| `order_type` | `OrderType` | `OrderType.MARKET` |  |
+| `time_in_force` | `TimeInForce` | `TimeInForce.GTC` |  |
+| `limit_price_offset_bps` | `float` | `0.0` |  |
+| `urgency` | `Urgency` | `Urgency.NORMAL` |  |
+| `max_slippage_bps` | `float` | `50.0` |  |
+| `min_notional` | `float` | `10.0` |  |
+| `max_exposure_ratio` | `Optional[float]` | `None` |  |
+| `equity` | `Optional['Input']` | `None` |  |
+| `max_delta_notional` | `Optional[float]` | `None` |  |
+| `take_profit_pct` | `Optional[float]` | `None` |  |
+| `stop_loss_pct` | `Optional[float]` | `None` |  |
+| `take_profit` | `Optional['Input']` | `None` |  |
+| `stop_loss` | `Optional['Input']` | `None` |  |
+| `pair_id` | `Optional['Input']` | `None` |  |
+| `static_pair_id` | `Optional[str]` | `None` |  |
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
 
 ```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute futures intentions from target_notional OR weights+book_size.
+
+    Supports two input modes:
+    1. Target-based: target_notional provided directly (recommended for multi-venue)
+    2. Weight-based: weights + book_size → target_notional computed internally
+
+    For multi-venue trading:
+    - Input arrays are aligned to the full PRIMARY AXIS (source-prefixed axis_keys)
+    - This operator only processes axis_keys in self._axis_keys
+    - Uses index mapping to extract relevant values from full arrays
+
+    Safety guards applied:
+    1. Max Exposure Check: Scale down if total exposure > equity * max_exposure_ratio
+    2. Delta Capping: Limit per-tick order size to max_delta_notional
+
+    Vectorized implementation using numpy operations.
+    """
+    FuturesTargetPositionIntention._debug_count += 1
+    debug = FuturesTargetPositionIntention._debug_count < 5
+
+    # Skip intention generation during warmup
+    if context and context.get("is_warmup", False):
+        if debug:
+            print("[DEBUG FuturesTargetPositionIntention] Skipping: warmup")
+        return self._empty_result()
+
+    min_inputs = 3 if self._use_target_mode else 4
+    if not isinstance(data, list) or len(data) < min_inputs:
+        if debug:
+            print(f"[DEBUG FuturesTargetPositionIntention] Skipping: data not list or len<{min_inputs}")
+        return self._empty_result()
+
+    # Get full axis_keys from Graph's primary axis
+    all_axis_keys = self._get_axis_keys_from_context(context)
+    n_all = len(all_axis_keys)
+
+    # Get indices of this operator's axis_keys in the full array
+    axis_indices = self._get_axis_indices(all_axis_keys, self._axis_keys)
+    if not axis_indices:
+        return self._empty_result()
+
+    n_keys = len(axis_indices)
+
+    # === Extract inputs based on mode ===
+    if self._use_target_mode:
+        # Target-based mode: target_notional provided directly
+        target_notional_data = data[self._target_notional_idx]
+        positions_data = data[self._positions_idx]
+        prices_data = data[self._prices_idx]
+
+        target_notional_full = self._extract_array_aligned(target_notional_data, n_all)
+        if target_notional_full is None:
+            if debug:
+                print("[DEBUG FuturesTargetPositionIntention] Skipping: target_notional is None")
+            return self._empty_result()
+        target_notional = target_notional_full[axis_indices]
+    else:
+        # Weight-based mode: compute target_notional = weights * book_size * leverage
+        weights_data = data[self._weights_idx]
+        book_size_data = data[self._book_size_idx]
+        positions_data = data[self._positions_idx]
+        prices_data = data[self._prices_idx]
+
+        weights_full = self._extract_array_aligned(weights_data, n_all)
+        if weights_full is None:
+            if debug:
+                print("[DEBUG FuturesTargetPositionIntention] Skipping: weights is None")
+            return self._empty_result()
+        weights = weights_full[axis_indices]
+
+        book_size = self._extract_scalar(book_size_data)
+        if book_size <= 0:
+            if debug:
+                print(f"[DEBUG FuturesTargetPositionIntention] Skipping: book_size={book_size}")
+            return self._empty_result()
+
+    # === Extract positions and prices ===
+    positions_full = self._extract_array_aligned(positions_data, n_all)
+    if positions_full is None:
+        positions = np.zeros(n_keys, dtype=np.float64)
+    else:
+        positions = positions_full[axis_indices]
+
+    prices_full = self._extract_array_aligned(prices_data, n_all)
+    if prices_full is None:
+        if debug:
+            print("[DEBUG FuturesTargetPositionIntention] Skipping: prices is None")
+        return self._empty_result()
+    prices = prices_full[axis_indices]
+
+    # === Extract leverage (dynamic per-symbol or static scalar) ===
+    if self._leverage_is_dynamic and self._leverage_input_idx is not None:
+        leverage_data = data[self._leverage_input_idx]
+        leverage_full = self._extract_array_aligned(leverage_data, n_all)
+        if leverage_full is None:
+            leverage_arr = np.ones(n_keys, dtype=np.float64)
+        else:
+            leverage_arr = leverage_full[axis_indices]
+    else:
+        leverage_arr = np.full(n_keys, self._leverage_static, dtype=np.float64)
+
+    # === Compute target_notional if weight-based mode ===
+    if not self._use_target_mode:
+        target_notional = weights * book_size * leverage_arr
+
+    # === Safety Guard 1: Max Exposure Check ===
+    if self._max_exposure_ratio is not None and self._equity_idx is not None:
+        equity = self._extract_scalar(data[self._equity_idx])
+        if equity > 0:
+            total_exposure = np.sum(np.abs(target_notional))
+            max_allowed = equity * self._max_exposure_ratio
+            if total_exposure > max_allowed:
+                scale = max_allowed / total_exposure
+                target_notional = target_notional * scale
+                print(f"[WARN FuturesTargetPositionIntention] Exposure scaled by {scale:.2f}")
+
+    # === Compute target_qty and delta ===
+    safe_prices = np.where(prices > 0, prices, 1.0)
+    target_qty = target_notional / safe_prices
+    delta = target_qty - positions
+
+    # === Safety Guard 2: Delta Capping ===
+    if self._max_delta_notional is not None:
+        delta_notional = np.abs(delta * safe_prices)
+        capped_mask = delta_notional > self._max_delta_notional
+        if np.any(capped_mask):
+            for i in np.where(capped_mask)[0]:
+                direction = np.sign(delta[i])
+                max_delta_qty = self._max_delta_notional / safe_prices[i]
+                delta[i] = direction * max_delta_qty
+            print(f"[WARN FuturesTargetPositionIntention] Delta capped for {np.sum(capped_mask)} symbols")
+
+    # === Extract optional inputs ===
+    tp_array = None
+    sl_array = None
+    pair_id_array = None
+
+    if self._tp_input_idx is not None and len(data) > self._tp_input_idx:
+        tp_full = self._extract_array_aligned(data[self._tp_input_idx], n_all)
+        if tp_full is not None:
+            tp_array = tp_full[axis_indices]
+
+    if self._sl_input_idx is not None and len(data) > self._sl_input_idx:
+        sl_full = self._extract_array_aligned(data[self._sl_input_idx], n_all)
+        if sl_full is not None:
+            sl_array = sl_full[axis_indices]
+
+    if self._pair_id_idx is not None and len(data) > self._pair_id_idx:
+        pair_id_full = self._extract_array_aligned(data[self._pair_id_idx], n_all)
+        if pair_id_full is not None:
+            pair_id_array = pair_id_full[axis_indices]
+
+    if debug:
+        print(f"[DEBUG FuturesTargetPositionIntention] target_notional={target_notional[:3] if len(target_notional) >= 3 else target_notional}...")
+        if self._take_profit_pct is not None or self._stop_loss_pct is not None:
+            print(f"[DEBUG FuturesTargetPositionIntention] TP={self._take_profit_pct}%, SL={self._stop_loss_pct}%")
+
+    # === Build compute mask ===
+    valid_targets = ~np.isnan(target_notional)
+    valid_prices = (prices > 0) & ~np.isnan(prices)
+    compute_mask = valid_targets & valid_prices
+
+    order_indices = np.where(compute_mask)[0]
+    if len(order_indices) == 0:
+        return self._empty_result()
+
+    # === Build intentions ===
+    if timestamp is None:
+        raise ValueError(
+            "FuturesTargetPositionIntention.compute() requires timestamp. "
+            "Graph.on_tick() must provide it."
+        )
+    ts = timestamp.timestamp()
+    intentions = []
+
+    use_limit = self._order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
+    offset_rate = self._limit_price_offset_bps / 10000.0 if use_limit else 0.0
+
+    for idx in order_indices:
+        axis_key = self._axis_keys[idx]
+        venue = self._execution_routing.get(axis_key, "")
+        raw_symbol = self._extract_symbol(axis_key)
+
+        d = delta[idx]
+        p = prices[idx]
+        lev = leverage_arr[idx]
+
+        # Determine pair_id
+        effective_pair_id = None
+        if pair_id_array is not None and len(pair_id_array) > idx:
+            effective_pair_id = pair_id_array[idx]
+        elif self._static_pair_id:
+            effective_pair_id = self._static_pair_id
+
+        # Calculate TP/SL prices
+        take_profit_price = None
+        stop_loss_price = None
+
+        effective_tp_pct = None
+        effective_sl_pct = None
+
+        if tp_array is not None and len(tp_array) > idx and not np.isnan(tp_array[idx]):
+            effective_tp_pct = tp_array[idx]
+        elif self._take_profit_pct is not None:
+            effective_tp_pct = self._take_profit_pct
+
+        if sl_array is not None and len(sl_array) > idx and not np.isnan(sl_array[idx]):
+            effective_sl_pct = sl_array[idx]
+        elif self._stop_loss_pct is not None:
+            effective_sl_pct = self._stop_loss_pct
+
+        # TP/SL: LONG (d>0) → TP above, SL below; SHORT (d<0) → TP below, SL above
+        if effective_tp_pct is not None:
+            if d > 0:
+                take_profit_price = p * (1 + effective_tp_pct / 100)
+            else:
+                take_profit_price = p * (1 - effective_tp_pct / 100)
+
+        if effective_sl_pct is not None:
+            if d > 0:
+                stop_loss_price = p * (1 - effective_sl_pct / 100)
+            else:
+                stop_loss_price = p * (1 + effective_sl_pct / 100)
+
+        intention = {
+            "entity_id": raw_symbol,
+            "order_amount": float(d),
+            "venue": venue,
+            "order_type": self._order_type.value,
+            "time_in_force": self._time_in_force.value,
+            "urgency": self._urgency.value,
+            "timestamp": ts,
+            "max_slippage_bps": self._max_slippage_bps,
+            "leverage": float(lev),
+            "margin_type": self._margin_type.value,
+            "position_side": self._position_side.value,
+            "reduce_only": self._reduce_only,
+            "take_profit": float(take_profit_price) if take_profit_price is not None else None,
+            "stop_loss": float(stop_loss_price) if stop_loss_price is not None else None,
+            "pair_id": effective_pair_id,  # For paired TP/SL (arbitrage)
+            "is_futures": True,  # Explicit flag for TradingDriver
+        }
+
+        if use_limit:
+            if d > 0:
+                intention["limit_price"] = float(p * (1 + offset_rate))
+            else:
+                intention["limit_price"] = float(p * (1 - offset_rate))
+
+        intentions.append(intention)
+
+    return np.array(intentions)
+```
+
+<sub>Source: `apps/trading/operators/order/intention.py`</sub>
+
+
+---
+
+## DynamicUniverseIntention
+
+Dynamic universe intention builder with symbol warmup and exit handling.
+
+Unlike FuturesTargetPositionIntention which requires a fixed axis_keys list,
+this operator:
+1. Reads axis_keys dynamically from Graph's primary axis
+2. Tracks per-axis_key warmup (tick count since first seen)
+3. Auto-closes positions when axis_keys exit universe (exists=False)
+
+Symbol States (managed via exists/valid + internal warmup counter):
+- WARMING_UP: exists=True, valid=True, but warmup_ticks &lt; required
+  → Skip trading, accumulate data
+- ACTIVE: exists=True, valid=True, warmup complete
+  → Normal delta trading
+- EXITED: exists=False (filtered out or delisted)
+  → Generate close order if position exists
+
+Inputs (4 required, 1 optional):
+    1. weights: Normalized signal from upstream (e.g., L1Norm output)
+    2. book_size: Total capital from BookSize operator
+    3. positions: Current positions from STATE:venue:pos_quantity
+    4. prices: Execution prices from FIELD:close
+    5. leverage (optional): Dynamic per-symbol leverage (Input from node)
+
+Leverage:
+    - Static: leverage=3.0 (same for all symbols)
+    - Dynamic: leverage=Input("leverage_node", ...) (per-symbol array)
+
+**Role**: `ORDER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `weights` | `'Input'` | Required |  |
+| `book_size` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `execution_routing` | `Dict[str, str]` | Required |  |
+| `warmup_ticks` | `int` | `20` |  |
+| `leverage` | `Union[float, 'Input']` | `1.0` |  |
+| `margin_type` | `MarginType` | `MarginType.CROSS` |  |
+| `position_side` | `PositionSide` | `PositionSide.BOTH` |  |
+| `order_type` | `OrderType` | `OrderType.MARKET` |  |
+| `time_in_force` | `TimeInForce` | `TimeInForce.GTC` |  |
+| `urgency` | `Urgency` | `Urgency.NORMAL` |  |
+| `max_slippage_bps` | `float` | `50.0` |  |
+| `min_notional` | `float` | `10.0` |  |
+| `reduce_only` | `bool` | `False` |  |
+
+### Usage
+
+```python
+# Using SymbolSourceMap
+symbol_source_map = SymbolSourceMap({"gateio:futures": ["BTC/USDT", "ETH/USDT"]})
+
 intention = DynamicUniverseIntention(
-    weights=Input("signal_weights", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-    warmup_ticks=50,  # Ticks before trading a new symbol
-)
-```
-
-**Symbol lifecycle:**
-
-| State | Behavior |
-|---|---|
-| **WARMING_UP** | Symbol just entered universe. Skip trading, accumulate data for `warmup_ticks` |
-| **ACTIVE** | Normal delta trading (same as TargetPositionIntention) |
-| **EXITED** | Symbol left universe (`exists=False`). Generate close order if position exists |
-
-**Use case**: Strategies with rotating universes (e.g., top-50 by volume, refreshed daily).
-
----
-
-### ArbitrageIntention
-
-Cross-exchange or cross-market **paired trading**.
-
-**Role**: `ORDER`
-
-```python
-intention = ArbitrageIntention(
-    spread=Input("spread_signal", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    long_positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
-    short_positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    long_prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
-    short_prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    long_axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-    short_axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-)
-```
-
-**Logic:**
-- `spread > 0` → Long on long_venue, Short on short_venue
-- `spread < 0` → Short on long_venue, Long on short_venue
-- Output: **Paired orders** (long leg + short leg) linked by `pair_id`
-
-**Use cases:**
-- **Spot-futures basis trade**: Buy spot, sell perpetual futures
-- **Cross-exchange arbitrage**: Buy on Exchange A, sell on Exchange B
-- **Calendar spread**: Buy near-month, sell far-month futures
-
----
-
-### VenueAwareSizing
-
-Compute `target_notional` across **multiple venues** with configurable allocation.
-
-**Role**: `ORDER`
-
-```python
-sizing = VenueAwareSizing(
-    weights=Input("signal_weights", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    all_axis_keys=symbol_source_map.axis_keys,
-    allocation_mode="proportional",  # "equal", "proportional", "inverse_hedge"
-    venue_weights={
-        "binance:spot": 0.6,
-        "binance:futures": 0.4,
-    },
-)
-```
-
-**Allocation modes:**
-
-| Mode | Description |
-|---|---|
-| `"equal"` | Equal split across all venues |
-| `"proportional"` | Weighted by `venue_weights` dict |
-| `"inverse_hedge"` | Spot long + Futures short (for arbitrage) |
-
-**Output**: Single array aligned to `all_axis_keys`. Each downstream intention operator extracts its venue's portion via axis indices.
-
-## Data Flow
-
-### Single-Venue (Typical)
-
-```mermaid
-flowchart TB
-    A["Signal"] --> B["ZScore (normalize)"]
-    B --> C["EqualWeight (optimize)"]
-    C --> D["BookSize"]
-    D --> E["TargetPositionIntention"]
-    C --> E
-    E --> F["TradingIntention"]
-    F --> G["Executor"]
-    G --> H["Exchange"]
-```
-
-### Multi-Venue (Arbitrage)
-
-```mermaid
-flowchart TB
-    A["Spread Signal"] --> B["VenueAwareSizing"]
-    B --> C["target_notional (all venues)"]
-    A --> D["FuturesTargetPositionIntention<br>(futures leg)<br>STATE:binance:futures:*"]
-    A --> E["TargetPositionIntention<br>(spot leg)<br>STATE:binance:spot:*"]
-```
-
-### With ArbitrageIntention
-
-```mermaid
-flowchart TB
-    A["Spread Signal"] --> B["ArbitrageIntention"]
-    B --> C["Long leg (spot)"]
-    B --> D["Short leg (futures)"]
-    C --> E["Paired TradingIntention"]
-    D --> F["Paired TradingIntention"]
-    E --> G["Executor<br>(routes to correct venue)"]
-    F --> G
-```
-
-## Safety Guards
-
-Order operators include built-in safety mechanisms:
-
-| Guard | Parameter | Description |
-|---|---|---|
-| **Max exposure** | `max_exposure_ratio` | Total exposure cannot exceed X× equity |
-| **Delta capping** | `max_delta_notional` | Single tick order size limit |
-| **Spot no-short** | (automatic) | TargetPositionIntention rejects negative targets |
-| **Reduce-only** | `reduce_only` | Only close positions, never open new ones |
-| **Dynamic TP/SL** | `tp_pct`, `sl_pct` | Static percentages or dynamic Input arrays |
-
-## Common Patterns
-
-### Simple Long-Only Spot
-
-```python
-graph.add_node("intention", TargetPositionIntention(
-    weights=Input("signal", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-    max_exposure_ratio=1.0,  # Never exceed 100% of equity
-))
-```
-
-### Leveraged Futures with TP/SL
-
-```python
-graph.add_node("intention", FuturesTargetPositionIntention(
-    weights=Input("signal", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    weights=Input("weights", timeframe="1m", lookback=0),
+    book_size=Input("book_size", timeframe="1m", lookback=0),
+    positions=Input("STATE:gateio:futures:pos_quantity", timeframe="1m", lookback=0),
+    prices=Input("FIELD:gateio:futures:close", timeframe="1m", lookback=0),
     execution_routing=symbol_source_map.execution_routing,
-    leverage=3.0,
-    tp_pct=0.05,   # 5% take-profit
-    sl_pct=0.02,   # 2% stop-loss
-    max_exposure_ratio=1.5,
-))
-```
-
-### Spot-Futures Basis Trade
-
-```python
-# Spread = futures_price / spot_price - 1.0
-graph.add_node("spread", SpreadCalculator(
-    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=1),
-    Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=1),
-))
-
-graph.add_node("intention", ArbitrageIntention(
-    spread=Input("spread", "1m", lookback=1),
-    book_size=Input("book_size", "1m", lookback=1),
-    long_positions=Input("STATE:binance:spot:pos_quantity", "1m", lookback=0),
-    short_positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    long_prices=Input("FIELD:binance:spot:ohlcv:close", "1m", lookback=0),
-    short_prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    long_axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-    short_axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-))
-```
-
-## TP/SL Configuration
-
-Both `TargetPositionIntention` and `FuturesTargetPositionIntention` support take-profit and stop-loss — either **static** (fixed percentages) or **dynamic** (computed by another operator).
-
-### Static TP/SL
-
-Fixed percentages applied uniformly to all symbols:
-
-```python
-intention = FuturesTargetPositionIntention(
-    ...,
-    tp_pct=0.05,   # 5% take-profit from entry price
-    sl_pct=0.02,   # 2% stop-loss from entry price
+    warmup_ticks=20,
+    leverage=3.0,  # Static or Input() for dynamic
 )
 ```
 
-**Direction-aware for futures:**
-- **LONG**: TP price = entry × (1 + tp_pct), SL price = entry × (1 - sl_pct)
-- **SHORT**: TP price = entry × (1 - tp_pct), SL price = entry × (1 + sl_pct)
+### Source Code
 
-### Dynamic TP/SL
-
-Per-symbol TP/SL computed by upstream operators (e.g., ATR-based):
+Full `compute()` implementation — no hidden logic.
 
 ```python
-# Dynamic SL based on ATR
-graph.add_node("atr", ATR(period=14), inputs=[high, low, close])
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute intentions with dynamic universe support.
 
-graph.add_node("dynamic_sl", AtrBasedStopLoss(multiplier=2.0),
-    inputs=[Input("atr", "1m", lookback=1)])
+    Vectorized implementation with numpy operations.
+    """
+    # Skip intention generation during warmup
+    if context and context.get("is_warmup", False):
+        return self._empty_result()
 
-graph.add_node("dynamic_tp", AtrBasedTakeProfit(multiplier=3.0),
-    inputs=[Input("atr", "1m", lookback=1)])
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_result()
 
-# Pass as Input instead of float
-intention = FuturesTargetPositionIntention(
-    ...,
-    tp_pct=Input("dynamic_tp", "1m", lookback=1),  # Dynamic: per-symbol array
-    sl_pct=Input("dynamic_sl", "1m", lookback=1),  # Dynamic: per-symbol array
+    weights_data, book_size_data, positions_data, prices_data = data[0], data[1], data[2], data[3]
+
+    # Get axis_keys from Graph's primary axis
+    graph = context.get("graph") if context else None
+    if graph is None:
+        return self._empty_result()
+
+    try:
+        primary_axis = graph.get_primary_axis()
+        axis_info = graph.get_axis_info(primary_axis)
+        axis_keys = list(axis_info.order)
+    except (RuntimeError, AttributeError):
+        return self._empty_result()
+
+    n_keys = len(axis_keys)
+    if n_keys == 0:
+        return self._empty_result()
+
+    # Extract data as numpy arrays
+    weights = self._extract_array_aligned(weights_data, n_keys)
+    exists = self._extract_mask(weights_data, "exists", n_keys)
+    valid = self._extract_mask(weights_data, "valid", n_keys)
+    book_size = self._extract_scalar(book_size_data)
+    positions = self._extract_array_aligned(positions_data, n_keys)
+    prices = self._extract_array_aligned(prices_data, n_keys)
+
+    if book_size <= 0:
+        return self._empty_result()
+
+    if positions is None:
+        positions = np.zeros(n_keys, dtype=np.float64)
+    if prices is None:
+        prices = np.zeros(n_keys, dtype=np.float64)
+
+    # Extract leverage (dynamic per-symbol or static scalar)
+    if self._leverage_is_dynamic:
+        leverage_data = data[4]
+        leverage_arr = self._extract_array_aligned(leverage_data, n_keys)
+        if leverage_arr is None:
+            leverage_arr = np.ones(n_keys, dtype=np.float64)
+    else:
+        leverage_arr = np.full(n_keys, self._leverage_static, dtype=np.float64)
+
+    # Update per-axis_key warmup counters (vectorized where possible)
+    active_mask = exists & valid
+    for i in np.where(active_mask)[0]:
+        key = axis_keys[i]
+        self._axis_key_tick_counts[key] = self._axis_key_tick_counts.get(key, 0) + 1
+
+    # Build warmup mask
+    warmup_counts = np.array([self._axis_key_tick_counts.get(key, 0) for key in axis_keys])
+    is_warmed = warmup_counts >= self._warmup_required
+
+    # Vectorized delta computation
+    valid_weights = np.ones(n_keys, dtype=bool)
+    if weights is not None:
+        valid_weights = ~np.isnan(weights)
+    else:
+        weights = np.zeros(n_keys, dtype=np.float64)
+
+    valid_prices = (prices > 0) & ~np.isnan(prices)
+    safe_prices = np.where(prices > 0, prices, 1.0)
+
+    # Leverage amplifies position size
+    target_notional = weights * book_size * leverage_arr
+    target_qty = target_notional / safe_prices
+    small_notional_mask = np.abs(target_notional) < self._min_notional
+    target_qty = np.where(small_notional_mask, 0.0, target_qty)
+
+    delta = target_qty - positions
+    # Case A: Active axis_keys (exists & valid & warmed)
+    # No min_notional filtering
+    active_trade_mask = (
+        exists & valid & is_warmed & valid_weights & valid_prices
+    )
+
+    # Case C: Exited axis_keys with position (exists=False & has position)
+    has_position = np.abs(positions) > 1e-10
+    exit_mask = ~exists & has_position & valid_prices
+
+    if timestamp is None:
+        raise ValueError(
+            "DynamicUniverseIntention.compute() requires timestamp. "
+            "Graph.on_tick() must provide it."
+        )
+    ts = timestamp.timestamp()
+    intentions = []
+
+    # Process active trades
+    for idx in np.where(active_trade_mask)[0]:
+        intention = self._create_intention(
+            axis_keys[idx], float(delta[idx]), float(prices[idx]), ts,
+            leverage=float(leverage_arr[idx])
+        )
+        intentions.append(intention)
+
+    # Process exit orders
+    for idx in np.where(exit_mask)[0]:
+        close_delta = -positions[idx]
+        intention = self._create_intention(
+            axis_keys[idx], float(close_delta), float(prices[idx]), ts,
+            reduce_only=True,
+            close_reason="universe_exit",
+            leverage=float(leverage_arr[idx])
+        )
+        intentions.append(intention)
+
+    if not intentions:
+        return self._empty_result()
+
+    return np.array(intentions)
+```
+
+<sub>Source: `apps/trading/operators/order/intention.py`</sub>
+
+
+---
+
+## ArbitrageIntention
+
+Arbitrage intention builder for cross-venue or cross-market trades.
+
+Generates paired orders: LONG on one venue, SHORT on another.
+Supports:
+- Cross-exchange arbitrage: Buy on Binance, Sell on Gateio
+- Basis trade: Buy spot, Sell futures (or vice versa)
+- Multi-symbol arbitrage: Process multiple symbols in parallel
+
+The spread signal determines position sizing:
+- spread above 0: Go long on long_venue, short on short_venue
+- spread below 0: Go short on long_venue, long on short_venue
+- spread ≈ 0: Close positions (or no action)
+
+Inputs (6 required):
+    1. spread: Spread signal (array, one per symbol)
+    2. book_size: Total capital for the trade (scalar)
+    3. long_positions: Current positions on long_venue (STATE:venue:pos_quantity)
+    4. short_positions: Current positions on short_venue (STATE:venue:pos_quantity)
+    5. long_prices: Prices on long_venue (FIELD:close)
+    6. short_prices: Prices on short_venue (FIELD:close)
+
+**Role**: `ORDER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `spread` | `'Input'` | Required |  |
+| `book_size` | `'Input'` | Required |  |
+| `long_positions` | `'Input'` | Required |  |
+| `short_positions` | `'Input'` | Required |  |
+| `long_prices` | `'Input'` | Required |  |
+| `short_prices` | `'Input'` | Required |  |
+| `long_axis_keys` | `List[str]` | Required |  |
+| `short_axis_keys` | `List[str]` | Required |  |
+| `execution_routing` | `Dict[str, str]` | Required |  |
+| `leverage` | `float` | `1.0` |  |
+| `margin_type` | `MarginType` | `MarginType.CROSS` |  |
+| `order_type` | `OrderType` | `OrderType.MARKET` |  |
+| `time_in_force` | `TimeInForce` | `TimeInForce.GTC` |  |
+| `urgency` | `Urgency` | `Urgency.NORMAL` |  |
+| `max_slippage_bps` | `float` | `50.0` |  |
+| `min_notional` | `float` | `10.0` |  |
+| `take_profit_pct` | `Optional[float]` | `None` |  |
+| `stop_loss_pct` | `Optional[float]` | `None` |  |
+| `take_profit` | `Optional['Input']` | `None` |  |
+| `stop_loss` | `Optional['Input']` | `None` |  |
+| `paired_tpsl` | `bool` | `True` |  |
+
+### Usage
+
+```python
+# Multi-symbol basis trade (spot-futures) using SymbolSourceMap
+    symbol_source_map = SymbolSourceMap({
+        "binance:spot": ["BTC/USDT", "ETH/USDT"],
+        "binance:futures": ["BTC/USDT", "ETH/USDT"],
+    })
+
+    basis = ArbitrageIntention(
+        spread=Input("basis_signal", timeframe="1m", lookback=1),
+        book_size=Input("book_size", timeframe="1m", lookback=1),
+        long_positions=Input("STATE:binance:spot:pos_quantity", timeframe="1m", lookback=0),
+        short_positions=Input("STATE:binance:futures:pos_quantity", timeframe="1m", lookback=0),
+        long_prices=Input("FIELD:binance:spot:close", timeframe="1m", lookback=1),
+        short_prices=Input("FIELD:binance:futures:close", timeframe="1m", lookback=1),
+        long_axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+        short_axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+        execution_routing=symbol_source_map.execution_routing,
+    )
+
+Output:
+    Returns numpy array with intentions for all symbols:
+    [{long_intent_sym1}, {short_intent_sym1}, {long_intent_sym2}, {short_intent_sym2}, ...]
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute arbitrage intentions from spread signal for all symbols.
+
+    For multi-venue trading:
+    - Input arrays are aligned to the full PRIMARY AXIS (source-prefixed axis_keys)
+    - This operator processes long_axis_keys and short_axis_keys pairs
+    - Uses index mapping to extract relevant values from full arrays
+    """
+    # Skip intention generation during warmup
+    if context and context.get("is_warmup", False):
+        return self._empty_result()
+
+    if not isinstance(data, list) or len(data) < 6:
+        return self._empty_result()
+
+    spread_data, book_size_data, long_pos_data, short_pos_data, long_price_data, short_price_data = data[:6]
+
+    # Get full axis_keys from Graph's primary axis
+    all_axis_keys = self._get_axis_keys_from_context(context)
+    n_all = len(all_axis_keys)
+
+    # Get indices for long and short axis_keys
+    long_indices = self._get_axis_indices(all_axis_keys, self._long_axis_keys)
+    short_indices = self._get_axis_indices(all_axis_keys, self._short_axis_keys)
+    if not long_indices or not short_indices:
+        return self._empty_result()
+
+    # Extract full spread array
+    spreads_full = self._extract_array(spread_data)
+    if spreads_full is None or len(spreads_full) != n_all:
+        return self._empty_result()
+
+    book_size = self._extract_scalar(book_size_data)
+    if book_size <= 0:
+        return self._empty_result()
+
+    # Extract positions and prices
+    long_positions_arr = self._extract_array(long_pos_data)
+    short_positions_arr = self._extract_array(short_pos_data)
+    long_prices_arr = self._extract_array(long_price_data)
+    short_prices_arr = self._extract_array(short_price_data)
+
+    if long_positions_arr is None:
+        long_positions_arr = np.zeros(n_all, dtype=np.float64)
+    if short_positions_arr is None:
+        short_positions_arr = np.zeros(n_all, dtype=np.float64)
+
+    # Extract dynamic TP/SL arrays if provided
+    tp_array = None
+    sl_array = None
+    if self._tp_input_idx is not None and len(data) > self._tp_input_idx:
+        tp_array = self._extract_array(data[self._tp_input_idx])
+    if self._sl_input_idx is not None and len(data) > self._sl_input_idx:
+        sl_array = self._extract_array(data[self._sl_input_idx])
+
+    if timestamp is None:
+        raise ValueError(
+            "ArbitrageIntention.compute() requires timestamp. "
+            "Graph.on_tick() must provide it."
+        )
+    ts = timestamp.timestamp()
+    intentions = []
+
+    # Process pairs (long_axis_keys and short_axis_keys should have same length)
+    n_pairs = min(len(self._long_axis_keys), len(self._short_axis_keys))
+    per_symbol_book = book_size / n_pairs if n_pairs > 0 else 0
+    half_book = per_symbol_book / 2.0
+
+    for i in range(n_pairs):
+        long_axis_key = self._long_axis_keys[i]
+        short_axis_key = self._short_axis_keys[i]
+        long_idx = long_indices[i]
+        short_idx = short_indices[i]
+
+        # Use long_idx for spread (spread computed on long side)
+        spread = spreads_full[long_idx]
+
+        # Skip if spread is NaN or too small
+        if np.isnan(spread) or abs(spread) < 1e-10:
+            continue
+
+        # Get prices
+        long_price = long_prices_arr[long_idx] if long_prices_arr is not None else 0.0
+        short_price = short_prices_arr[short_idx] if short_prices_arr is not None else 0.0
+
+        if long_price <= 0 or short_price <= 0:
+            continue
+
+        # Get current positions
+        current_long_qty = long_positions_arr[long_idx]
+        current_short_qty = short_positions_arr[short_idx]
+
+        # Get venues from execution_routing
+        long_venue = self._execution_routing.get(long_axis_key, "")
+        short_venue = self._execution_routing.get(short_axis_key, "")
+
+        # Determine if venues are spot (can't short)
+        long_is_spot = "spot" in long_venue
+        short_is_spot = "spot" in short_venue
+
+        # Calculate target positions based on spread direction
+        if spread > 0:
+            target_long_notional = half_book * abs(spread)
+            target_short_notional = -half_book * abs(spread)
+        else:
+            target_long_notional = -half_book * abs(spread)
+            target_short_notional = half_book * abs(spread)
+
+        # Spot constraint
+        if long_is_spot and target_long_notional < 0:
+            target_long_notional = 0.0
+        if short_is_spot and target_short_notional < 0:
+            target_short_notional = 0.0
+
+        # Convert to quantities
+        target_long_qty = target_long_notional / long_price
+        target_short_qty = target_short_notional / short_price
+
+        # Compute deltas
+        long_delta = target_long_qty - current_long_qty
+        short_delta = target_short_qty - current_short_qty
+
+        # Get per-symbol TP/SL from dynamic arrays
+        symbol_tp_pct = tp_array[long_idx] if tp_array is not None and len(tp_array) > long_idx else None
+        symbol_sl_pct = sl_array[long_idx] if sl_array is not None and len(sl_array) > long_idx else None
+
+        # Extract raw symbols
+        long_symbol = self._extract_symbol(long_axis_key)
+        short_symbol = self._extract_symbol(short_axis_key)
+
+        # Generate pair_id for paired TP/SL
+        pair_id = f"{long_symbol}_arb_{int(ts)}" if self._paired_tpsl else None
+
+        # Long leg intention
+        if abs(long_delta * long_price) >= self._min_notional:
+            long_intention = self._create_intention(
+                symbol=long_symbol,
+                delta=long_delta,
+                price=long_price,
+                venue=long_venue,
+                ts=ts,
+                is_futures=not long_is_spot,
+                tp_pct=symbol_tp_pct,
+                sl_pct=symbol_sl_pct,
+                pair_id=pair_id,
+            )
+            intentions.append(long_intention)
+
+        # Short leg intention
+        if abs(short_delta * short_price) >= self._min_notional:
+            short_intention = self._create_intention(
+                symbol=short_symbol,
+                delta=short_delta,
+                price=short_price,
+                venue=short_venue,
+                ts=ts,
+                is_futures=not short_is_spot,
+                tp_pct=symbol_tp_pct,
+                sl_pct=symbol_sl_pct,
+                pair_id=pair_id,
+            )
+            intentions.append(short_intention)
+
+    if not intentions:
+        return self._empty_result()
+
+    return np.array(intentions)
+```
+
+<sub>Source: `apps/trading/operators/order/intention.py`</sub>
+
+
+---
+
+## VenueAwareSizing
+
+Compute target_notional for multi-venue strategies.
+
+Takes signal weights (per-symbol) and allocates capital across multiple venues
+based on configurable allocation rules. Outputs a single target_notional array
+aligned to all_axis_keys that can be fed to TargetPositionIntention and
+FuturesTargetPositionIntention.
+
+Key Design:
+    - Outputs a single numpy array aligned to all_axis_keys
+    - Each venue's Intention extracts its portion using axis_indices (automatic)
+    - For "inverse_hedge" mode: long venues get positive, short venues get negative
+
+Allocation Modes:
+    1. "equal": Equal split across venues (default)
+    2. "proportional": Based on venue_weights dict
+    3. "inverse_hedge": Spot long, Futures short (or vice versa) for arbitrage
+
+Example (Cross-venue arbitrage: Spot Long, Futures Short):
+    sizing = VenueAwareSizing(
+        signal=Input("arb_signal", timeframe="1m", lookback=1),
+        total_equity=Input("total_equity", timeframe="1m", lookback=1),
+        venue_configs=&#123;
+            "binance:spot": &#123;"role": "long", "allocation_ratio": 0.5&#125;,
+            "binance:futures": &#123;"role": "short", "allocation_ratio": 0.5&#125;,
+        &#125;,
+        axis_keys=all_axis_keys,
+        execution_routing=execution_routing,
+        allocation_mode="inverse_hedge",
+    )
+
+Connecting to Intention Operators:
+    # Sizing outputs array aligned to all_axis_keys
+    # Each Intention automatically extracts its venue's portion
+
+    spot_intention = TargetPositionIntention(
+        target_notional=Input("sizing", timeframe="1m", lookback=1),
+        positions=Input("STATE:binance:spot:pos_quantity", ...),
+        prices=Input("FIELD:binance:spot:close", ...),
+        axis_keys=spot_axis_keys,  # Only spot axis_keys
+        execution_routing=execution_routing,
+    )
+
+    futures_intention = FuturesTargetPositionIntention(
+        target_notional=Input("sizing", timeframe="1m", lookback=1),
+        positions=Input("STATE:binance:futures:pos_quantity", ...),
+        prices=Input("FIELD:binance:futures:close", ...),
+        axis_keys=futures_axis_keys,  # Only futures axis_keys
+        execution_routing=execution_routing,
+        leverage=3.0,
+    )
+
+**Role**: `POSITION` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `signal` | `'Input'` | Required |  |
+| `total_equity` | `'Input'` | Required |  |
+| `venue_configs` | `Dict[str, Dict[str, Any]]` | `None` |  |
+| `axis_keys` | `List[str]` | `None` |  |
+| `execution_routing` | `Dict[str, str]` | `None` |  |
+| `allocation_mode` | `str` | `'equal'` |  |
+| `max_exposure_ratio` | `float` | `1.0` |  |
+| `max_notional_per_venue` | `Optional[Dict[str, float]]` | `None` |  |
+| `min_notional` | `float` | `10.0` |  |
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Compute target_notional array aligned to all_axis_keys.
+
+    Returns:
+        TaggedArray with value as numpy array of target_notional per axis_key.
+        - Positive values = long positions
+        - Negative values = short positions
+    """
+    n = len(self._axis_keys)
+
+    # Skip during warmup
+    if context and context.get("is_warmup", False):
+        return self._empty_result()
+
+    if not isinstance(data, list) or len(data) < 2:
+        return self._empty_result()
+
+    # Extract signal (per-symbol weights)
+    signal_data = data[0]
+    signal = self._extract_array(signal_data)
+    if signal is None or len(signal) != n:
+        return self._empty_result()
+
+    # Extract total equity
+    equity_data = data[1]
+    total_equity = self._extract_scalar(equity_data)
+    if total_equity <= 0:
+        return self._empty_result()
+
+    # === Compute base notional from signal ===
+    base_notional = signal * total_equity
+
+    # === Apply allocation mode ===
+    target_notional = self._allocate_to_venues(base_notional, total_equity)
+
+    # === Apply safety guards ===
+    target_notional = self._apply_safety_guards(target_notional, total_equity)
+
+    return TaggedArray(
+        value=target_notional,
+        exists=np.ones(n, dtype=bool),
+        valid=np.ones(n, dtype=bool),
+        updated=np.ones(n, dtype=bool),
+    )
+```
+
+<sub>Source: `apps/trading/operators/order/sizing.py`</sub>
+
+
+---
+
+## PairIdGenerator
+
+Generate pair_id for linking orders across Intentions.
+
+Creates unique pair_ids for each symbol that has active signal across
+multiple venues. This allows Intention operators to link orders for
+atomic execution (e.g., Spot buy + Futures sell).
+
+Output:
+    TaggedArray with pair_id strings per axis_key.
+    - None for symbols with no signal (below threshold)
+    - Unique string for symbols with active signal in multiple venues
+
+**Role**: `POSITION` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `signal` | `'Input'` | Required |  |
+| `axis_keys` | `List[str]` | Required |  |
+| `execution_routing` | `Dict[str, str]` | Required |  |
+| `threshold` | `float` | `0.01` |  |
+| `prefix` | `str` | `'pair'` |  |
+
+### Usage
+
+```python
+pair_gen = PairIdGenerator(
+    signal=Input("arb_signal", timeframe="1m", lookback=1),
+    axis_keys=all_axis_keys,
+    execution_routing=execution_routing,
+    threshold=0.01,
+)
+
+# Use in Intention
+spot_intention = TargetPositionIntention(
+    ...
+    pair_id=Input("pair_gen", timeframe="1m", lookback=1),
 )
 ```
 
-When `tp_pct` or `sl_pct` is an `Input`, the operator reads per-symbol values from the upstream node each tick. This enables:
-- **ATR-based stops**: Wider stops in volatile markets, tighter in calm
-- **Volatility-scaled targets**: Larger TP when volatility is high
-- **Regime-dependent risk**: Different SL in trending vs mean-reverting regimes
+### Source Code
 
-## Leverage Configuration
-
-`FuturesTargetPositionIntention` supports both **static** and **dynamic** leverage.
-
-### Static Leverage
-
-Fixed multiplier for all symbols:
+Full `compute()` implementation — no hidden logic.
 
 ```python
-intention = FuturesTargetPositionIntention(
-    ...,
-    leverage=3.0,  # 3x leverage for all symbols
-)
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    n = len(self._axis_keys)
+
+    if context and context.get("is_warmup", False):
+        return self._empty_result()
+
+    if isinstance(data, list):
+        data = data[0]
+
+    signal = self._extract_array(data)
+    if signal is None or len(signal) != n:
+        return self._empty_result()
+
+    pair_ids = np.empty(n, dtype=object)
+    pair_ids.fill(None)
+
+    # Generate pair_id for symbols above threshold in multiple venues
+    for symbol, indices in self._symbol_to_indices.items():
+        # Check how many venues have active signal for this symbol
+        active_indices = [i for i in indices if abs(signal[i]) >= self._threshold]
+
+        # Get unique venues for active indices
+        active_venues = set()
+        for idx in active_indices:
+            venue = self._execution_routing.get(self._axis_keys[idx], "")
+            active_venues.add(venue)
+
+        # Generate pair_id only if multiple venues are active
+        if len(active_venues) > 1:
+            pair_id = f"{self._prefix}_{symbol}_{uuid.uuid4().hex[:8]}"
+            for idx in active_indices:
+                pair_ids[idx] = pair_id
+
+    return TaggedArray(
+        value=pair_ids,
+        exists=np.ones(n, dtype=bool),
+        valid=np.ones(n, dtype=bool),
+        updated=np.ones(n, dtype=bool),
+    )
 ```
 
-### Dynamic Leverage
+<sub>Source: `apps/trading/operators/order/sizing.py`</sub>
 
-Per-symbol leverage computed by an upstream operator:
 
-```python
-# Dynamic leverage based on volatility (lower vol → higher leverage)
-graph.add_node("vol_leverage", InverseVolLeverage(
-    max_leverage=5.0,
-    min_leverage=1.0,
-    target_vol=0.02,
-), inputs=[Input("realized_vol", "1m", lookback=1)])
+## Related Pages
 
-intention = FuturesTargetPositionIntention(
-    ...,
-    leverage=Input("vol_leverage", "1m", lookback=1),  # Per-symbol dynamic
-)
-```
-
-### Leverage Clipping
-
-Dynamic leverage values are **clipped** to safe bounds:
-
-```
-effective_leverage = min(dynamic_leverage, AccountSpec.max_leverage, venue_max_leverage)
-```
-
-| Source | Limit | Example |
-|---|---|---|
-| `venue_max_leverage` | Exchange maximum | Binance futures: 125x |
-| `AccountSpec.max_leverage` | User-configured cap | `max_leverage=10.0` in spec |
-| Dynamic operator output | Per-symbol computed | `InverseVolLeverage` output |
-
-```python
-# AccountSpec.max_leverage = 10.0, Binance venue max = 125x
-# Dynamic leverage output: [2.0, 15.0, 5.0, 200.0]
-# After clipping:          [2.0, 10.0, 5.0, 10.0]
-#                                 ↑              ↑
-#                          Clipped to AccountSpec max
-```
-
-## Relationship to Other Concepts
-
-- **[Balance Operators](/operators/balance)**: BookSize and equity feed into order operators
-- **[STATE Principle](/engine/state-principle)**: Position and cash data from execution engine
-- **[Execution Pipeline](/engine/execution-pipeline)**: How intentions become actual orders
-- **[TradingSpec](/engine/trading-spec)**: AccountSpec defines venues and execution routing
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

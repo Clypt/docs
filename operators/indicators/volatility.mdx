@@ -52,6 +52,61 @@ graph.add_node("atr", ATR(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                result[i] = self._calculate_atr(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
 
 
@@ -76,6 +131,75 @@ This makes ATR comparable across different price levels.
 | `low` | `'Input'` | Required | Low price input |
 | `period` | `int` | `14` | Lookback period |
 
+### Usage
+
+```python
+op = NATR(
+    Input("FIELD:high", timeframe="1m", lookback=14),
+    Input("FIELD:low", timeframe="1m", lookback=14),
+    Input("FIELD:close", timeframe="1m", lookback=14),
+    period=14,
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            closes = close_values[:, i]
+            highs = high_values[:, i]
+            lows = low_values[:, i]
+
+            valid_mask = ~(np.isnan(closes) | np.isnan(highs) | np.isnan(lows))
+            if np.sum(valid_mask) >= self._period + 1:
+                atr = self._calculate_atr(
+                    closes[valid_mask],
+                    highs[valid_mask],
+                    lows[valid_mask]
+                )
+                current_close = closes[-1]
+                if current_close != 0:
+                    result[i] = (atr / current_close) * 100
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
 
 
@@ -96,6 +220,70 @@ True Range = max(High - Low, |High - PrevClose|, |Low - PrevClose|)
 | `close` | `'Input'` | Required | Close price input |
 | `high` | `'Input'` | Required | High price input |
 | `low` | `'Input'` | Required | Low price input |
+
+### Usage
+
+```python
+op = TRANGE(
+    Input("FIELD:high", timeframe="1m", lookback=2),
+    Input("FIELD:low", timeframe="1m", lookback=2),
+    Input("FIELD:close", timeframe="1m", lookback=2),
+)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        return self._empty_output()
+
+    close_data, high_data, low_data = data[0], data[1], data[2]
+
+    n_time = len(close_data)
+    if n_time < 2:
+        return self._empty_output()
+
+    last = close_data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    close_values = np.array([close_data[t].value for t in range(n_time)])
+    high_values = np.array([high_data[t].value for t in range(n_time)])
+    low_values = np.array([low_data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            high_val = high_values[-1, i]
+            low_val = low_values[-1, i]
+            prev_close = close_values[-2, i]
+
+            if not any(np.isnan([high_val, low_val, prev_close])):
+                result[i] = max(
+                    high_val - low_val,
+                    abs(high_val - prev_close),
+                    abs(low_val - prev_close)
+                )
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/indicator/atr.py`</sub>
 
@@ -135,6 +323,59 @@ graph.add_node("bb_upper", BBANDS(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            if not np.any(np.isnan(window)) and len(window) == period:
+                sma = np.mean(window)
+                std = np.std(window, ddof=0)
+
+                if self._output == "upper":
+                    result[i] = sma + (self._num_std * std)
+                elif self._output == "lower":
+                    result[i] = sma - (self._num_std * std)
+                else:
+                    result[i] = sma
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/bbands.py`</sub>
 
 
@@ -165,6 +406,52 @@ graph.add_node("stddev", STDDEV(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_values = window[~np.isnan(window)]
+            if len(valid_values) >= period:
+                result[i] = np.std(valid_values, ddof=0) * self._num_std
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/indicator/stddev.py`</sub>
 
 
@@ -193,6 +480,52 @@ graph.add_node("var", VAR(
     Input("FIELD:gateio:spot:close", timeframe="1h", lookback=10),
     period=5,
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    n_time = len(data)
+    if n_time == 0:
+        return self._empty_output()
+
+    last = data[-1]
+    n_symbols = len(last.exists)
+    exists = last.exists
+    valid = last.valid
+
+    all_values = np.array([data[t].value for t in range(n_time)])
+
+    result = np.full(n_symbols, np.nan)
+
+    period = min(self._period, n_time)
+
+    for i in range(n_symbols):
+        if exists[i] and valid[i]:
+            window = all_values[-period:, i]
+            valid_values = window[~np.isnan(window)]
+            if len(valid_values) >= period:
+                result[i] = np.var(valid_values, ddof=0)
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/indicator/stddev.py`</sub>

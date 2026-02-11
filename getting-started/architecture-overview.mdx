@@ -1,14 +1,48 @@
 ---
 title: "Architecture Overview"
-description: "High-level architecture of the Clypt platform and ClyptQ engine"
+description: "The 4-layer architecture of ClyptQ and the Trading Commerce ecosystem"
 ---
 
-## The Big Picture
+## Trading Commerce Ecosystem
 
-ClyptQ is built on a 4-layer architecture where strategies are declared as specs, executed by a driver, computed through a graph, and settled by an executor. The same architecture runs identically in backtest, paper, and live modes.
+ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative strategies are independently verified, cross-exchange validated, and deployed with trust between Builders and Buyers.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
+flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
+    Builder["Builder<br><br>Develop in Jupyter<br>Backtest → Paper → Live<br>Submit to Marketplace"]
+    Platform["ClyptQ Platform<br><br>Reproduce backtest<br>Cross-exchange validation<br>Compute all metrics"]
+    Buyer["Buyer<br><br>Evaluate verified metrics<br>Paper trade 2-4 weeks<br>Deploy live"]
+    Revenue["Revenue<br><br>Flows back<br>to Builder"]
+
+    Builder --> Platform --> Buyer --> Revenue
+    class Platform highlight
+    class Revenue success
+```
+
+<CardGroup cols={3}>
+  <Card title="For Builders" icon="wrench" href="/platform/builder-guide">
+    Production infrastructure, same code from research to live, revenue via marketplace
+  </Card>
+  <Card title="For Buyers" icon="chart-line" href="/platform/buyer-guide">
+    Independently verified metrics, cross-exchange validation, one-click deploy
+  </Card>
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    Cross-exchange validation, independent metric computation, trust mechanism
+  </Card>
+</CardGroup>
+
+## The 4-Layer Architecture
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     subgraph TradingSpec[" TradingSpec "]
         direction LR
         DataSpec["TradingDataSpec<br>sources, timeframe, start/end"]
@@ -20,11 +54,15 @@ flowchart TB
 
     Driver --> Graph["StatefulGraph<br>FIELD → Operators → TaggedArray"]
     Driver --> Exec["Executor<br>Intention → Delta → Order → Fill → STATE"]
+
+    class Driver highlight
+    class Graph source
+    class Exec action
 ```
 
 ## Layer 1: TradingSpec (Configuration)
 
-Everything starts with a `TradingSpec` — a declarative configuration that defines the complete strategy:
+Everything starts with a [TradingSpec](/engine/trading-spec) — a declarative configuration that defines the complete strategy:
 
 ```python
 spec = TradingSpec(
@@ -34,38 +72,27 @@ spec = TradingSpec(
         start=datetime(2024, 1, 1, tzinfo=timezone.utc),
         end=datetime(2024, 12, 31, tzinfo=timezone.utc),
     ),
-    strategy=TradingStrategySpec(
-        graph=graph,
-        output_nodes=["equity", "signal"],
-    ),
+    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
     execution=TradingExecutionSpec(
         mode="backtest",
         accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
-        execution_price_source="ohlcv",
     ),
-    debug=True,
 )
 ```
-
-**Three sub-specs:**
 
 | Sub-Spec | What It Defines | Key Fields |
 |----------|----------------|------------|
 | **TradingDataSpec** | What data to load | `symbol_source_map`, `observations`, `start`/`end` |
 | **TradingStrategySpec** | What computation to run | `graph` (StatefulGraph), `output_nodes` |
-| **TradingExecutionSpec** | How to trade | `mode`, `accounts` (with fees, leverage), `execution_price_source` |
-
-See [TradingSpec Reference](/engine/trading-spec) for every field.
+| **TradingExecutionSpec** | How to trade | `mode`, `accounts` (with fees, leverage) |
 
 ## Layer 2: TradingDriver (Orchestrator)
 
-The driver is the runtime orchestrator. It reads the spec and manages the entire lifecycle:
+The driver reads the spec and manages the entire lifecycle:
 
 ```python
 driver = TradingDriver.from_spec(spec)
-
 for result in driver:
-    # Each iteration = one tick
     print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
 ```
 
@@ -73,25 +100,23 @@ for result in driver:
 
 1. **Expands specs** — Resolves symbol mappings, observation specs, account configurations
 2. **Computes warmup** — Traces the graph backward to find minimum ticks needed
-3. **Creates state** — Initializes `TradingState` with cash, positions, margin for each account
+3. **Creates state** — Initializes `TradingState` with cash, positions, margin
 4. **Creates executor** — `BacktestFactory` for backtest/paper, `LiveFactory` for live
 5. **Loads data** — Parquet for historical, WebSocket for live
-6. **Auto-injects funding** — Adds `FundingRateSpec` for futures accounts
 
 ### What each tick does
 
 ```
-For each tick:
-  1. Receive market data (FIELD)     → OHLCV bar from Parquet or WebSocket
-  2. Update FIELD buffers            → Push new data into RollingBuffers
-  3. Execute graph (topological)     → Operators compute in dependency order
-  4. Collect intentions              → Graph outputs trading intentions
-  5. Compute deltas                  → Current position vs target position
-  6. Generate orders                 → Convert deltas to buy/sell orders
-  7. Execute orders                  → BacktestFactory (sim) or LiveFactory (real)
-  8. Apply costs                     → Fees, slippage, funding (if settlement tick)
-  9. Check liquidation               → Per-exchange margin ratio check (futures)
-  10. Update STATE                   → Cash, positions, margin, equity
+1. Receive market data (FIELD)     → OHLCV bar from Parquet or WebSocket
+2. Update FIELD buffers            → Push new data into RollingBuffers
+3. Execute graph (topological)     → Operators compute in dependency order
+4. Collect intentions              → Graph outputs trading intentions
+5. Compute deltas                  → Current position vs target position
+6. Generate orders                 → Convert deltas to buy/sell orders
+7. Execute orders                  → BacktestFactory (sim) or LiveFactory (real)
+8. Apply costs                     → Fees, slippage, funding (if settlement tick)
+9. Check liquidation               → Per-exchange margin ratio check (futures)
+10. Update STATE                   → Cash, positions, margin, equity
 ```
 
 ### Execution modes
@@ -100,18 +125,20 @@ For each tick:
 |------|-----------|------------|---------|
 | **backtest** | Parquet (historical) | BacktestFactory (simulated) | Strategy validation |
 | **paper** | WebSocket (live) | BacktestFactory (simulated) | Real-time verification |
-| **live** | WebSocket (live) | LiveFactory (real orders via CCXT) | Production trading |
+| **live** | WebSocket (live) | LiveFactory (real orders) | Production trading |
 
-The graph and operators are identical across all modes. Only the data source and fill engine change.
+The graph and operators are identical across all modes. Only the data source and fill engine change. See [Code Parity](/competitive/code-parity) for why this matters.
 
 ## Layer 3: StatefulGraph (Computation Engine)
 
-The graph is a DAG (Directed Acyclic Graph) of operators. It manages:
-
-### Data flow
+The [StatefulGraph](/engine/stateful-graph) is a DAG of [operators](/engine/operators):
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     FIELD["FIELD:binance:futures:ohlcv:close"]
     STATE["STATE:binance:futures:cash"]
 
@@ -129,44 +156,16 @@ flowchart TB
     FIELD --> Intention
 
     Intention --> Exec["Executor"]
+
+    class FIELD,STATE source
+    class Exec action
 ```
 
-### Two data namespaces
-
-| Namespace | Convention | Source | Example |
-|-----------|-----------|--------|---------|
-| **FIELD** | `FIELD:exchange:market:observation:field` | Market data from exchanges | `FIELD:binance:futures:ohlcv:close` |
-| **STATE** | `STATE:exchange:market:key` | Portfolio state from executor | `STATE:binance:futures:cash` |
-
-FIELD data flows forward through the graph. STATE data feeds back from the executor after each fill. See [FIELD Principle](/engine/field-data-principle) and [STATE Principle](/engine/state-principle).
-
-### RollingBuffers
-
-Each operator input gets its own pre-allocated circular buffer:
-
-```
-Input("sma_fast", "1m", lookback=2)
-  → RollingBuffer(capacity=2)
-  → Operator receives shape (2, n_symbols) on each tick
-```
-
-Buffers only expose declared history — making lookahead structurally impossible. See [Lookback Buffers](/engine/lookback-buffers).
-
-### Execution order
-
-Operators execute in topological order (Kahn's algorithm):
-1. Compute in-degree for each node
-2. Start with zero in-degree nodes (FIELD sources)
-3. Process each node, decrement dependents' in-degrees
-4. Repeat until all nodes are processed
-
-This guarantees every operator's inputs are ready before it executes.
+Market data enters via [FIELD](/engine/field-state), portfolio state enters via [STATE](/engine/field-state). All data flows as [TaggedArrays](/engine/tagged-array) through [RollingBuffers](/engine/lookback-buffers). Operators execute in topological order.
 
 ## Layer 4: Executor (Fill Engine)
 
-The executor converts graph outputs (intentions) into actual fills:
-
-### Intention → Delta → Order → Fill
+The executor converts graph outputs into fills:
 
 ```
 1. Intention: "I want 0.5 BTC long"      (target position)
@@ -175,23 +174,9 @@ The executor converts graph outputs (intentions) into actual fills:
 4. Fill:      "Filled 0.3 BTC at $45,000" (execution result)
 ```
 
-### Two execution modes
+At each fill, the executor applies exchange-specific [costs](/backtesting/cost-models) (fees, slippage, funding) and checks [liquidation](/backtesting/liquidation-logic).
 
-**INSTANT** — Orders fill at the current bar's close price. Used for strategy logic validation.
-
-**LATENT** — Orders fill against a simulated orderbook. Realistic execution with depth-dependent slippage.
-
-### Cost application
-
-At each fill, the executor applies:
-- **Maker/taker fees** (exchange-specific, auto-fetched via CCXT)
-- **Slippage** (BPS-based in INSTANT, orderbook-based in LATENT)
-- **Funding rates** (at 8-hour settlement ticks for futures)
-- **Liquidation check** (per-exchange margin ratio formulas)
-
-See [Cost Models](/backtesting/cost-models) and [Liquidation Logic](/backtesting/liquidation-logic).
-
-## The Key Insight: What Changes Per Mode
+## What Changes Per Mode
 
 | Component | Backtest | Paper | Live |
 |-----------|----------|-------|------|
@@ -201,25 +186,23 @@ See [Cost Models](/backtesting/cost-models) and [Liquidation Logic](/backtesting
 | **TaggedArrays** | Same | Same | Same |
 | | | | |
 | **Data Source** | Parquet (historical) | WebSocket (live) | WebSocket (live) |
-| **Fill Engine** | BacktestFactory (simulated) | BacktestFactory (simulated) | LiveFactory (real orders) |
-| **start/end** | Required | Omitted | Omitted |
-| **API credentials** | Not needed | Not needed | Required |
+| **Fill Engine** | BacktestFactory | BacktestFactory | LiveFactory (real) |
 
-**Everything above the line is identical.** The strategy, graph, operators, and data structures don't change. Only the data source and fill engine are swapped — and this is controlled by a single parameter: `mode="backtest"` vs `mode="paper"` vs `mode="live"`.
+Everything above the line is identical. Only the data source and fill engine change — controlled by `mode="backtest"` vs `"paper"` vs `"live"`.
 
-## Related Pages
+## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="FIELD Data Principle" icon="database" href="/engine/field-data-principle">
-    How market data flows into the graph
-  </Card>
-  <Card title="STATE Principle" icon="server" href="/engine/state-principle">
-    How portfolio state feeds back from the executor
+  <Card title="FIELD & STATE" icon="database" href="/engine/field-state">
+    How market data and portfolio state flow through the graph
   </Card>
   <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
-    DAG execution, topological ordering, RollingBuffers
+    DAG execution, topological ordering, warmup calculation
   </Card>
   <Card title="TradingSpec" icon="file-code" href="/engine/trading-spec">
     Complete configuration hierarchy reference
+  </Card>
+  <Card title="Operator System" icon="plug" href="/engine/operators">
+    380+ operators across 14 roles
   </Card>
 </CardGroup>

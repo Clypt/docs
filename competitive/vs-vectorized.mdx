@@ -227,7 +227,7 @@ The "fast" backtest lost you money. The "slow" backtest made you money.
 
 If you're currently using a vectorized framework, migrating to ClyptQ means:
 
-1. **Extract your signal logic** into ClyptQ operators (most `ta-lib` indicators have direct equivalents in ClyptQ's 213+ operator library)
+1. **Extract your signal logic** into ClyptQ operators (most `ta-lib` indicators have direct equivalents in ClyptQ's 380+ operator library)
 2. **Define your data and execution** in a `TradingSpec`
 3. **Connect operators in a graph** instead of chaining pandas operations
 4. **Run the same code live** — no production rewrite needed
@@ -262,5 +262,5 @@ The ClyptQ version is slightly more verbose, but it **runs identically in backte
 
 - **[Research = Backtest = Live](/competitive/code-parity)**: The code parity guarantee that vectorized frameworks cannot provide
 - **[Lookback Buffers](/engine/lookback-buffers)**: How RollingBuffer prevents lookahead by design
-- **[STATE Principle](/engine/state-principle)**: Portfolio state management missing from vectorized frameworks
+- **[STATE Principle](/engine/field-state)**: Portfolio state management missing from vectorized frameworks
 - **[Backtesting Accuracy](/backtesting/overview)**: The full picture of what makes backtests reliable

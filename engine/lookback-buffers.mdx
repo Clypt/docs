@@ -198,7 +198,12 @@ RollingBuffer uses **0.005%** of the memory. It only stores what's needed.
 ## Buffer Lifecycle
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     A["add_node()<br>RollingBuffer allocated<br>(lookback × n_symbols)"]
     B["on_tick() — warmup<br>buffer.append(tick)<br>valid=False until full"]
     C["on_tick() — normal<br>overwrites oldest entry<br>operator receives full lookback"]
@@ -206,12 +211,15 @@ flowchart TB
 
     A --> B --> C
     C -.-> D
+
+    class A highlight
+    class C action
+    class D source
 ```
 
 ## Relationship to Other Concepts
 
 - **[TaggedArray](/engine/tagged-array)**: RollingBuffer stores and delivers TaggedArrays
 - **[StatefulGraph](/engine/stateful-graph)**: The graph creates and manages all RollingBuffers
-- **[FIELD Data Principle](/engine/field-data-principle)**: FIELD data is distributed to consumer buffers
-- **[STATE Principle](/engine/state-principle)**: STATE data follows the same buffer mechanism
+- **[FIELD & STATE](/engine/field-state)**: FIELD and STATE data are distributed to consumer buffers via the same mechanism
 - **[Operator Protocol](/engine/operator-protocol)**: Operators receive buffered data from their Input specifications

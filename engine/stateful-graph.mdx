@@ -142,11 +142,20 @@ This pre-computation makes tick distribution O(consumers) instead of O(nodes).
 `on_tick()` is the main entry point called every tick:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     OnTick["on_tick(raw_tick_data, timestamp)"]
     OnTick --> Step1["Distribute source inputs<br>For each FIELD/STATE source:<br>buffer.append(tick)"]
     Step1 --> Step2["Execute operators<br>in topological order<br>distribute outputs to buffers"]
     Step2 --> Step3["Return all outputs"]
+
+    class OnTick highlight
+    class Step1 source
+    class Step3 action
 ```
 
 ### Step 1: Distribute Source Inputs
@@ -364,8 +373,7 @@ Input("hourly_sma", "1m", lookback=60)  # → Validation error
 
 ## Relationship to Other Concepts
 
-- **[FIELD Data Principle](/engine/field-data-principle)**: FIELD sources are distributed to consumer buffers by the graph
-- **[STATE Principle](/engine/state-principle)**: STATE sources follow the same distribution mechanism
+- **[FIELD & STATE](/engine/field-state)**: FIELD and STATE sources are distributed to consumer buffers by the graph
 - **[TaggedArray](/engine/tagged-array)**: All data flowing through the graph is TaggedArrays
 - **[Lookback Buffers](/engine/lookback-buffers)**: The graph creates and manages RollingBuffers for each input
 - **[TradingSpec](/engine/trading-spec)**: `TradingStrategySpec.graph` holds the StatefulGraph instance

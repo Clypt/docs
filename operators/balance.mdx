@@ -5,7 +5,7 @@ description: "Query portfolio state — cash, equity, positions, and margin via 
 
 ## Overview
 
-Balance operators query the **portfolio state** managed by the execution engine. They read from [STATE](/engine/state-principle) inputs (cash, positions, margin) and combine them with [FIELD](/engine/field-data-principle) inputs (current prices) to compute real-time portfolio metrics.
+Balance operators query the **portfolio state** managed by the execution engine. They read from [STATE](/engine/field-state) inputs (cash, positions, margin) and combine them with [FIELD](/engine/field-state) inputs (current prices) to compute real-time portfolio metrics.
 
 **Key principle:** Balance operators don't _compute_ state — the execution engine manages state. Balance operators _query_ it and make it available to the rest of the operator graph.
 
@@ -183,7 +183,10 @@ book = BookSize(
 Balance operators are the bridge between **STATE** (execution engine) and **FIELD** (market data):
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     subgraph FIELD["FIELD (market data)"]
         F1["close prices"]
         F2["open prices"]
@@ -204,6 +207,9 @@ flowchart TB
     S3 --> EQ
     EQ --> BS["BookSize"]
     BS --> OO["Order Operators"]
+    class F1,F2,F3,F4,F5 source
+    class S1,S2,S3,S4,S5 source
+    class OO action
 ```
 
 ### STATE Keys
@@ -294,7 +300,7 @@ graph.add_node("has_position", ConditionalGate(
 
 ## Relationship to Other Concepts
 
-- **[STATE Principle](/engine/state-principle)**: How STATE data flows through the system
-- **[FIELD Data Principle](/engine/field-data-principle)**: Market data used by EquityCalculator
+- **[STATE Principle](/engine/field-state)**: How STATE data flows through the system
+- **[FIELD Data Principle](/engine/field-state)**: Market data used by EquityCalculator
 - **[Order Operators](/operators/order)**: Use BookSize output for position sizing
 - **[TradingSpec](/engine/trading-spec)**: AccountSpec defines which STATE namespaces exist

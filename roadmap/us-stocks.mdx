@@ -176,22 +176,6 @@ ETFs are covered through equity broker integrations (IBKR, Alpaca, Schwab). Inde
 | **Satellite & Geospatial** | Orbital Insight (parking lots, oil tanks), RS Metrics (retail foot traffic), SpaceKnow (manufacturing indices), Ursa Space (commodity intelligence) |
 | **Signals & Analytics** | ExtractAlpha (pre-validated quant signals), Exabel (alternative data → KPIs), data.ai (mobile app analytics), Preqin (alternative assets) |
 
-## QuantConnect Comparison
-
-QuantConnect currently integrates with 20+ data vendors and 50+ datasets. ClyptQ's roadmap targets **130+ integrations** covering:
-
-| Category | QuantConnect | ClyptQ (Planned) |
-|---|---|---|
-| Equity pricing | AlgoSeek | Polygon, Tiingo, DataBento, Alpha Vantage, Intrinio, EODHD, Norgate |
-| Equity options | AlgoSeek | CBOE DataShop, OptionMetrics, ORATS, iVolatility, Polygon |
-| Futures | AlgoSeek | CME DataMine, ICE, DataBento, Barchart, CQG |
-| Forex | FXCM | OANDA, FXCM, Dukascopy, TrueFX, HistData |
-| Crypto | CoinAPI | Kaiko, CoinMetrics, CoinGecko, Amberdata, Tardis (+ current 5 exchanges) |
-| Fundamentals | Morningstar | Bloomberg, Refinitiv, Capital IQ, FactSet, SimFin, FMP, Compustat |
-| On-chain | — | Glassnode, CryptoQuant, Nansen, Dune, Flipside, Santiment, DefiLlama |
-| Alternative | Benzinga, Brain, Quiver | RavenPack, StockTwits, LunarCrush, SimilarWeb, Thinknum, Orbital Insight |
-| Brokers | 20 | IBKR, Alpaca, Schwab, OANDA, Rithmic, CQG, TT (+ current 5 exchanges) |
-
 ## Architecture
 
 All new asset classes use the same `TradingSpec` → `TradingDriver` → `StatefulGraph` pipeline:
@@ -233,7 +217,7 @@ SymbolSourceMap(
 
 | Phase | Asset Class | Status |
 |---|---|---|
-| **Current** | Crypto (Binance, Bybit, OKX, Gate.io, Coinbase) | Live |
+| **Current** | Crypto (Binance, Bybit, Gate.io, Coinbase, Kraken) | Live |
 | **2025 H2** | US Equities (IBKR, Alpaca) + Forex (OANDA) | In Development |
 | **2026 H1** | Global Equities + Futures + Commodities | Planned |
 | **2026 H2** | Options + ETF analytics + Alternative Data | Planned |

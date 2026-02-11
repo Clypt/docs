@@ -8,7 +8,7 @@
   "colors": {
     "primary": "#94F1E8",
     "light": "#94F1E8",
-    "dark": "#0D9488",
+    "dark": "#94F1E8",
     "background": {
       "dark": "#000000",
       "light": "#FFFFFF"
@@ -46,17 +46,15 @@
       "pages": [
         "index",
         "quickstart",
-        "getting-started/why-clypt",
+        "getting-started/core-concepts",
         "getting-started/architecture-overview"
       ]
     },
     {
       "group": "Platform",
       "pages": [
-        "platform/ecosystem-overview",
         "platform/builder-guide",
         "platform/buyer-guide",
-        "platform/investor-overview",
         "platform/marketplace",
         "platform/jupyter-workflow",
         "platform/supported-exchanges",
@@ -64,11 +62,11 @@
       ]
     },
     {
-      "group": "Engine Concepts",
+      "group": "Engine Fundamentals",
       "pages": [
-        "engine/field-data-principle",
-        "engine/state-principle",
+        "engine/field-state",
         "engine/tagged-array",
+        "engine/operators",
         "engine/stateful-graph",
         "engine/lookback-buffers",
         "engine/operator-protocol",
@@ -89,14 +87,14 @@
       ]
     },
     {
-      "group": "Competitive Edge",
+      "group": "Why ClyptQ",
       "pages": [
-        "competitive/why-clyptq",
+        "competitive/overview",
+        "competitive/code-parity",
         "competitive/vs-quantconnect",
         "competitive/vs-quantrocket",
         "competitive/vs-nautilus",
         "competitive/vs-vectorized",
-        "competitive/code-parity",
         "competitive/semantic-operators"
       ]
     },
@@ -169,11 +167,16 @@
         "roadmap/prediction-markets",
         "roadmap/b2b-quant"
       ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "glossary"
+      ]
     }
   ],
   "footerSocials": {
     "x": "https://x.com/clyptai",
-    "linkedin": "https://www.linkedin.com/company/clypt-ai",
-    "github": "https://github.com/clypt"
+    "linkedin": "https://www.linkedin.com/company/clypt-ai"
   }
 }

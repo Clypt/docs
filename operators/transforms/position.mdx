@@ -27,16 +27,21 @@ This page documents **7 operators** (role: various).
 
 Convert L1-normalized weights to target notional positions.
 
+Multiplies each weight by the book size to produce notional position
+values. Book size can be provided as a fixed value or looked up from
+the runtime context. Positions below min_position are zeroed out.
+Formula: position_i = w_i * book_size; zero if |position_i| &lt; min_position.
+
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `book_size` | `Optional[float]` | `None` |  |
-| `book_size_key` | `str` | `'equity'` |  |
-| `min_position` | `float` | `0.0` |  |
+| `input` | `'Input'` | Required | Input weights signal. timeframe specifies data frequency. |
+| `book_size` | `Optional[float]` | `None` | Context key to look up book size when book_size is None |
+| `book_size_key` | `str` | `'equity'` | Context key to look up book size when book_size is None |
+| `min_position` | `float` | `0.0` | Minimum absolute notional position; smaller positions are zeroed |
 
 ### Usage
 
@@ -45,6 +50,53 @@ transform = WeightsToPositions(
     Input("weights", timeframe="1m", lookback=1),
     book_size=100000,
 )
+graph.add_node("positions", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+
+    # Get book size
+    book_size = self._book_size
+    if book_size is None and context:
+        book_size = context.get(self._book_size_key, 0.0)
+    if book_size is None or book_size <= 0:
+        book_size = 1.0  # Fallback
+
+    # Compute positions
+    result = values * book_size
+
+    # Apply minimum position filter
+    if self._min_position > 0:
+        result = np.where(np.abs(result) >= self._min_position, result, 0.0)
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -54,7 +106,13 @@ transform = WeightsToPositions(
 
 ## TurnoverConstraint
 
-Constrain target weights to maximum turnover.
+Constrain target weights to a maximum turnover budget.
+
+Computes the one-way turnover between target and current weights. If
+turnover exceeds the limit, linearly scales the trade toward the
+target so that the resulting turnover equals max_turnover.
+Formula: turnover = sum(|w_target - w_current|) / 2;
+         if turnover > max: w = w_current + (max / turnover) * (w_target - w_current)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -62,9 +120,9 @@ Constrain target weights to maximum turnover.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `max_turnover` | `float` | `0.5` |  |
-| `current_weights_key` | `str` | `'current_weights'` |  |
+| `input` | `'Input'` | Required | Input target weights signal. timeframe specifies data frequency. |
+| `max_turnover` | `float` | `0.5` | Maximum allowed one-way turnover as a fraction of book |
+| `current_weights_key` | `str` | `'current_weights'` | Context key to retrieve current weight array |
 
 ### Usage
 
@@ -73,6 +131,60 @@ transform = TurnoverConstraint(
     Input("weights", timeframe="1m", lookback=1),
     max_turnover=0.5,
 )
+graph.add_node("constrained_weights", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    target_values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+
+    # Get current weights from context
+    current_values = np.zeros(n_symbols)
+    if context and self._current_weights_key in context:
+        ctx_weights = context[self._current_weights_key]
+        if isinstance(ctx_weights, np.ndarray) and len(ctx_weights) == n_symbols:
+            current_values = ctx_weights
+
+    # Compute turnover
+    valid_mask = compute_mask & ~np.isnan(target_values) & ~np.isnan(current_values)
+    if np.any(valid_mask):
+        turnover = np.sum(np.abs(target_values[valid_mask] - current_values[valid_mask])) / 2
+    else:
+        turnover = 0.0
+
+    # Apply constraint
+    if turnover <= self._max_turnover or turnover < 1e-10:
+        result = target_values.copy()
+    else:
+        scale = self._max_turnover / turnover
+        result = current_values + scale * (target_values - current_values)
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -82,19 +194,14 @@ transform = TurnoverConstraint(
 
 ## TradeBarrier
 
-Apply trade barrier to reduce turnover - skip small weight changes.
+Apply a fixed trade barrier to suppress small weight changes.
 
-For each symbol, if the weight change from current position is smaller than
-the threshold, keep the current weight instead of updating.
-
-This operator computes current weights from STATE positions:
-    current_weight[i] = (position[i] * price[i]) / book_size
-
-Inputs (4 required):
-    1. target_weights: New target weights from signal (L1Norm output)
-    2. positions: Current positions (STATE:venue:pos_quantity)
-    3. prices: Current prices (FIELD:close)
-    4. book_size: Current book size (BookSize output)
+For each symbol, if the absolute weight change from the current position
+is smaller than the threshold, the current weight is kept. This reduces
+unnecessary turnover caused by noise. Current weights are derived from
+live state positions.
+Formula: current_w_i = (position_i * price_i) / book_size;
+         if |target_w_i - current_w_i| &lt; threshold: keep current_w_i, else use target_w_i.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -102,12 +209,12 @@ Inputs (4 required):
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `target_weights` | `'Input'` | Required |  |
-| `positions` | `'Input'` | Required |  |
-| `prices` | `'Input'` | Required |  |
-| `book_size` | `'Input'` | Required |  |
-| `threshold_pct` | `float` | `0.0` |  |
-| `threshold_abs` | `float` | `0.0` |  |
+| `target_weights` | `'Input'` | Required | New target weights from signal. timeframe specifies data frequency. |
+| `positions` | `'Input'` | Required | Current position quantities (STATE:venue:pos_quantity). |
+| `prices` | `'Input'` | Required | Current prices (FIELD:close). |
+| `book_size` | `'Input'` | Required | Current book size (BookSize output). |
+| `threshold_pct` | `float` | `0.0` | Minimum weight change in percent to trigger a trade |
+| `threshold_abs` | `float` | `0.0` | Absolute threshold on weight change |
 
 ### Usage
 
@@ -119,6 +226,82 @@ barrier = TradeBarrier(
     book_size=Input("book_size", timeframe="1h", lookback=0),
     threshold_pct=0.5,  # Don't trade if weight change < 0.5%
 )
+graph.add_node("barrier_weights", barrier)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        # Fallback: just return first input
+        if isinstance(data, list):
+            data = data[0]
+        last = data[-1] if len(data) > 0 else data
+        return last
+
+    weights_data, positions_data, prices_data, book_size_data = data[0], data[1], data[2], data[3]
+
+    # Extract target weights
+    last_w = weights_data[-1] if len(weights_data) > 0 else weights_data
+    target_weights = last_w.value
+    exists = last_w.exists
+    valid = last_w.valid
+    n_symbols = len(exists)
+
+    # Extract positions
+    last_p = positions_data[-1] if len(positions_data) > 0 else positions_data
+    positions = last_p.value if hasattr(last_p, 'value') else np.zeros(n_symbols)
+
+    # Extract prices
+    last_pr = prices_data[-1] if len(prices_data) > 0 else prices_data
+    prices = last_pr.value if hasattr(last_pr, 'value') else np.ones(n_symbols)
+
+    # Extract book_size (scalar)
+    last_bs = book_size_data[-1] if len(book_size_data) > 0 else book_size_data
+    bs_val = last_bs.value if hasattr(last_bs, 'value') else np.array([1.0])
+    book_size = float(bs_val.flat[0]) if bs_val.size > 0 else 1.0
+
+    # Compute current weights from positions
+    # current_weight = (position * price) / book_size
+    if book_size > 0:
+        current_weights = (positions * prices) / book_size
+    else:
+        current_weights = np.zeros(n_symbols)
+
+    # Determine effective threshold
+    threshold = max(self._threshold_pct, self._threshold_abs)
+
+    compute_mask = exists & valid
+    result = np.zeros(n_symbols)
+
+    for i in range(n_symbols):
+        if not compute_mask[i] or np.isnan(target_weights[i]):
+            result[i] = target_weights[i]
+        else:
+            weight_change = abs(target_weights[i] - current_weights[i])
+            if weight_change < threshold:
+                # Keep current weight (don't trade)
+                result[i] = current_weights[i]
+            else:
+                # Update to new weight
+                result[i] = target_weights[i]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -128,20 +311,15 @@ barrier = TradeBarrier(
 
 ## AdaptiveTradeBarrier
 
-Apply adaptive trade barrier based on volatility (ATR or rolling std).
+Apply a volatility-adaptive trade barrier to suppress noise-driven turnover.
 
-Instead of a fixed threshold, the barrier adapts to market conditions:
-    threshold[i] = k * volatility[i]
-
-In low volatility: small moves are noise → high barrier → fewer trades
-In high volatility: larger moves expected → can afford to trade more
-
-Inputs (5 required):
-    1. target_weights: New target weights from signal (L1Norm output)
-    2. positions: Current positions (STATE:venue:pos_quantity)
-    3. prices: Current prices (FIELD:close)
-    4. book_size: Current book size (BookSize output)
-    5. volatility: Per-symbol volatility (ATR or rolling std of returns)
+Instead of a fixed threshold, the barrier adapts per symbol based on
+its current volatility. In low-volatility regimes the barrier is
+higher (more filtering); in high-volatility regimes it is lower
+(allowing larger real moves through). The threshold is clamped to
+[min_threshold, max_threshold].
+Formula: threshold_i = clip(k * volatility_i, min_threshold, max_threshold);
+         if |target_w_i - current_w_i| &lt; threshold_i: keep current_w_i.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -149,14 +327,14 @@ Inputs (5 required):
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `target_weights` | `'Input'` | Required |  |
-| `positions` | `'Input'` | Required |  |
-| `prices` | `'Input'` | Required |  |
-| `book_size` | `'Input'` | Required |  |
-| `volatility` | `'Input'` | Required |  |
-| `k` | `float` | `2.0` |  |
-| `min_threshold` | `float` | `0.005` |  |
-| `max_threshold` | `float` | `0.1` |  |
+| `target_weights` | `'Input'` | Required | New target weights from signal. timeframe specifies data frequency. |
+| `positions` | `'Input'` | Required | Current position quantities (STATE:venue:pos_quantity). |
+| `prices` | `'Input'` | Required | Current prices (FIELD:close). |
+| `book_size` | `'Input'` | Required | Current book size (BookSize output). |
+| `volatility` | `'Input'` | Required | Per-symbol volatility signal (ATR or rolling std of returns). |
+| `k` | `float` | `2.0` | Multiplier applied to volatility to compute the threshold |
+| `min_threshold` | `float` | `0.005` | Floor for adaptive threshold as a decimal fraction |
+| `max_threshold` | `float` | `0.1` | Ceiling for adaptive threshold as a decimal fraction |
 
 ### Usage
 
@@ -171,6 +349,93 @@ barrier = AdaptiveTradeBarrier(
     min_threshold=0.005,  # minimum 0.5% barrier
     max_threshold=0.10,   # maximum 10% barrier
 )
+graph.add_node("adaptive_barrier_weights", barrier)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 5:
+        if isinstance(data, list):
+            data = data[0]
+        last = data[-1] if len(data) > 0 else data
+        return last
+
+    weights_data, positions_data, prices_data, book_size_data, vol_data = (
+        data[0], data[1], data[2], data[3], data[4]
+    )
+
+    # Extract target weights
+    last_w = weights_data[-1] if len(weights_data) > 0 else weights_data
+    target_weights = last_w.value
+    exists = last_w.exists
+    valid = last_w.valid
+    n_symbols = len(exists)
+
+    # Extract positions
+    last_p = positions_data[-1] if len(positions_data) > 0 else positions_data
+    positions = last_p.value if hasattr(last_p, 'value') else np.zeros(n_symbols)
+
+    # Extract prices
+    last_pr = prices_data[-1] if len(prices_data) > 0 else prices_data
+    prices = last_pr.value if hasattr(last_pr, 'value') else np.ones(n_symbols)
+
+    # Extract book_size (scalar)
+    last_bs = book_size_data[-1] if len(book_size_data) > 0 else book_size_data
+    bs_val = last_bs.value if hasattr(last_bs, 'value') else np.array([1.0])
+    book_size = float(bs_val.flat[0]) if bs_val.size > 0 else 1.0
+
+    # Extract volatility (per-symbol)
+    last_vol = vol_data[-1] if len(vol_data) > 0 else vol_data
+    volatility = last_vol.value if hasattr(last_vol, 'value') else np.zeros(n_symbols)
+
+    # Compute current weights from positions
+    if book_size > 0:
+        current_weights = (positions * prices) / book_size
+    else:
+        current_weights = np.zeros(n_symbols)
+
+    # Compute adaptive threshold per symbol: threshold = k * volatility
+    # Clamp to [min_threshold, max_threshold]
+    adaptive_threshold = np.clip(
+        self._k * volatility,
+        self._min_threshold,
+        self._max_threshold
+    )
+
+    compute_mask = exists & valid
+    result = np.zeros(n_symbols)
+
+    for i in range(n_symbols):
+        if not compute_mask[i] or np.isnan(target_weights[i]):
+            result[i] = target_weights[i]
+        else:
+            weight_change = abs(target_weights[i] - current_weights[i])
+            threshold = adaptive_threshold[i] if not np.isnan(adaptive_threshold[i]) else self._min_threshold
+
+            if weight_change < threshold:
+                # Keep current weight (don't trade)
+                result[i] = current_weights[i]
+            else:
+                # Update to new weight
+                result[i] = target_weights[i]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -180,25 +445,16 @@ barrier = AdaptiveTradeBarrier(
 
 ## TCOptimizedWeights
 
-Compute transaction-cost aware optimal weights using L1 penalty.
+Transaction-cost aware optimal weights using L1 soft-thresholding.
 
-Solves: maximize α'w - λ_tc * ||w - w_prev||_1
-
-This is equivalent to: only update weight if |α_i - α_prev_i| > λ_tc
-(the alpha gain exceeds the transaction cost penalty)
-
-The solution has closed form:
-    If target_w[i] > current_w[i] + λ_tc: w[i] = target_w[i] - λ_tc
-    If target_w[i] < current_w[i] - λ_tc: w[i] = target_w[i] + λ_tc
+Solves the optimization: maximize alpha'w - lambda_tc * ||w - w_prev||_1.
+The closed-form solution applies soft-thresholding to the weight change:
+    If target_w[i] > current_w[i] + lambda_tc: w[i] = target_w[i] - lambda_tc
+    If target_w[i] &lt; current_w[i] - lambda_tc: w[i] = target_w[i] + lambda_tc
     Otherwise: w[i] = current_w[i]  (no trade)
-
-After adjustment, weights are re-normalized to sum to 1 (L1 norm).
-
-Inputs (4 required):
-    1. target_weights: Raw target weights from signal (before L1Norm)
-    2. positions: Current positions (STATE:venue:pos_quantity)
-    3. prices: Current prices (FIELD:close)
-    4. book_size: Current book size (BookSize output)
+After adjustment, weights are L1-normalized to sum(|w|) = 1.
+Formula: delta_i = target_i - current_i;
+         w_i = target_i - sign(delta_i)*lambda_tc  if |delta_i| > lambda_tc, else current_i.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -206,11 +462,11 @@ Inputs (4 required):
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `target_weights` | `'Input'` | Required |  |
-| `positions` | `'Input'` | Required |  |
-| `prices` | `'Input'` | Required |  |
-| `book_size` | `'Input'` | Required |  |
-| `lambda_tc` | `float` | `0.01` |  |
+| `target_weights` | `'Input'` | Required | Raw target weights from signal. timeframe specifies data frequency. |
+| `positions` | `'Input'` | Required | Current position quantities (STATE:venue:pos_quantity). |
+| `prices` | `'Input'` | Required | Current prices (FIELD:close). |
+| `book_size` | `'Input'` | Required | Current book size (BookSize output). |
+| `lambda_tc` | `float` | `0.01` | Transaction cost penalty coefficient |
 
 ### Usage
 
@@ -222,6 +478,89 @@ tc_weights = TCOptimizedWeights(
     book_size=Input("book_size", timeframe="1h", lookback=0),
     lambda_tc=0.02,  # Transaction cost penalty (2%)
 )
+graph.add_node("tc_weights", tc_weights)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        if isinstance(data, list):
+            data = data[0]
+        last = data[-1] if len(data) > 0 else data
+        return last
+
+    weights_data, positions_data, prices_data, book_size_data = data[0], data[1], data[2], data[3]
+
+    # Extract target weights (raw, not normalized)
+    last_w = weights_data[-1] if len(weights_data) > 0 else weights_data
+    target_weights = last_w.value
+    exists = last_w.exists
+    valid = last_w.valid
+    n_symbols = len(exists)
+
+    # Extract positions
+    last_p = positions_data[-1] if len(positions_data) > 0 else positions_data
+    positions = last_p.value if hasattr(last_p, 'value') else np.zeros(n_symbols)
+
+    # Extract prices
+    last_pr = prices_data[-1] if len(prices_data) > 0 else prices_data
+    prices = last_pr.value if hasattr(last_pr, 'value') else np.ones(n_symbols)
+
+    # Extract book_size (scalar)
+    last_bs = book_size_data[-1] if len(book_size_data) > 0 else book_size_data
+    bs_val = last_bs.value if hasattr(last_bs, 'value') else np.array([1.0])
+    book_size = float(bs_val.flat[0]) if bs_val.size > 0 else 1.0
+
+    # Compute current weights from positions
+    if book_size > 0:
+        current_weights = (positions * prices) / book_size
+    else:
+        current_weights = np.zeros(n_symbols)
+
+    compute_mask = exists & valid
+    result = np.zeros(n_symbols)
+    lambda_tc = self._lambda_tc
+
+    for i in range(n_symbols):
+        if not compute_mask[i] or np.isnan(target_weights[i]):
+            result[i] = target_weights[i]
+        else:
+            diff = target_weights[i] - current_weights[i]
+
+            if diff > lambda_tc:
+                # Want to increase weight: shrink by lambda_tc
+                result[i] = target_weights[i] - lambda_tc
+            elif diff < -lambda_tc:
+                # Want to decrease weight: shrink by lambda_tc
+                result[i] = target_weights[i] + lambda_tc
+            else:
+                # |diff| <= lambda_tc: no trade, keep current
+                result[i] = current_weights[i]
+
+    # Re-normalize to L1 norm = 1 (long/short balanced)
+    valid_mask = compute_mask & ~np.isnan(result)
+    if np.any(valid_mask):
+        l1_sum = np.sum(np.abs(result[valid_mask]))
+        if l1_sum > 1e-10:
+            result[valid_mask] = result[valid_mask] / l1_sum
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -231,7 +570,14 @@ tc_weights = TCOptimizedWeights(
 
 ## PositionLimits
 
-Apply position limits to target positions.
+Apply absolute and concentration-based position limits.
+
+Clips each position to an absolute notional cap and/or a maximum
+fraction of total book size. Both limits are applied independently:
+the absolute limit first, then the concentration limit if a book
+size is available in context.
+Formula: result_i = clip(x_i, -max_pos, max_pos);
+         if max_concentration: result_i = clip(result_i, -max_conc*book, max_conc*book).
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -239,10 +585,10 @@ Apply position limits to target positions.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `max_position` | `Optional[float]` | `None` |  |
-| `max_concentration` | `Optional[float]` | `None` |  |
-| `book_size_key` | `str` | `'equity'` |  |
+| `input` | `'Input'` | Required | Input positions signal. timeframe specifies data frequency. |
+| `max_position` | `Optional[float]` | `None` | Maximum absolute notional position per symbol |
+| `max_concentration` | `Optional[float]` | `None` | Maximum position as a fraction of book size |
+| `book_size_key` | `str` | `'equity'` | Context key to look up book size for concentration limit |
 
 ### Usage
 
@@ -252,6 +598,52 @@ transform = PositionLimits(
     max_position=10000,
     max_concentration=0.1,
 )
+graph.add_node("limited_positions", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+
+    result = values.copy()
+
+    # Apply absolute limit
+    if self._max_position is not None:
+        result = np.clip(result, -self._max_position, self._max_position)
+
+    # Apply concentration limit
+    if self._max_concentration is not None and context:
+        book_size = context.get(self._book_size_key, 0.0)
+        if book_size > 0:
+            max_pos = self._max_concentration * book_size
+            result = np.clip(result, -max_pos, max_pos)
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>
@@ -261,7 +653,12 @@ transform = PositionLimits(
 
 ## NotionalToQuantity
 
-Convert notional positions to quantities using prices.
+Convert notional position values to asset quantities using prices.
+
+Divides each notional value by its corresponding price to get a raw
+quantity, then rounds to the nearest lot size. Prices are obtained
+from the runtime context.
+Formula: qty_i = round(notional_i / price_i / lot_size) * lot_size
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -269,9 +666,9 @@ Convert notional positions to quantities using prices.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `prices_key` | `str` | `'prices'` |  |
-| `lot_size` | `float` | `1e-08` |  |
+| `input` | `'Input'` | Required | Input notional positions signal. timeframe specifies data frequency. |
+| `prices_key` | `str` | `'prices'` | Context key to retrieve the price array |
+| `lot_size` | `float` | `1e-08` | Minimum tradeable increment for rounding quantities |
 
 ### Usage
 
@@ -281,6 +678,54 @@ transform = NotionalToQuantity(
     prices_key="prices",
     lot_size=1e-8,
 )
+graph.add_node("quantities", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    notional = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+
+    # Get prices from context
+    prices = np.ones(n_symbols)
+    if context and self._prices_key in context:
+        ctx_prices = context[self._prices_key]
+        if isinstance(ctx_prices, np.ndarray) and len(ctx_prices) == n_symbols:
+            prices = ctx_prices
+
+    # Convert to quantity
+    with np.errstate(divide='ignore', invalid='ignore'):
+        result = np.where(prices > 0, notional / prices, 0.0)
+
+    # Round to lot size
+    if self._lot_size > 0:
+        result = np.round(result / self._lot_size) * self._lot_size
+
+    result_valid = compute_mask & ~np.isnan(result) & (prices > 0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/transform/position.py`</sub>

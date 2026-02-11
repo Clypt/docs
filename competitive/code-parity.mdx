@@ -23,6 +23,7 @@ Each difference is small. Together, they destroy your edge.
 **Most quant platforms have two codebases.** One for research and one for production:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
     subgraph RP["Research Path"]
         J["Jupyter"] --> PN["pandas/numpy"] --> DF["DataFrame"] --> BE["backtest_engine.py"]
@@ -248,7 +249,10 @@ This code runs **unchanged** in backtest (iterating over 1 year of data in secon
 Inside the driver, each iteration of the `for` loop executes one tick:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
     A["Fetch next tick<br>Backtest: Parquet<br>Live: WebSocket"] --> B["Distribute FIELD data<br>to consumer buffers"]
     B --> C["Distribute STATE data<br>to consumer buffers"]
     C --> D["Execute operators<br>in topological order"]
@@ -256,6 +260,8 @@ flowchart TB
     E --> F["Executor: process fill<br>Backtest: simulate<br>Live: real order"]
     F --> G["Update STATE<br>with fill result"]
     G --> H["Yield result"]
+    class A source
+    class H action
 ```
 
 Steps 2-5 and 7-8 are **identical code** in all modes. Only steps 1 and 6 differ — and those are internal to the driver, invisible to the user.
@@ -267,6 +273,7 @@ While the user code is identical, the driver internally swaps two components:
 #### Data Injection (Step 1)
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
     subgraph BT["BACKTEST"]
         direction LR
@@ -500,6 +507,6 @@ The graph, the spec, the `for result in driver` loop, the logging, the analysis 
 
 - **[TradingSpec](/engine/trading-spec)**: The declarative specification that makes code parity possible
 - **[StatefulGraph](/engine/stateful-graph)**: The DAG that executes identically in all modes
-- **[FIELD Protocol](/engine/field-data-principle)**: Data routing that's source-agnostic
-- **[STATE Protocol](/engine/state-principle)**: Portfolio state that flows identically regardless of execution mode
+- **[FIELD Protocol](/engine/field-state)**: Data routing that's source-agnostic
+- **[STATE Protocol](/engine/field-state)**: Portfolio state that flows identically regardless of execution mode
 - **[Execution Pipeline](/engine/execution-pipeline)**: The memoryless executor that differs only in fill simulation vs real fills

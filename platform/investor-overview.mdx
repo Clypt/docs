@@ -53,7 +53,7 @@ All operators process `TaggedArray` — a 4-field data structure (value, exists,
 - **Marketplace trust**: Strategies are verified on data the builder never saw
 - **Multi-exchange strategies**: A single graph can trade across multiple venues
 
-### 4. Operator Library (213+)
+### 4. Operator Library (380+)
 
 The prebuilt operator library covers:
 - **48+ technical indicators** (SMA, RSI, MACD, Bollinger, ATR, etc.)
@@ -107,12 +107,15 @@ Transaction fees scale with **marketplace GMV** — more buyers deploying more s
 ### Network Effects
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
     A["More Builders"] --> B["More strategies"]
     B --> C["More Buyers"]
     C --> D["More revenue"]
     D --> E["Higher builder payouts"]
     E --> A
+    class A highlight
 ```
 
 The marketplace creates a two-sided network effect:
@@ -146,7 +149,7 @@ The marketplace creates a two-sided network effect:
 - 6 cryptocurrency exchanges supported
 - Full backtest/paper/live lifecycle
 - Strategy marketplace with cross-exchange validation
-- 213+ prebuilt operators
+- 380+ prebuilt operators
 
 ### Phase 2: Asset Class Expansion
 - US equities via Alpaca and Interactive Brokers
@@ -178,13 +181,13 @@ The marketplace creates a two-sided network effect:
 ## Related Pages
 
 <CardGroup cols={2}>
-  <Card title="Why Clypt?" icon="question" href="/getting-started/why-clypt">
+  <Card title="Why Clypt?" icon="question" href="/competitive/overview">
     The problems Clypt solves and why they matter
   </Card>
   <Card title="Marketplace" icon="store" href="/platform/marketplace">
     How the verification and trust mechanism works
   </Card>
-  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/why-clyptq">
+  <Card title="Why ClyptQ (Technical)" icon="microscope" href="/competitive/overview">
     Detailed technical comparison with competitors
   </Card>
   <Card title="Roadmap" icon="road" href="/roadmap/overview">

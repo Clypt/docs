@@ -16,23 +16,23 @@ Computed over a sliding window of recent data.
 
 | Metric | Key Parameters | Description |
 |--------|----------------|-------------|
-| **RollingCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Compound Annual Growth Rate (CAGR) metric. |
-| **RollingCVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Conditional Value at Risk (Expected Shortfall) metric. |
-| **RollingCalmar** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Calmar Ratio metric (CAGR / Max Drawdown). |
-| **RollingCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Current Drawdown (from peak to now). |
-| **RollingDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Downside Volatility (only negative returns). |
-| **RollingDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Drawdown Duration (periods since peak). |
-| **RollingIC** | `lag=1`, `method='spearman'`, `min_periods=10` | Rolling IC between lagged signal and current returns. |
-| **RollingMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Maximum Drawdown metric. |
-| **RollingProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Profit Factor metric (gross profit / gross loss). |
-| **RollingSharpe** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sharpe Ratio metric. |
-| **RollingSortino** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sortino Ratio metric (uses downside deviation). |
-| **RollingTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Total Return metric. |
-| **RollingTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Rolling total turnover (sum) over a lookback window. |
+| **RollingCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Compound Annual Growth Rate over a lookback window. |
+| **RollingCVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Conditional Value at Risk (Expected Shortfall) over a lookback window. |
+| **RollingCalmar** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Calmar Ratio over a lookback window. |
+| **RollingCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling current drawdown from peak to the latest value. |
+| **RollingDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling annualized downside volatility over a lookback window. |
+| **RollingDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling drawdown duration as number of periods since the peak. |
+| **RollingIC** | `lag=1`, `method='spearman'`, `min_periods=10` | Rolling Information Coefficient between lagged signal and forward returns. |
+| **RollingMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling maximum drawdown over a lookback window. |
+| **RollingProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling profit factor over a lookback window. |
+| **RollingSharpe** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sharpe Ratio over a lookback window. |
+| **RollingSortino** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `rf=0.0` | Rolling Sortino Ratio over a lookback window. |
+| **RollingTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling total return over a lookback window. |
+| **RollingTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Rolling total (cumulative sum) turnover over a lookback window. |
 | **RollingTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Rolling average turnover over a lookback window. |
-| **RollingVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Value at Risk metric. |
-| **RollingVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling Annualized Volatility metric. |
-| **RollingWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling Win Rate metric (% of positive returns). |
+| **RollingVaR** | `level=MetricLevel.PORTFOLIO`, `alpha=0.05`, `min_periods=10` | Rolling Value at Risk (VaR) over a lookback window. |
+| **RollingVolatility** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Rolling annualized volatility over a lookback window. |
+| **RollingWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Rolling win rate over a lookback window. |
 
 ## Accumulated Metrics
 
@@ -40,22 +40,22 @@ Computed over the entire strategy history (since inception).
 
 | Metric | Key Parameters | Description |
 |--------|----------------|-------------|
-| **AccumCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Accumulative CAGR (incremental, O(1) per tick). |
-| **AccumCalmar** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Calmar Ratio (incremental, O(1) per tick). |
-| **AccumCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Current Drawdown (incremental, O(1) per tick). |
-| **AccumDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Downside Volatility (incremental, O(1) per tick). |
-| **AccumDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Drawdown Duration (incremental, O(1) per tick). |
-| **AccumMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Maximum Drawdown (incremental, O(1) per tick). |
-| **AccumNumTrades** | `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative Number of Trades (incremental, O(1) per tick). |
-| **AccumProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Profit Factor (incremental, O(1) per tick). |
-| **AccumSharpe** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sharpe Ratio (incremental, O(1) per tick). |
-| **AccumSortino** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sortino Ratio (incremental, O(1) per tick). |
-| **AccumTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Total Return (incremental, O(1) per tick). |
-| **AccumTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Accumulative total turnover (incremental, O(1) per tick). |
-| **AccumTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative average turnover (incremental, O(1) per tick). |
-| **AccumVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Annualized Volatility (incremental, O(1) per tick). |
-| **AccumWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative Win Rate (incremental, O(1) per tick). |
-| **Turnover** | `weights_input`, `level=MetricLevel.PORTFOLIO` | Single-tick portfolio turnover (incremental, O(1) per tick). |
+| **AccumCAGR** | `level=MetricLevel.PORTFOLIO`, `periods_per_year=252`, `min_periods=2` | Accumulative Compound Annual Growth Rate computed incrementally in O(1) per tick. |
+| **AccumCalmar** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Calmar Ratio computed incrementally in O(1) per tick. |
+| **AccumCurrentDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative current drawdown from peak computed incrementally in O(1) per tick. |
+| **AccumDownsideVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative annualized downside volatility computed incrementally in O(1) per tick. |
+| **AccumDrawdownDuration** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative drawdown duration computed incrementally in O(1) per tick. |
+| **AccumMaxDrawdown** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative maximum drawdown computed incrementally in O(1) per tick. |
+| **AccumNumTrades** | `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative number of trades computed incrementally in O(1) per tick. |
+| **AccumProfitFactor** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative profit factor computed incrementally in O(1) per tick. |
+| **AccumSharpe** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sharpe Ratio computed incrementally in O(1) per tick. |
+| **AccumSortino** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative Sortino Ratio computed incrementally in O(1) per tick. |
+| **AccumTotalReturn** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative total return computed incrementally in O(1) per tick. |
+| **AccumTotalTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO` | Accumulative total turnover (cumulative sum) computed incrementally in O(1) per tick. |
+| **AccumTurnover** | `turnover_input`, `level=MetricLevel.PORTFOLIO`, `min_periods=1` | Accumulative average turnover per rebalance computed incrementally in O(1) per tick. |
+| **AccumVolatility** | `level=MetricLevel.PORTFOLIO`, `timeframe=None`, `periods_per_year=None` | Accumulative annualized volatility computed incrementally in O(1) per tick. |
+| **AccumWinRate** | `level=MetricLevel.PORTFOLIO`, `min_periods=2` | Accumulative win rate computed incrementally in O(1) per tick. |
+| **Turnover** | `weights_input`, `level=MetricLevel.PORTFOLIO` | Single-tick portfolio turnover computed incrementally in O(1) per tick. |
 
 ---
 
@@ -65,9 +65,11 @@ Computed over the entire strategy history (since inception).
 
 ## AccumCAGR
 
-Accumulative CAGR (incremental, O(1) per tick).
+Accumulative Compound Annual Growth Rate computed incrementally in O(1) per tick.
 
-CAGR = (current/first)^(periods_per_year/n_periods) - 1
+Stores the first observed equity value and period count, then computes:
+CAGR = (V_current / V_first) ^ (periods_per_year / n_periods) - 1.
+Only requires the current tick (lookback=1) since state is maintained internally.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -75,23 +77,49 @@ CAGR = (current/first)^(periods_per_year/n_periods) - 1
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-cagr = AccumCAGR(
-        Input("STATE:equity", timeframe="1m", lookback=1),
-        periods_per_year=252,
-    )
+graph.add_node("cagr", AccumCAGR(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+    periods_per_year=252,
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - Stores first_value and n_periods
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/returns.py`</sub>
@@ -101,9 +129,11 @@ Note:
 
 ## AccumCalmar
 
-Accumulative Calmar Ratio (incremental, O(1) per tick).
+Accumulative Calmar Ratio computed incrementally in O(1) per tick.
 
-Calmar = CAGR / |MaxDrawdown|
+Combines incremental CAGR and maximum drawdown tracking to compute:
+Calmar = CAGR / |MaxDrawdown|, where CAGR = (V_current / V_first) ^ (1/years) - 1
+and MaxDrawdown is the worst peak-to-trough decline since inception.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -111,24 +141,50 @@ Calmar = CAGR / |MaxDrawdown|
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `timeframe` | `Optional[str]` | `None` |  |
-| `periods_per_year` | `Optional[int]` | `None` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `timeframe` | `Optional[str]` | `None` | Data frequency string for auto-resolving periods_per_year (e.g., "1h", "1m"). |
+| `periods_per_year` | `Optional[int]` | `None` | Explicit override for annualization factor |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-calmar = AccumCalmar(
-        Input("STATE:equity", timeframe="1h", lookback=1),
-        timeframe="1h",
-    )
+graph.add_node("calmar", AccumCalmar(
+    Input("STATE:equity", timeframe="1h", lookback=1),
+    timeframe="1h",
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - Combines incremental CAGR and MaxDrawdown
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/calmar.py`</sub>
@@ -138,9 +194,11 @@ Note:
 
 ## AccumCurrentDrawdown
 
-Accumulative Current Drawdown (incremental, O(1) per tick).
+Accumulative current drawdown from peak computed incrementally in O(1) per tick.
 
-Tracks peak and computes current drawdown from peak.
+Tracks the running peak and computes the percentage decline from peak to
+the current value: current_dd = (V_current - V_peak) / V_peak. Returns 0
+when the current value equals or exceeds the all-time peak.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -148,16 +206,47 @@ Tracks peak and computes current drawdown from peak.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-current_dd = AccumCurrentDrawdown(
+graph.add_node("current_dd", AccumCurrentDrawdown(
     Input("STATE:equity", timeframe="1m", lookback=1),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
@@ -167,9 +256,11 @@ current_dd = AccumCurrentDrawdown(
 
 ## AccumDownsideVolatility
 
-Accumulative Downside Volatility (incremental, O(1) per tick).
+Accumulative annualized downside volatility computed incrementally in O(1) per tick.
 
-Only tracks negative returns for downside deviation.
+Tracks only negative returns to compute downside deviation since inception:
+downside_vol = sqrt(mean(negative_returns^2)) * sqrt(periods_per_year). Ignores
+positive returns entirely, measuring only harmful volatility.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -177,19 +268,50 @@ Only tracks negative returns for downside deviation.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `timeframe` | `Optional[str]` | `None` |  |
-| `periods_per_year` | `Optional[int]` | `None` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `timeframe` | `Optional[str]` | `None` | Data frequency string for auto-resolving periods_per_year (e.g., "1h", "1m"). |
+| `periods_per_year` | `Optional[int]` | `None` | Explicit override for annualization factor |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-downside_vol = AccumDownsideVolatility(
+graph.add_node("downside_vol", AccumDownsideVolatility(
     Input("STATE:equity", timeframe="1h", lookback=1),
     timeframe="1h",
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/volatility.py`</sub>
@@ -199,9 +321,11 @@ downside_vol = AccumDownsideVolatility(
 
 ## AccumDrawdownDuration
 
-Accumulative Drawdown Duration (incremental, O(1) per tick).
+Accumulative drawdown duration computed incrementally in O(1) per tick.
 
-Tracks periods since peak.
+Counts the number of consecutive periods elapsed since the equity reached
+its all-time peak. Resets to 0 when the current value equals or exceeds
+the peak; increments by 1 each period the equity remains below peak.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -209,16 +333,47 @@ Tracks periods since peak.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-dd_duration = AccumDrawdownDuration(
+graph.add_node("dd_duration", AccumDrawdownDuration(
     Input("STATE:equity", timeframe="1m", lookback=1),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
@@ -228,9 +383,11 @@ dd_duration = AccumDrawdownDuration(
 
 ## AccumMaxDrawdown
 
-Accumulative Maximum Drawdown (incremental, O(1) per tick).
+Accumulative maximum drawdown computed incrementally in O(1) per tick.
 
-Tracks peak and max drawdown incrementally.
+Tracks the running peak and computes the worst peak-to-trough decline
+since inception: MDD = min((V_t - V_peak) / V_peak) for all t seen so far.
+Result is a negative value (e.g., -0.20 means a 20% maximum drawdown).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -238,22 +395,47 @@ Tracks peak and max drawdown incrementally.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-# Only needs lookback=1
-    mdd = AccumMaxDrawdown(
-        Input("STATE:equity", timeframe="1m", lookback=1),
-    )
+graph.add_node("mdd", AccumMaxDrawdown(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - Internal state maintains peak and max_dd
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/drawdown.py`</sub>
@@ -263,7 +445,11 @@ Note:
 
 ## AccumNumTrades
 
-Accumulative Number of Trades (incremental, O(1) per tick).
+Accumulative number of trades computed incrementally in O(1) per tick.
+
+Counts the number of periods with non-zero returns (|return| > 1e-10) since
+inception, using each non-zero return as a proxy for a trade. Useful for
+tracking trading frequency over time.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -271,16 +457,47 @@ Accumulative Number of Trades (incremental, O(1) per tick).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `1` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `1` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-num_trades = AccumNumTrades(
+graph.add_node("num_trades", AccumNumTrades(
     Input("STATE:equity", timeframe="1m", lookback=1),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
@@ -290,7 +507,11 @@ num_trades = AccumNumTrades(
 
 ## AccumProfitFactor
 
-Accumulative Profit Factor (incremental, O(1) per tick).
+Accumulative profit factor computed incrementally in O(1) per tick.
+
+Tracks the running sum of positive and negative returns since inception:
+profit_factor = sum(positive_returns) / |sum(negative_returns)|. Values
+above 1.0 indicate more cumulative profit than loss.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -298,16 +519,47 @@ Accumulative Profit Factor (incremental, O(1) per tick).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-pf = AccumProfitFactor(
+graph.add_node("pf", AccumProfitFactor(
     Input("STATE:equity", timeframe="1m", lookback=1),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
@@ -317,10 +569,12 @@ pf = AccumProfitFactor(
 
 ## AccumSharpe
 
-Accumulative Sharpe Ratio (incremental, O(1) per tick).
+Accumulative Sharpe Ratio computed incrementally in O(1) per tick.
 
-Uses Welford's online algorithm for numerically stable incremental
-mean and variance calculation.
+Uses Welford's online algorithm for numerically stable incremental mean and
+variance of excess returns. The annualized Sharpe is computed as:
+Sharpe = (mean_excess * periods_per_year) / (std_excess * sqrt(periods_per_year)),
+where excess_return = return - rf / periods_per_year.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -328,26 +582,52 @@ mean and variance calculation.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `timeframe` | `Optional[str]` | `None` |  |
-| `periods_per_year` | `Optional[int]` | `None` |  |
-| `rf` | `float` | `0.0` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `timeframe` | `Optional[str]` | `None` | Data frequency string for auto-resolving periods_per_year (e.g., "1h", "1m"). |
+| `periods_per_year` | `Optional[int]` | `None` | Explicit override for annualization factor |
+| `rf` | `float` | `0.0` | Annual risk-free rate subtracted from returns |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-# Only needs lookback=1 (previous tick for return calculation)
-    sharpe = AccumSharpe(
-        Input("STATE:equity", timeframe="1h", lookback=1),
-        timeframe="1h",
-    )
+graph.add_node("sharpe", AccumSharpe(
+    Input("STATE:equity", timeframe="1h", lookback=1),
+    timeframe="1h",
+))
+```
 
-Note:
-    - lookback=-1 is no longer required (and will be ignored)
-    - Internal state maintains running statistics
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    # Get current values (only need latest tick)
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/sharpe.py`</sub>
@@ -357,9 +637,12 @@ Note:
 
 ## AccumSortino
 
-Accumulative Sortino Ratio (incremental, O(1) per tick).
+Accumulative Sortino Ratio computed incrementally in O(1) per tick.
 
-Uses Welford's algorithm for mean and tracks downside deviation.
+Uses Welford's algorithm for the running mean of excess returns, and tracks
+downside deviation from only negative returns. The annualized Sortino is:
+Sortino = (mean_excess * periods_per_year) / (downside_std * sqrt(periods_per_year)),
+where downside_std = sqrt(mean(negative_returns^2)).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -367,24 +650,51 @@ Uses Welford's algorithm for mean and tracks downside deviation.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `timeframe` | `Optional[str]` | `None` |  |
-| `periods_per_year` | `Optional[int]` | `None` |  |
-| `rf` | `float` | `0.0` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `timeframe` | `Optional[str]` | `None` | Data frequency string for auto-resolving periods_per_year (e.g., "1h", "1m"). |
+| `periods_per_year` | `Optional[int]` | `None` | Explicit override for annualization factor |
+| `rf` | `float` | `0.0` | Annual risk-free rate subtracted from returns |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-sortino = AccumSortino(
-        Input("STATE:equity", timeframe="1h", lookback=1),
-        timeframe="1h",
-    )
+graph.add_node("sortino", AccumSortino(
+    Input("STATE:equity", timeframe="1h", lookback=1),
+    timeframe="1h",
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/sortino.py`</sub>
@@ -394,9 +704,11 @@ Note:
 
 ## AccumTotalReturn
 
-Accumulative Total Return (incremental, O(1) per tick).
+Accumulative total return computed incrementally in O(1) per tick.
 
-Stores first value and computes (current - first) / first.
+Stores the first observed equity value and computes total return as
+total_return = (V_current - V_first) / V_first. Only requires the
+current tick (lookback=1) since the first value is stored internally.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -404,21 +716,47 @@ Stores first value and computes (current - first) / first.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations before producing valid output |
 
 ### Usage
 
 ```python
-total_ret = AccumTotalReturn(
-        Input("STATE:equity", timeframe="1m", lookback=1),
-    )
+graph.add_node("total_ret", AccumTotalReturn(
+    Input("STATE:equity", timeframe="1m", lookback=1),
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - Stores only first_value
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/returns.py`</sub>
@@ -428,9 +766,11 @@ Note:
 
 ## AccumTotalTurnover
 
-Accumulative total turnover (incremental, O(1) per tick).
+Accumulative total turnover (cumulative sum) computed incrementally in O(1) per tick.
 
-Tracks sum of all turnovers since inception.
+Tracks the running sum of all turnover values since inception:
+total_turnover = sum(turnover_t) for all t. Useful for measuring the
+total amount of portfolio rebalancing over the entire backtest.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -438,19 +778,46 @@ Tracks sum of all turnovers since inception.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `turnover_input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values (e.g., from Turnover operator). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols |
 
 ### Usage
 
 ```python
-total_turnover = AccumTotalTurnover(
-        Input("turnover", timeframe="1h", lookback=1),
-    )
+graph.add_node("total_turnover", AccumTotalTurnover(
+    Input("turnover", timeframe="1h", lookback=1),
+))
+```
 
-Note:
-    - Only needs lookback=1 (current tick)
-    - Uses internal state to track running total
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_value = values[-1][0] if len(values) > 0 else np.nan
+    else:
+        current_value = values[-1] if len(values) > 0 else (values[0] if len(values) > 0 else np.nan)
+
+    if not np.isnan(current_value):
+        self._total_turnover += current_value
+
+    return TaggedArray(
+        value=[self._total_turnover],
+        exists=[True],
+        valid=[True],
+        updated=np.array([True]),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
@@ -460,10 +827,11 @@ Note:
 
 ## AccumTurnover
 
-Accumulative average turnover (incremental, O(1) per tick).
+Accumulative average turnover per rebalance computed incrementally in O(1) per tick.
 
-Tracks cumulative turnover and count to compute average turnover
-per rebalance.
+Tracks the running sum of non-zero turnover values and their count since
+inception: avg_turnover = sum(turnover_i) / count(turnover_i above 0). Only
+counts periods where actual rebalancing occurred (turnover above 0).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -471,20 +839,53 @@ per rebalance.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `turnover_input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `1` |  |
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values (e.g., from Turnover operator). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols |
+| `min_periods` | `int` | `1` | Minimum number of ticks before producing valid output |
 
 ### Usage
 
 ```python
-avg_turnover = AccumTurnover(
-        Input("turnover", timeframe="1h", lookback=1),
-    )
+graph.add_node("avg_turnover", AccumTurnover(
+    Input("turnover", timeframe="1h", lookback=1),
+))
+```
 
-Note:
-    - Only needs lookback=1 (current tick)
-    - Uses internal state to track running average
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_value = values[-1][0] if len(values) > 0 else np.nan
+    else:
+        current_value = values[-1] if len(values) > 0 else (values[0] if len(values) > 0 else np.nan)
+
+    self._n += 1
+
+    if not np.isnan(current_value) and current_value > 0:
+        self._sum_turnover += current_value
+        self._count_nonzero += 1
+
+    if self._n < self._min_periods:
+        return self._make_output(np.nan, False)
+
+    if self._count_nonzero == 0:
+        avg_turnover = 0.0
+    else:
+        avg_turnover = self._sum_turnover / self._count_nonzero
+
+    return self._make_output(avg_turnover, True)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
@@ -494,9 +895,11 @@ Note:
 
 ## AccumVolatility
 
-Accumulative Annualized Volatility (incremental, O(1) per tick).
+Accumulative annualized volatility computed incrementally in O(1) per tick.
 
-Uses Welford's algorithm for numerically stable variance.
+Uses Welford's online algorithm for numerically stable running variance of
+period returns: vol = sqrt(variance) * sqrt(periods_per_year), where variance
+is computed incrementally from all returns observed since inception.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -504,23 +907,50 @@ Uses Welford's algorithm for numerically stable variance.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `timeframe` | `Optional[str]` | `None` |  |
-| `periods_per_year` | `Optional[int]` | `None` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `timeframe` | `Optional[str]` | `None` | Data frequency string for auto-resolving periods_per_year (e.g., "1h", "1m"). |
+| `periods_per_year` | `Optional[int]` | `None` | Explicit override for annualization factor |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-vol = AccumVolatility(
-        Input("STATE:equity", timeframe="1h", lookback=1),
-        timeframe="1h",
-    )
+graph.add_node("vol", AccumVolatility(
+    Input("STATE:equity", timeframe="1h", lookback=1),
+    timeframe="1h",
+))
+```
 
-Note:
-    - lookback=-1 is no longer required
-    - O(1) time and space complexity per tick
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/volatility.py`</sub>
@@ -530,7 +960,11 @@ Note:
 
 ## AccumWinRate
 
-Accumulative Win Rate (incremental, O(1) per tick).
+Accumulative win rate computed incrementally in O(1) per tick.
+
+Tracks the count of positive returns relative to total returns since
+inception: win_rate = n_positive / n_total. Values range from 0.0 (all
+losing periods) to 1.0 (all winning periods).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -538,16 +972,47 @@ Accumulative Win Rate (incremental, O(1) per tick).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of return observations before producing valid output |
 
 ### Usage
 
 ```python
-win_rate = AccumWinRate(
+graph.add_node("win_rate", AccumWinRate(
     Input("STATE:equity", timeframe="1m", lookback=1),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    if len(values.shape) > 1:
+        current_values = values[-1] if len(values) > 0 else values
+    else:
+        current_values = values
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._level == MetricLevel.PORTFOLIO:
+        return self._compute_portfolio(current_values, exists, valid)
+    else:
+        return self._compute_per_symbol(current_values, exists, valid, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/trade_stats.py`</sub>
@@ -557,7 +1022,10 @@ win_rate = AccumWinRate(
 
 ## RollingCAGR
 
-Rolling Compound Annual Growth Rate (CAGR) metric.
+Rolling Compound Annual Growth Rate over a lookback window.
+
+Computes CAGR by annualizing the total return over the rolling window:
+CAGR = (V_end / V_start) ^ (periods_per_year / n_periods) - 1.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -565,18 +1033,77 @@ Rolling Compound Annual Growth Rate (CAGR) metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `min_periods` | `int` | `2` | Minimum number of observations required in the window |
 
 ### Usage
 
 ```python
-cagr = RollingCAGR(
+graph.add_node("cagr", RollingCAGR(
     Input("STATE:equity", timeframe="1m", lookback=252),
     periods_per_year=252,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_equity = np.nansum(window_data[:, compute_mask], axis=1)
+            ret = compute_annualized_return(portfolio_equity, self._periods_per_year)
+            result = np.array([ret])
+            result_valid = np.array([not np.isnan(ret)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        result = compute_annualized_return(window_data, self._periods_per_year)
+        if np.isscalar(result):
+            result = np.array([result])
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/returns.py`</sub>
@@ -586,7 +1113,11 @@ cagr = RollingCAGR(
 
 ## RollingCVaR
 
-Rolling Conditional Value at Risk (Expected Shortfall) metric.
+Rolling Conditional Value at Risk (Expected Shortfall) over a lookback window.
+
+Computes CVaR (also known as Expected Shortfall) as the mean of returns
+that fall below the VaR threshold: CVaR_alpha = mean(returns | returns &lt;= VaR_alpha).
+This captures the average loss in the worst-case tail scenarios.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -594,18 +1125,82 @@ Rolling Conditional Value at Risk (Expected Shortfall) metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `alpha` | `float` | `0.05` |  |
-| `min_periods` | `int` | `10` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `alpha` | `float` | `0.05` | Significance level for CVaR calculation |
+| `min_periods` | `int` | `10` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-cvar = RollingCVaR(
+graph.add_node("cvar", RollingCVaR(
     Input("STATE:equity", timeframe="1m", lookback=252),
     alpha=0.05,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            cvar = compute_cvar(returns, self._alpha)
+            result = np.array([cvar])
+            result_valid = np.array([not np.isnan(cvar)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_cvar(returns, self._alpha)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/risk.py`</sub>
@@ -615,7 +1210,11 @@ cvar = RollingCVaR(
 
 ## RollingCalmar
 
-Rolling Calmar Ratio metric (CAGR / Max Drawdown).
+Rolling Calmar Ratio over a lookback window.
+
+Computes the ratio of annualized return to maximum drawdown within the
+rolling window: Calmar = CAGR / |MaxDrawdown|. A higher Calmar ratio
+indicates better risk-adjusted performance relative to worst-case loss.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -623,18 +1222,82 @@ Rolling Calmar Ratio metric (CAGR / Max Drawdown).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-calmar = RollingCalmar(
+graph.add_node("calmar", RollingCalmar(
     Input("STATE:equity", timeframe="1m", lookback=252),
     periods_per_year=252,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            calmar = compute_calmar(returns, self._periods_per_year)
+            result = np.array([calmar])
+            result_valid = np.array([not np.isnan(calmar)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_calmar(returns, self._periods_per_year)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/calmar.py`</sub>
@@ -644,7 +1307,11 @@ calmar = RollingCalmar(
 
 ## RollingCurrentDrawdown
 
-Rolling Current Drawdown (from peak to now).
+Rolling current drawdown from peak to the latest value.
+
+Computes the percentage decline from the highest value (peak) within the
+rolling window to the current (latest) value:
+current_dd = (V_current - V_peak) / V_peak. Returns 0 when at peak.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -652,16 +1319,75 @@ Rolling Current Drawdown (from peak to now).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations required in the window |
 
 ### Usage
 
 ```python
-current_dd = RollingCurrentDrawdown(
+graph.add_node("current_dd", RollingCurrentDrawdown(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_equity = np.nansum(window_data[:, compute_mask], axis=1)
+            dd = compute_current_drawdown(portfolio_equity)
+            result = np.array([dd])
+            result_valid = np.array([not np.isnan(dd)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        result = compute_current_drawdown(window_data)
+        if np.isscalar(result):
+            result = np.array([result])
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
@@ -671,7 +1397,11 @@ current_dd = RollingCurrentDrawdown(
 
 ## RollingDownsideVolatility
 
-Rolling Downside Volatility (only negative returns).
+Rolling annualized downside volatility over a lookback window.
+
+Computes the annualized standard deviation using only negative returns:
+downside_vol = std(negative_returns) * sqrt(periods_per_year). This measures
+harmful volatility exclusively, ignoring upside deviations.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -679,18 +1409,82 @@ Rolling Downside Volatility (only negative returns).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-downside_vol = RollingDownsideVolatility(
+graph.add_node("downside_vol", RollingDownsideVolatility(
     Input("STATE:equity", timeframe="1m", lookback=20),
     periods_per_year=252,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            vol = compute_downside_volatility(returns, self._periods_per_year)
+            result = np.array([vol])
+            result_valid = np.array([not np.isnan(vol)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_downside_volatility(returns, self._periods_per_year)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/volatility.py`</sub>
@@ -700,7 +1494,11 @@ downside_vol = RollingDownsideVolatility(
 
 ## RollingDrawdownDuration
 
-Rolling Drawdown Duration (periods since peak).
+Rolling drawdown duration as number of periods since the peak.
+
+Counts the number of consecutive periods elapsed since the equity reached
+its highest value within the rolling window. Returns 0 when the current
+value equals or exceeds the peak.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -708,16 +1506,77 @@ Rolling Drawdown Duration (periods since peak).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations required in the window |
 
 ### Usage
 
 ```python
-dd_duration = RollingDrawdownDuration(
+graph.add_node("dd_duration", RollingDrawdownDuration(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_equity = np.nansum(window_data[:, compute_mask], axis=1)
+            duration = compute_drawdown_duration(portfolio_equity)
+            result = np.array([float(duration)])
+            result_valid = np.array([True])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        result = compute_drawdown_duration(window_data)
+        if np.isscalar(result):
+            result = np.array([float(result)])
+        else:
+            result = result.astype(float)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
@@ -727,9 +1586,12 @@ dd_duration = RollingDrawdownDuration(
 
 ## RollingIC
 
-Rolling IC between lagged signal and current returns.
+Rolling Information Coefficient between lagged signal and forward returns.
 
-Requires two inputs: signal and price data.
+Computes the mean cross-sectional rank correlation (Spearman or Pearson) between
+a lagged alpha signal and subsequent asset returns over a rolling window:
+IC = mean(corr(signal_&#123;t-lag&#125;, returns_t)) for t in window. Requires two inputs:
+the signal and price data. Also provides an Information Ratio via get_ir().
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -737,22 +1599,89 @@ Requires two inputs: signal and price data.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
-| `lag` | `int` | `1` |  |
-| `method` | `str` | `'spearman'` |  |
-| `min_periods` | `int` | `10` |  |
+| `inputs` | `List['Input']` | Required | List of two inputs: [signal_input, price_input]. timeframe specifies data frequency. |
+| `lag` | `int` | `1` | Number of periods to lag the signal before correlating with returns |
+| `method` | `str` | `'spearman'` | Correlation method, either "spearman" (rank) or "pearson" |
+| `min_periods` | `int` | `10` | Minimum number of valid IC observations required |
 
 ### Usage
 
 ```python
-ic = RollingIC(
+graph.add_node("ic", RollingIC(
     inputs=[
         Input("signal", timeframe="1m", lookback=20),
         Input("FIELD:close", timeframe="1m", lookback=20),
     ],
     lag=1,
     method="spearman",
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        return self._invalid_output()
+
+    signal_data, price_data = data[0], data[1]
+
+    signal_vals = signal_data.value
+    price_vals = price_data.value
+
+    self._signal_buffer.append(signal_vals.copy())
+    self._price_buffer.append(price_vals.copy())
+
+    max_len = self._lookback + self._lag + 1
+    if len(self._signal_buffer) > max_len:
+        self._signal_buffer = self._signal_buffer[-max_len:]
+        self._price_buffer = self._price_buffer[-max_len:]
+
+    if len(self._signal_buffer) < self._min_periods + self._lag:
+        return self._invalid_output()
+
+    prices = np.array(self._price_buffer)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        returns = (prices[1:] - prices[:-1]) / prices[:-1]
+
+    signals = np.array(self._signal_buffer[:-1])
+    current_returns = returns
+
+    if self._lag > 1:
+        signals = signals[:-self._lag+1]
+        current_returns = current_returns[self._lag-1:]
+
+    n_time = min(len(signals), self._lookback)
+    if n_time < self._min_periods:
+        return self._invalid_output()
+
+    signals_window = signals[-n_time:]
+    returns_window = current_returns[-n_time:]
+
+    ics = []
+    for t in range(len(signals_window)):
+        ic = compute_ic(signals_window[t], returns_window[t], self._method)
+        if not np.isnan(ic):
+            ics.append(ic)
+
+    if len(ics) < self._min_periods:
+        return self._invalid_output()
+
+    mean_ic = float(np.mean(ics))
+
+    return TaggedArray(
+        value=[mean_ic],
+        exists=[True],
+        valid=[True],
+        updated=np.array([True]),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/ic.py`</sub>
@@ -762,7 +1691,11 @@ ic = RollingIC(
 
 ## RollingMaxDrawdown
 
-Rolling Maximum Drawdown metric.
+Rolling maximum drawdown over a lookback window.
+
+Computes the largest peak-to-trough decline within the rolling window:
+MDD = min((V_t - V_peak) / V_peak) for all t in the window. Result is
+a negative value (e.g., -0.15 means a 15% drawdown).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -770,16 +1703,75 @@ Rolling Maximum Drawdown metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations required in the window |
 
 ### Usage
 
 ```python
-mdd = RollingMaxDrawdown(
+graph.add_node("mdd", RollingMaxDrawdown(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_equity = np.nansum(window_data[:, compute_mask], axis=1)
+            dd = compute_max_drawdown(portfolio_equity)
+            result = np.array([dd])
+            result_valid = np.array([not np.isnan(dd)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        result = compute_max_drawdown(window_data)
+        if np.isscalar(result):
+            result = np.array([result])
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/drawdown.py`</sub>
@@ -789,7 +1781,11 @@ mdd = RollingMaxDrawdown(
 
 ## RollingProfitFactor
 
-Rolling Profit Factor metric (gross profit / gross loss).
+Rolling profit factor over a lookback window.
+
+Computes the ratio of gross profits to gross losses within the rolling
+window: profit_factor = sum(positive_returns) / |sum(negative_returns)|.
+Values above 1.0 indicate more profit than loss; infinity if no losses.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -797,16 +1793,80 @@ Rolling Profit Factor metric (gross profit / gross loss).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-pf = RollingProfitFactor(
+graph.add_node("pf", RollingProfitFactor(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            pf = compute_profit_factor(returns)
+            result = np.array([pf])
+            result_valid = np.array([not np.isnan(pf) and not np.isinf(pf)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_profit_factor(returns)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result) & ~np.isinf(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/trade_stats.py`</sub>
@@ -816,7 +1876,11 @@ pf = RollingProfitFactor(
 
 ## RollingSharpe
 
-Rolling Sharpe Ratio metric.
+Rolling Sharpe Ratio over a lookback window.
+
+Computes the annualized Sharpe ratio from period returns within the rolling
+window: Sharpe = mean(excess_returns) / std(excess_returns) * sqrt(periods_per_year),
+where excess_returns = returns - rf / periods_per_year.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -824,20 +1888,84 @@ Rolling Sharpe Ratio metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `rf` | `float` | `0.0` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `rf` | `float` | `0.0` | Annual risk-free rate subtracted from returns |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-sharpe = RollingSharpe(
+graph.add_node("sharpe", RollingSharpe(
     Input("STATE:equity", timeframe="1m", lookback=252),
     periods_per_year=252,
     rf=0.0,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            sharpe = compute_sharpe(returns, self._periods_per_year, self._rf)
+            result = np.array([sharpe])
+            result_valid = np.array([not np.isnan(sharpe)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_sharpe(returns, self._periods_per_year, self._rf)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/sharpe.py`</sub>
@@ -847,7 +1975,11 @@ sharpe = RollingSharpe(
 
 ## RollingSortino
 
-Rolling Sortino Ratio metric (uses downside deviation).
+Rolling Sortino Ratio over a lookback window.
+
+Computes the annualized Sortino ratio using downside deviation instead of
+total standard deviation: Sortino = mean(excess_returns) / downside_std * sqrt(periods_per_year),
+where downside_std is computed only from negative returns.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -855,20 +1987,84 @@ Rolling Sortino Ratio metric (uses downside deviation).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `rf` | `float` | `0.0` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `rf` | `float` | `0.0` | Annual risk-free rate subtracted from returns |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-sortino = RollingSortino(
+graph.add_node("sortino", RollingSortino(
     Input("STATE:equity", timeframe="1m", lookback=252),
     periods_per_year=252,
     rf=0.0,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            sortino = compute_sortino(returns, self._periods_per_year, self._rf)
+            result = np.array([sortino])
+            result_valid = np.array([not np.isnan(sortino)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_sortino(returns, self._periods_per_year, self._rf)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/sortino.py`</sub>
@@ -878,7 +2074,10 @@ sortino = RollingSortino(
 
 ## RollingTotalReturn
 
-Rolling Total Return metric.
+Rolling total return over a lookback window.
+
+Computes the total return as the percentage change from the first to the
+last value in the rolling window: total_return = (V_end - V_start) / V_start.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -886,16 +2085,75 @@ Rolling Total Return metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of observations required in the window |
 
 ### Usage
 
 ```python
-total_ret = RollingTotalReturn(
+graph.add_node("total_ret", RollingTotalReturn(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_equity = np.nansum(window_data[:, compute_mask], axis=1)
+            ret = compute_total_return(portfolio_equity)
+            result = np.array([ret])
+            result_valid = np.array([not np.isnan(ret)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        result = compute_total_return(window_data)
+        if np.isscalar(result):
+            result = np.array([result])
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/returns.py`</sub>
@@ -905,7 +2163,11 @@ total_ret = RollingTotalReturn(
 
 ## RollingTotalTurnover
 
-Rolling total turnover (sum) over a lookback window.
+Rolling total (cumulative sum) turnover over a lookback window.
+
+Computes the sum of all single-tick turnover values within the rolling window:
+total_turnover = sum(turnover_values). Useful for measuring total portfolio
+rebalancing activity over a given period.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -913,8 +2175,8 @@ Rolling total turnover (sum) over a lookback window.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `turnover_input` | `'Input'` | Required | Single-tick turnover values with lookback=N |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values (e.g., from Turnover operator). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
 
 ### Usage
 
@@ -922,6 +2184,40 @@ Rolling total turnover (sum) over a lookback window.
 graph.add_node("rolling_total_turnover", RollingTotalTurnover(
     Input("turnover", timeframe="1h", lookback=20),
 ))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    # Get window data
+    window_data = self._get_window_data(values, n_time)
+
+    # Sum turnovers in window
+    if window_data.ndim == 1:
+        total_turnover = np.nansum(window_data)
+    else:
+        total_turnover = np.nansum(window_data[:, 0])
+
+    return TaggedArray(
+        value=[total_turnover],
+        exists=[True],
+        valid=[True],
+        updated=np.array([True]),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/turnover.py`</sub>
@@ -933,8 +2229,9 @@ graph.add_node("rolling_total_turnover", RollingTotalTurnover(
 
 Rolling average turnover over a lookback window.
 
-Computes mean turnover within the rolling window. Requires single-tick
-turnover values as input (from Turnover operator).
+Computes the mean of single-tick turnover values within the rolling window:
+avg_turnover = mean(turnover_values) over valid (non-NaN) observations. Requires
+pre-computed single-tick turnover values as input (from the Turnover operator).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -942,9 +2239,9 @@ turnover values as input (from Turnover operator).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `turnover_input` | `'Input'` | Required | Single-tick turnover values with lookback=N |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `1` |  |
+| `turnover_input` | `'Input'` | Required | Single-tick turnover values (e.g., from Turnover operator). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `1` | Minimum number of valid turnover observations required |
 
 ### Usage
 
@@ -955,6 +2252,60 @@ graph.add_node("rolling_turnover", RollingTurnover(
 ))
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    if n_time < self._min_periods:
+        return TaggedArray(
+            value=[np.nan],
+            exists=[True],
+            valid=[False],
+            updated=np.array([True]),
+        )
+
+    # Get window data (respects lookback)
+    window_data = self._get_window_data(values, n_time)
+
+    # Filter out NaN and compute mean
+    # For portfolio-level turnover, values are 1D (one value per tick)
+    if window_data.ndim == 1:
+        valid_turnovers = window_data[~np.isnan(window_data)]
+    else:
+        # If 2D, take first column (portfolio turnover is scalar per tick)
+        valid_turnovers = window_data[:, 0][~np.isnan(window_data[:, 0])]
+
+    if len(valid_turnovers) < self._min_periods:
+        return TaggedArray(
+            value=[np.nan],
+            exists=[True],
+            valid=[False],
+            updated=np.array([True]),
+        )
+
+    avg_turnover = np.mean(valid_turnovers)
+
+    return TaggedArray(
+        value=[avg_turnover],
+        exists=[True],
+        valid=[True],
+        updated=np.array([True]),
+    )
+```
+
 <sub>Source: `apps/trading/operators/metrics/rolling/turnover.py`</sub>
 
 
@@ -962,7 +2313,11 @@ graph.add_node("rolling_turnover", RollingTurnover(
 
 ## RollingVaR
 
-Rolling Value at Risk metric.
+Rolling Value at Risk (VaR) over a lookback window.
+
+Computes the historical VaR at a given confidence level using the empirical
+quantile of returns: VaR_alpha = percentile(returns, alpha * 100). Represents
+the maximum expected loss at the (1 - alpha) confidence level.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -970,18 +2325,82 @@ Rolling Value at Risk metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `alpha` | `float` | `0.05` |  |
-| `min_periods` | `int` | `10` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `alpha` | `float` | `0.05` | Significance level for VaR calculation |
+| `min_periods` | `int` | `10` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-var = RollingVaR(
+graph.add_node("var", RollingVaR(
     Input("STATE:equity", timeframe="1m", lookback=252),
     alpha=0.05,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            var = compute_var(returns, self._alpha)
+            result = np.array([var])
+            result_valid = np.array([not np.isnan(var)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_var(returns, self._alpha)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/risk.py`</sub>
@@ -991,7 +2410,11 @@ var = RollingVaR(
 
 ## RollingVolatility
 
-Rolling Annualized Volatility metric.
+Rolling annualized volatility over a lookback window.
+
+Computes the annualized standard deviation of period returns within the
+rolling window: vol = std(returns) * sqrt(periods_per_year), where returns
+are simple percentage changes between consecutive equity values.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -999,18 +2422,82 @@ Rolling Annualized Volatility metric.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `periods_per_year` | `int` | `252` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `periods_per_year` | `int` | `252` | Number of periods in a year for annualization |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-vol = RollingVolatility(
+graph.add_node("vol", RollingVolatility(
     Input("STATE:equity", timeframe="1m", lookback=20),
     periods_per_year=252,
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            vol = compute_volatility(returns, self._periods_per_year)
+            result = np.array([vol])
+            result_valid = np.array([not np.isnan(vol)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_volatility(returns, self._periods_per_year)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/volatility.py`</sub>
@@ -1020,7 +2507,11 @@ vol = RollingVolatility(
 
 ## RollingWinRate
 
-Rolling Win Rate metric (% of positive returns).
+Rolling win rate over a lookback window.
+
+Computes the fraction of positive returns within the rolling window:
+win_rate = count(returns above 0) / count(returns). Values range from 0.0
+(all losing periods) to 1.0 (all winning periods).
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -1028,16 +2519,80 @@ Rolling Win Rate metric (% of positive returns).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
-| `min_periods` | `int` | `2` |  |
+| `input` | `'Input'` | Required | Input equity signal (e.g., STATE:equity). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO aggregates across symbols, SYMBOL computes per-symbol |
+| `min_periods` | `int` | `2` | Minimum number of return observations required |
 
 ### Usage
 
 ```python
-win_rate = RollingWinRate(
+graph.add_node("win_rate", RollingWinRate(
     Input("STATE:equity", timeframe="1m", lookback=252),
-)
+))
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    n_time = len(values)
+
+    last = data[-1] if n_time > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+
+    window_data = self._get_window_data(values, n_time)
+    n_window = len(window_data)
+
+    if n_window < self._min_periods + 1:
+        return self._invalid_output(
+            n_symbols=n_symbols,
+            portfolio=(self._level == MetricLevel.PORTFOLIO),
+        )
+
+    if self._level == MetricLevel.PORTFOLIO:
+        compute_mask = exists & valid
+        if np.any(compute_mask):
+            portfolio_prices = np.nansum(window_data[:, compute_mask], axis=1)
+            returns = compute_returns(portfolio_prices)
+            win_rate = compute_win_rate(returns)
+            result = np.array([win_rate])
+            result_valid = np.array([not np.isnan(win_rate)])
+        else:
+            result = np.array([np.nan])
+            result_valid = np.array([False])
+        result_exists = np.array([True])
+    else:
+        returns = compute_returns(window_data)
+        if len(returns) >= self._min_periods:
+            result = compute_win_rate(returns)
+            if np.isscalar(result):
+                result = np.array([result])
+        else:
+            result = np.full(n_symbols, np.nan)
+
+        result_exists = exists
+        result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=result_exists,
+        valid=result_valid,
+        updated=np.ones(len(result), dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/metrics/rolling/trade_stats.py`</sub>
@@ -1047,10 +2602,12 @@ win_rate = RollingWinRate(
 
 ## Turnover
 
-Single-tick portfolio turnover (incremental, O(1) per tick).
+Single-tick portfolio turnover computed incrementally in O(1) per tick.
 
-Computes turnover as sum of absolute weight changes between current
-and previous tick: turnover_t = sum(|w_t - w_{t-1}|) / 2
+Computes turnover as half the sum of absolute weight changes between the
+current and previous tick: turnover_t = sum(|w_t - w_&#123;t-1&#125;|) / 2. Stores
+previous weights internally for comparison. A turnover of 1.0 means the
+entire portfolio was replaced.
 
 **Role**: `METRIC` | **Ephemeral**: No
 
@@ -1058,19 +2615,53 @@ and previous tick: turnover_t = sum(|w_t - w_{t-1}|) / 2
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `weights_input` | `'Input'` | Required |  |
-| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` |  |
+| `weights_input` | `'Input'` | Required | Input portfolio weights signal (e.g., from a weighting operator). timeframe specifies data frequency. |
+| `level` | `MetricLevel` | `MetricLevel.PORTFOLIO` | PORTFOLIO outputs a single scalar, SYMBOL broadcasts to all symbols |
 
 ### Usage
 
 ```python
-turnover = Turnover(
-        Input("weights", timeframe="1h", lookback=1),
-    )
+graph.add_node("turnover", Turnover(
+    Input("weights", timeframe="1h", lookback=1),
+))
+```
 
-Note:
-    - Only needs lookback=1 (current tick)
-    - Stores previous weights internally for comparison
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    current_weights = last.value
+    exists = last.exists
+    valid = last.valid
+    n_symbols = len(exists)
+
+    if self._prev_weights is None:
+        self._prev_weights = current_weights.copy()
+        return self._make_output(0.0, n_symbols)
+
+    compute_mask = exists & valid
+    turnover = 0.0
+
+    if np.any(compute_mask):
+        weight_diff = np.abs(current_weights - self._prev_weights)
+        weight_diff = np.where(compute_mask, weight_diff, 0.0)
+        weight_diff = np.where(np.isnan(weight_diff), 0.0, weight_diff)
+        turnover = np.sum(weight_diff) / 2.0
+
+    self._prev_weights = current_weights.copy()
+
+    return self._make_output(turnover, n_symbols)
 ```
 
 <sub>Source: `apps/trading/operators/metrics/accum/turnover.py`</sub>
@@ -1079,7 +2670,7 @@ Note:
 ## Related Pages
 
 <CardGroup cols={2}>
-  <Card title="STATE Principle" icon="database" href="/engine/state-principle">
+  <Card title="STATE Principle" icon="database" href="/engine/field-state">
     How metrics access portfolio state
   </Card>
   <Card title="Backtesting Overview" icon="flask" href="/backtesting/overview">

@@ -8,12 +8,19 @@ description: "From graph output to filled orders — the Intention → Delta →
 The execution pipeline converts strategy graph outputs into actual trades. It operates identically in backtest, paper, and live modes — only the fill engine changes.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+
     Intention["Intention (target)"]
     Pipeline["Delta → Order → Fill"]
     State["State Update (cash, pos)"]
 
     Intention --> Pipeline --> State
+
+    class Intention source
+    class State action
 ```
 
 ## The Three Stages

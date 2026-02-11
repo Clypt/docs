@@ -26,14 +26,21 @@ This page documents **6 operators** (role: `FILTER`).
 
 Filter by minimum data availability (non-NaN bars).
 
+Counts the number of non-NaN values within a trailing window for each
+symbol and retains only those with at least min_bars valid data points.
+For single-bar (1-D) data, a symbol passes if its value is not NaN. For
+multi-bar (2-D) data, the window size is min(min_bars, available bars)
+and the count of non-NaN entries must meet the threshold. Passing
+symbols are assigned 1.0, others 0.0.
+
 **Role**: `FILTER` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `min_bars` | `int` | `50` |  |
+| `input` | `'Input'` | Required | Input signal providing the data to check for availability. |
+| `min_bars` | `int` | `50` | Minimum number of non-NaN bars required to pass the |
 
 ### Usage
 
@@ -42,6 +49,48 @@ filter = DataAvailabilityFilter(
     Input("FIELD:close", timeframe="1m", lookback=50),
     min_bars=50,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    filter_result = np.zeros(n_symbols, dtype=bool)
+
+    if len(values.shape) == 1:
+        filter_result[compute_mask] = ~np.isnan(values[compute_mask])
+    else:
+        window = min(self._min_bars, len(values))
+        window_data = values[-window:]
+        valid_count = np.sum(~np.isnan(window_data), axis=0)
+        filter_result[compute_mask] = valid_count[compute_mask] >= self._min_bars
+
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/universe/filter/data_availability.py`</sub>
@@ -53,7 +102,13 @@ filter = DataAvailabilityFilter(
 
 Filter by average dollar volume (price * volume).
 
-Requires two inputs: close price and volume.
+Computes dollar volume as close price multiplied by volume for each bar,
+then averages over the lookback window. Retains only symbols whose
+average dollar volume meets or exceeds the specified minimum threshold.
+Requires two inputs (close price and volume). For single-bar (1-D) data
+the raw dollar volume is compared directly; for multi-bar (2-D) data the
+trailing window average is used. Passing symbols are assigned 1.0,
+others 0.0.
 
 **Role**: `FILTER` | **Ephemeral**: No
 
@@ -61,8 +116,8 @@ Requires two inputs: close price and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
-| `min_dollar_volume` | `float` | `1000000` |  |
+| `inputs` | `List['Input']` | Required | List of two Input signals: the first provides close price |
+| `min_dollar_volume` | `float` | `1000000` | Minimum average dollar volume required to pass |
 
 ### Usage
 
@@ -76,6 +131,58 @@ filter = LiquidityFilter(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list) and len(data) >= 2:
+        close_data = data[0]
+        volume_data = data[1]
+        close_values = close_data.value
+        volume_values = volume_data.value
+
+        last = close_data[-1] if len(close_data) > 0 else close_data
+        exists = last.exists
+        valid = last.valid
+    else:
+        if isinstance(data, list):
+            data = data[0]
+        close_values = data.value
+        volume_values = np.ones_like(close_values)
+
+        last = data[-1] if len(data) > 0 else data
+        exists = last.exists
+        valid = last.valid
+
+    dollar_volume = close_values * volume_values
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    filter_result = np.zeros(n_symbols, dtype=bool)
+
+    if len(dollar_volume.shape) == 1:
+        filter_result[compute_mask] = dollar_volume[compute_mask] >= self._min_dollar_volume
+    else:
+        window = min(self._lookback, len(dollar_volume))
+        avg_dv = np.mean(dollar_volume[-window:], axis=0)
+        filter_result[compute_mask] = avg_dv[compute_mask] >= self._min_dollar_volume
+
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/filter/liquidity.py`</sub>
 
 
@@ -85,15 +192,21 @@ filter = LiquidityFilter(
 
 Filter by price range.
 
+Checks the most recent close price for each symbol and retains only
+those whose price falls within the [min_price, max_price] range. When
+max_price is None, no upper bound is applied. For multi-bar (2-D) data
+the last bar is used; for single-bar (1-D) data the value is used
+directly. Passing symbols are assigned 1.0, others 0.0.
+
 **Role**: `FILTER` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `min_price` | `float` | `1.0` |  |
-| `max_price` | `Optional[float]` | `None` |  |
+| `input` | `'Input'` | Required | Input signal providing close price data. timeframe specifies |
+| `min_price` | `float` | `1.0` | Minimum price to pass the filter |
+| `max_price` | `Optional[float]` | `None` | Maximum price to pass the filter, or None for no upper |
 
 ### Usage
 
@@ -105,6 +218,50 @@ filter = PriceFilter(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+
+    if len(values.shape) > 1:
+        prices = values[-1]
+    else:
+        prices = values
+
+    passes = prices >= self._min_price
+    if self._max_price is not None:
+        passes = passes & (prices <= self._max_price)
+
+    filter_result = np.zeros(n_symbols, dtype=bool)
+    filter_result[compute_mask] = passes[compute_mask]
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/filter/price.py`</sub>
 
 
@@ -114,17 +271,24 @@ filter = PriceFilter(
 
 Filter symbols by strata (group/category) membership.
 
+Assigns each symbol to a category via the strata mapping, then retains
+only symbols whose category is in the include list (if provided) and not
+in the exclude list. The set of passing symbols is precomputed at
+construction time based on the include/exclude rules. At compute time,
+each symbol in symbol_order is checked against the precomputed set.
+Passing symbols are assigned 1.0, others 0.0.
+
 **Role**: `FILTER` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `strata` | `Dict[str, str]` | Required |  |
-| `symbol_order` | `List[str]` | Required |  |
-| `include` | `Optional[List[str]]` | `None` |  |
-| `exclude` | `Optional[List[str]]` | `None` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency, lookback |
+| `strata` | `Dict[str, str]` | Required | Mapping from symbol name to category string. |
+| `symbol_order` | `List[str]` | Required | Ordered list of symbol names matching the data array |
+| `include` | `Optional[List[str]]` | `None` | None). |
+| `exclude` | `Optional[List[str]]` | `None` | List of categories to exclude |
 
 ### Usage
 
@@ -137,6 +301,42 @@ filter = StrataFilter(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    filter_result = np.zeros(n_symbols, dtype=bool)
+
+    for i, symbol in enumerate(self._symbol_order):
+        if compute_mask[i] and symbol in self._passing_symbols:
+            filter_result[i] = True
+
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/filter/strata.py`</sub>
 
 
@@ -146,17 +346,24 @@ filter = StrataFilter(
 
 Filter by volatility range.
 
+Computes the standard deviation of simple returns over the lookback
+window and retains only symbols whose volatility falls within the
+specified [min_vol, max_vol] range. Returns can optionally be
+annualized by multiplying by sqrt(periods_per_year). Requires at
+least two bars of data to calculate returns. Symbols outside the
+range are assigned 0.0, those inside are assigned 1.0.
+
 **Role**: `FILTER` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `min_vol` | `float` | `0.001` |  |
-| `max_vol` | `float` | `1.0` |  |
-| `annualize` | `bool` | `True` |  |
-| `periods_per_year` | `int` | `252` |  |
+| `input` | `'Input'` | Required | Input signal providing close price data. timeframe specifies |
+| `min_vol` | `float` | `0.001` | Minimum volatility to pass the filter |
+| `max_vol` | `float` | `1.0` | Maximum volatility to pass the filter |
+| `annualize` | `bool` | `True` | Whether to annualize volatility |
+| `periods_per_year` | `int` | `252` | Number of periods per year used for annualization |
 
 ### Usage
 
@@ -170,6 +377,53 @@ filter = VolatilityFilter(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    filter_result = np.zeros(n_symbols, dtype=bool)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        vol = np.nanstd(returns[-window:], axis=0, ddof=1)
+
+        if self._annualize:
+            vol = vol * np.sqrt(self._periods_per_year)
+
+        in_range = (vol >= self._min_vol) & (vol <= self._max_vol)
+        filter_result[compute_mask] = in_range[compute_mask]
+
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/universe/filter/volatility.py`</sub>
 
 
@@ -179,14 +433,20 @@ filter = VolatilityFilter(
 
 Filter by minimum average trading volume.
 
+Computes the mean trading volume over a lookback window and retains only
+symbols whose average volume meets or exceeds the specified minimum
+threshold. For single-bar (1-D) data the raw value is compared directly;
+for multi-bar (2-D) data the trailing window average is used. Symbols
+that do not pass are assigned 0.0, passing symbols are assigned 1.0.
+
 **Role**: `FILTER` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `min_volume` | `float` | `100000` |  |
+| `input` | `'Input'` | Required | Input signal providing volume data. timeframe specifies data |
+| `min_volume` | `float` | `100000` | Minimum average volume required to pass the filter |
 
 ### Usage
 
@@ -195,6 +455,47 @@ filter = VolumeFilter(
     Input("FIELD:volume", timeframe="1m", lookback=20),
     min_volume=100_000,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    filter_result = np.zeros(n_symbols, dtype=bool)
+
+    if len(values.shape) == 1:
+        filter_result[compute_mask] = values[compute_mask] >= self._min_volume
+    else:
+        window = min(self._lookback, len(values))
+        avg_volume = np.mean(values[-window:], axis=0)
+        filter_result[compute_mask] = avg_volume[compute_mask] >= self._min_volume
+
+    result = np.where(filter_result, 1.0, 0.0)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=compute_mask,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/universe/filter/volume.py`</sub>

@@ -39,9 +39,13 @@ This page documents **21 operators** (role: `ALPHA`).
 
 ## AmihudAlpha
 
-Amihud illiquidity alpha (higher liquidity = higher score).
+Amihud illiquidity alpha signal favoring higher liquidity.
 
-Requires two inputs: close and volume.
+Computes the Amihud (2002) illiquidity ratio as the average of absolute
+returns divided by dollar volume, then negates it so that more liquid
+assets receive higher scores.
+Formula: illiquidity = mean(|r_t| / (close_t * volume_t))
+         alpha = -illiquidity
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -49,7 +53,7 @@ Requires two inputs: close and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 2 Inputs: [close, volume]. timeframe must match |
 
 ### Usage
 
@@ -62,6 +66,64 @@ alpha = AmihudAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("AmihudAlpha requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1 and len(close) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
+
+        abs_returns = np.abs(returns)
+        dollar_volume = close[1:] * volume[1:]
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            illiquidity = abs_returns / dollar_volume
+
+        window = min(self._lookback - 1, len(illiquidity))
+        avg_illiquidity = np.nanmean(illiquidity[-window:], axis=0)
+
+        score = -avg_illiquidity
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
 
 
@@ -69,9 +131,13 @@ alpha = AmihudAlpha(
 
 ## EffectiveSpreadAlpha
 
-Effective spread alpha (lower spread = higher score).
+Effective spread alpha signal favoring tighter spreads.
 
-Requires three inputs: high, low, close.
+Estimates the effective bid-ask spread using the high-low range
+normalized by the close price, averaged over the lookback window.
+The result is negated so that tighter spreads produce higher scores.
+Formula: spread_t = (high_t - low_t) / close_t
+         alpha = -mean(spread[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -79,7 +145,7 @@ Requires three inputs: high, low, close.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 3 Inputs: [high, low, close]. timeframe must match |
 
 ### Usage
 
@@ -93,6 +159,58 @@ alpha = EffectiveSpreadAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        raise ValueError("EffectiveSpreadAlpha requires [high, low, close] inputs")
+
+    high_data = data[0]
+    low_data = data[1]
+    close_data = data[2]
+
+    high = high_data.value
+    low = low_data.value
+    close = close_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(high.shape) > 1:
+        window = min(self._lookback, len(high))
+
+        range_val = high[-window:] - low[-window:]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            spread = range_val / close[-window:]
+
+        avg_spread = np.nanmean(spread, axis=0)
+
+        score = -avg_spread
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
 
 
@@ -100,7 +218,14 @@ alpha = EffectiveSpreadAlpha(
 
 ## VolatilityOfVolatilityAlpha
 
-Volatility of volatility alpha (lower vol-of-vol = higher score).
+Volatility-of-volatility alpha signal favoring stable volatility regimes.
+
+Computes rolling realized volatility of returns over a short window,
+then measures the standard deviation of those rolling volatility
+estimates over a longer outer window. The result is negated so that
+assets with more stable volatility receive higher scores.
+Formula: rolling_vol_i = std(returns[i:i+vol_window])
+         alpha = -std(rolling_vol[-outer_lookback:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -108,9 +233,9 @@ Volatility of volatility alpha (lower vol-of-vol = higher score).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `vol_window` | `int` | `5` |  |
-| `outer_lookback` | `int` | `20` |  |
+| `input` | `'Input'` | Required | Input for close price data. timeframe specifies data frequency. |
+| `vol_window` | `int` | `5` | Number of periods for each rolling volatility estimate |
+| `outer_lookback` | `int` | `20` | Number of rolling-vol observations used to compute |
 
 ### Usage
 
@@ -122,6 +247,57 @@ alpha = VolatilityOfVolatilityAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= self._vol_window + 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        n_periods = len(returns) - self._vol_window + 1
+        if n_periods >= 2:
+            rolling_vol = np.zeros((n_periods, returns.shape[1]))
+            for i in range(n_periods):
+                rolling_vol[i] = np.std(
+                    returns[i:i + self._vol_window], axis=0, ddof=1
+                )
+
+            window = min(self._outer_lookback, len(rolling_vol))
+            vol_of_vol = np.std(rolling_vol[-window:], axis=0, ddof=1)
+
+            score = -vol_of_vol
+            compute_mask = exists & valid
+            result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/liquidity.py`</sub>
 
 
@@ -131,14 +307,18 @@ alpha = VolatilityOfVolatilityAlpha(
 
 Bollinger mean reversion alpha.
 
+Measures deviation from the Bollinger Band middle line (SMA), normalized
+by bandwidth. Positive score when price is below mean (buy signal).
+Formula: score = clip((SMA - price) / (std * num_std), -1, 1)
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `num_std` | `float` | `2.0` |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback defines the SMA window. |
+| `num_std` | `float` | `2.0` | Number of standard deviations for bandwidth |
 
 ### Usage
 
@@ -147,6 +327,55 @@ alpha = BollingerAlpha(
     Input("FIELD:close", timeframe="1m", lookback=20),
     num_std=2.0,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            middle = np.mean(recent, axis=0)
+            std = np.std(recent, axis=0, ddof=1)
+            current = values[-1]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                bandwidth = std * self._num_std
+                deviation = middle - current
+                score = deviation / bandwidth
+
+            score = np.clip(score, -1.0, 1.0)
+            compute_mask = exists & valid
+            result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
@@ -158,14 +387,18 @@ alpha = BollingerAlpha(
 
 Z-Score mean reversion alpha.
 
+Computes z-score of current price vs rolling window, then negates it
+for mean reversion (below-mean = positive signal).
+Formula: score = clip(-(price - mean) / std, -clip_value, clip_value)
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `clip_value` | `float` | `3.0` |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback defines the rolling window. |
+| `clip_value` | `float` | `3.0` | Maximum absolute z-score to clip at |
 
 ### Usage
 
@@ -174,6 +407,54 @@ alpha = ZScoreAlpha(
     Input("FIELD:close", timeframe="1m", lookback=20),
     clip_value=3.0,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            mean = np.mean(recent, axis=0)
+            std = np.std(recent, axis=0, ddof=1)
+            current = values[-1]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                zscore = (current - mean) / std
+
+            score = -zscore
+            score = np.clip(score, -self._clip_value, self._clip_value)
+            compute_mask = exists & valid
+            result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
@@ -185,13 +466,17 @@ alpha = ZScoreAlpha(
 
 Percentile mean reversion alpha.
 
+Computes the percentile rank of current price within the lookback window,
+then inverts for mean reversion. Price at bottom of range yields positive signal.
+Formula: score = -(percentile_rank - 0.5) * 2
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback defines the ranking window. |
 
 ### Usage
 
@@ -199,6 +484,54 @@ Percentile mean reversion alpha.
 alpha = PercentileAlpha(
     Input("FIELD:close", timeframe="1m", lookback=20),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+    compute_mask = exists & valid
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            current = values[-1]
+
+            percentiles = np.zeros(n_symbols)
+            for i in range(n_symbols):
+                if compute_mask[i]:
+                    percentiles[i] = np.mean(recent[:, i] <= current[i])
+
+            centered = percentiles - 0.5
+            score = -centered * 2
+            result[compute_mask] = score[compute_mask]
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/mean_reversion.py`</sub>
@@ -210,19 +543,69 @@ alpha = PercentileAlpha(
 
 Simple momentum alpha (return over lookback period).
 
+Computes the price return over the lookback window as a momentum signal.
+Formula: momentum = (price_t - price_&#123;t-n&#125;) / price_&#123;t-n&#125;
+
+Positive values indicate upward momentum, negative values indicate
+downward momentum. The lookback is derived from Input.lookback.
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). timeframe specifies the data |
 
 ### Usage
 
 ```python
 momentum = MomentumAlpha(Input("FIELD:close", timeframe="1m", lookback=20))
 graph.add_node("momentum", momentum)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._lookback, len(values) - 1)
+        if window >= 1:
+            current = values[-1]
+            past = values[-(window + 1)]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                momentum = (current - past) / past
+
+            compute_mask = exists & valid
+            result[compute_mask] = momentum[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
@@ -234,19 +617,75 @@ graph.add_node("momentum", momentum)
 
 RSI alpha normalized to [-1, 1].
 
+Computes RSI and normalizes to [-1, 1] range for direct use as alpha signal.
+Formula: RSI = 100 - 100 / (1 + avg_gain / avg_loss)
+Normalized: (RSI - 50) / 50
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback &gt;= period + 1 |
 
 ### Usage
 
 ```python
 rsi = RSIAlpha(Input("FIELD:close", timeframe="1m", lookback=15))
 graph.add_node("rsi", rsi)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        returns = np.diff(values, axis=0)
+        window = min(self._lookback - 1, len(returns))
+
+        if window >= 1:
+            recent_returns = returns[-window:]
+            gains = np.where(recent_returns > 0, recent_returns, 0)
+            losses = np.where(recent_returns < 0, -recent_returns, 0)
+
+            avg_gain = np.mean(gains, axis=0)
+            avg_loss = np.mean(losses, axis=0)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rs = avg_gain / avg_loss
+                rsi = 100 - (100 / (1 + rs))
+
+            normalized = (rsi - 50) / 50
+            compute_mask = exists & valid
+            result[compute_mask] = normalized[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
@@ -258,20 +697,75 @@ graph.add_node("rsi", rsi)
 
 Trend strength alpha (annualized slope of log prices).
 
+Fits a linear regression on log prices over the lookback window and
+annualizes the slope. Higher slope indicates stronger upward trend.
+Formula: slope = cov(t, log(price)) / var(t), annualized by * 252
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `annualization` | `int` | `252` |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback &gt;= 2 for regression. |
+| `annualization` | `int` | `252` | Annualization factor |
 
 ### Usage
 
 ```python
 trend = TrendStrengthAlpha(Input("FIELD:close", timeframe="1m", lookback=20))
 graph.add_node("trend", trend)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                log_prices = np.log(values[-window:])
+
+            t = np.arange(window).reshape(-1, 1)
+            t_mean = t.mean()
+            t_var = np.var(t, ddof=0)
+
+            if t_var > 0:
+                log_mean = np.mean(log_prices, axis=0)
+                cov = np.sum((t - t_mean) * (log_prices - log_mean), axis=0) / window
+                slope = cov / t_var
+                annualized = slope * self._annualization
+
+                compute_mask = exists & valid
+                result[compute_mask] = annualized[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/momentum.py`</sub>
@@ -281,7 +775,13 @@ graph.add_node("trend", trend)
 
 ## VolumeStabilityAlpha
 
-Volume stability alpha (higher stability = higher score).
+Volume stability alpha signal favoring consistent trading volume.
+
+Measures volume stability as the inverse of the coefficient of variation
+(CV) of volume over the lookback window. Assets with more stable volume
+patterns receive higher scores.
+Formula: CV = std(volume[-window:]) / mean(volume[-window:])
+         alpha = 1 / CV
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -289,7 +789,7 @@ Volume stability alpha (higher stability = higher score).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input for volume data. timeframe specifies data frequency. |
 
 ### Usage
 
@@ -299,6 +799,52 @@ alpha = VolumeStabilityAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 2:
+            recent = values[-window:]
+            mean_vol = np.mean(recent, axis=0)
+            std_vol = np.std(recent, axis=0, ddof=1)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                cv = std_vol / mean_vol
+                stability = 1.0 / cv
+
+            compute_mask = exists & valid
+            result[compute_mask] = stability[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
 
 
@@ -306,9 +852,13 @@ alpha = VolumeStabilityAlpha(
 
 ## PriceImpactAlpha
 
-Price impact alpha (lower impact = higher score).
+Price impact alpha signal favoring lower market impact.
 
-Requires two inputs: close and volume.
+Estimates price impact as the average ratio of absolute returns to
+log-volume over the lookback window. The result is negated so that
+assets with lower price impact (better execution quality) score higher.
+Formula: impact_t = |r_t| / log(volume_t + 1)
+         alpha = -mean(impact[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -316,7 +866,7 @@ Requires two inputs: close and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 2 Inputs: [close, volume]. timeframe must match |
 
 ### Usage
 
@@ -329,6 +879,64 @@ alpha = PriceImpactAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("PriceImpactAlpha requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1 and len(close) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
+
+        abs_returns = np.abs(returns)
+        log_volume = np.log(volume[1:] + 1.0)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            impact = abs_returns / log_volume
+
+        window = min(self._lookback - 1, len(impact))
+        avg_impact = np.nanmean(impact[-window:], axis=0)
+
+        score = -avg_impact
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
 
 
@@ -336,9 +944,13 @@ alpha = PriceImpactAlpha(
 
 ## MarketDepthProxyAlpha
 
-Market depth proxy alpha (higher depth = higher score).
+Market depth proxy alpha signal favoring deeper, more liquid markets.
 
-Requires two inputs: close and volume.
+Approximates market depth as the ratio of average volume to return
+volatility over the lookback window. Higher values indicate that the
+asset can absorb larger trades with less price movement.
+Formula: volatility = std(returns[-window:])
+         alpha = mean(volume[-window:]) / volatility
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -346,7 +958,7 @@ Requires two inputs: close and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 2 Inputs: [close, volume]. timeframe must match |
 
 ### Usage
 
@@ -359,6 +971,61 @@ alpha = MarketDepthProxyAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("MarketDepthProxyAlpha requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1 and len(close) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        volatility = np.std(returns[-window:], axis=0, ddof=1)
+        avg_volume = np.mean(volume[-window:], axis=0)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            depth_proxy = avg_volume / volatility
+
+        compute_mask = exists & valid
+        result[compute_mask] = depth_proxy[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/quality.py`</sub>
 
 
@@ -366,9 +1033,13 @@ alpha = MarketDepthProxyAlpha(
 
 ## DollarVolumeSizeAlpha
 
-Dollar volume size alpha (log of average dollar volume).
+Dollar volume size alpha signal based on log-scaled average dollar volume.
 
-Requires two inputs: close and volume.
+Computes the natural logarithm of the average dollar volume (close
+multiplied by volume) over the lookback window. The log transform
+compresses the scale, making the signal suitable for cross-sectional
+comparison of assets with vastly different trading activity.
+Formula: alpha = log(mean(close[-window:] * volume[-window:]) + 1)
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -376,7 +1047,7 @@ Requires two inputs: close and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 2 Inputs: [close, volume]. timeframe must match |
 
 ### Usage
 
@@ -389,6 +1060,57 @@ alpha = DollarVolumeSizeAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("DollarVolumeSizeAlpha requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1:
+        dollar_volume = close * volume
+        window = min(self._lookback, len(dollar_volume))
+
+        avg_dv = np.mean(dollar_volume[-window:], axis=0)
+        score = np.log(avg_dv + 1.0)
+
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/size.py`</sub>
 
 
@@ -396,9 +1118,14 @@ alpha = DollarVolumeSizeAlpha(
 
 ## RealizedSpreadAlpha
 
-Realized spread alpha (lower spread = higher score).
+Realized spread alpha signal favoring tighter realized spreads.
 
-Requires three inputs: high, low, close.
+Computes the realized bid-ask spread proxy using the high-low range
+normalized by the close price, averaged over the lookback window.
+The result is negated so that assets with tighter spreads (better
+value) receive higher scores.
+Formula: spread_t = (high_t - low_t) / close_t
+         alpha = -mean(spread[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -406,7 +1133,7 @@ Requires three inputs: high, low, close.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 3 Inputs: [high, low, close]. timeframe must match |
 
 ### Usage
 
@@ -420,6 +1147,58 @@ alpha = RealizedSpreadAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        raise ValueError("RealizedSpreadAlpha requires [high, low, close] inputs")
+
+    high_data = data[0]
+    low_data = data[1]
+    close_data = data[2]
+
+    high = high_data.value
+    low = low_data.value
+    close = close_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(high.shape) > 1:
+        window = min(self._lookback, len(high))
+
+        range_val = high[-window:] - low[-window:]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            spread = range_val / close[-window:]
+
+        avg_spread = np.nanmean(spread, axis=0)
+
+        score = -avg_spread
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
 
 
@@ -427,9 +1206,15 @@ alpha = RealizedSpreadAlpha(
 
 ## PriceEfficiencyAlpha
 
-Price efficiency alpha (lower deviation from mid = higher score).
+Price efficiency alpha signal favoring prices that close near the midpoint.
 
-Requires three inputs: high, low, close.
+Measures how far the close price deviates from the mid-price (average of
+high and low), normalized by the price range. The result is negated so
+that assets whose close consistently lands near the midpoint (indicating
+efficient price discovery) receive higher scores.
+Formula: mid_t = (high_t + low_t) / 2
+         deviation_t = |close_t - mid_t| / (high_t - low_t)
+         alpha = -mean(deviation[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -437,7 +1222,7 @@ Requires three inputs: high, low, close.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 3 Inputs: [high, low, close]. timeframe must match |
 
 ### Usage
 
@@ -451,6 +1236,61 @@ alpha = PriceEfficiencyAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 3:
+        raise ValueError("PriceEfficiencyAlpha requires [high, low, close] inputs")
+
+    high_data = data[0]
+    low_data = data[1]
+    close_data = data[2]
+
+    high = high_data.value
+    low = low_data.value
+    close = close_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(high.shape) > 1:
+        window = min(self._lookback, len(high))
+
+        mid_price = (high[-window:] + low[-window:]) / 2.0
+        price_range = high[-window:] - low[-window:]
+        deviation = np.abs(close[-window:] - mid_price)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            relative_deviation = deviation / price_range
+
+        avg_deviation = np.nanmean(relative_deviation, axis=0)
+
+        score = -avg_deviation
+        compute_mask = exists & valid
+        result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
 
 
@@ -458,7 +1298,12 @@ alpha = PriceEfficiencyAlpha(
 
 ## ImpliedBasisAlpha
 
-Implied basis alpha (risk-adjusted momentum / Sharpe ratio proxy).
+Implied basis alpha signal as a Sharpe-ratio-style momentum proxy.
+
+Computes the mean return divided by the standard deviation of returns
+over the lookback window, producing a risk-adjusted momentum measure
+analogous to the Sharpe ratio.
+Formula: alpha = mean(returns[-window:]) / std(returns[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -466,7 +1311,7 @@ Implied basis alpha (risk-adjusted momentum / Sharpe ratio proxy).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input for close price data. timeframe specifies data frequency. |
 
 ### Usage
 
@@ -474,6 +1319,54 @@ Implied basis alpha (risk-adjusted momentum / Sharpe ratio proxy).
 alpha = ImpliedBasisAlpha(
     Input("FIELD:close", timeframe="1m", lookback=21),
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        if window >= 2:
+            recent = returns[-window:]
+            mean_return = np.mean(recent, axis=0)
+            std_return = np.std(recent, axis=0, ddof=1)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                basis_proxy = mean_return / std_return
+
+            compute_mask = exists & valid
+            result[compute_mask] = basis_proxy[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/value.py`</sub>
@@ -485,14 +1378,18 @@ alpha = ImpliedBasisAlpha(
 
 Inverse volatility alpha (lower volatility = higher score).
 
+Computes annualized volatility of returns and negates it so that
+lower-volatility assets receive higher scores (defensive signal).
+Formula: score = -(std(returns) * sqrt(252))
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `annualize` | `bool` | `True` |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback &gt;= 2 for return calculation. |
+| `annualize` | `bool` | `True` | Whether to annualize volatility |
 
 ### Usage
 
@@ -501,6 +1398,53 @@ alpha = VolatilityAlpha(
     Input("FIELD:close", timeframe="1m", lookback=21),
     annualize=True,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        window = min(self._lookback - 1, len(returns))
+        if window >= 2:
+            vol = np.std(returns[-window:], axis=0, ddof=1)
+
+            if self._annualize:
+                vol = vol * np.sqrt(252)
+
+            inv_vol = -vol
+            compute_mask = exists & valid
+            result[compute_mask] = inv_vol[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/volatility.py`</sub>
@@ -512,14 +1456,18 @@ alpha = VolatilityAlpha(
 
 Volatility regime alpha (current vol / average vol).
 
+Compares short-term volatility to long-term volatility to detect
+regime changes. Low ratio means calm market (positive signal).
+Formula: score = -(short_vol / long_vol)
+
 **Role**: `ALPHA` | **Ephemeral**: No
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `short_window` | `int` | `5` |  |
+| `input` | `'Input'` | Required | Price Input (e.g., FIELD:close). lookback defines the long window. |
+| `short_window` | `int` | `5` | Short-term volatility window |
 
 ### Usage
 
@@ -530,6 +1478,53 @@ alpha = VolatilityRegimeAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= 2:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
+
+        if len(returns) >= self._long_window:
+            short_vol = np.std(returns[-self._short_window:], axis=0, ddof=1)
+            long_vol = np.std(returns[-self._long_window:], axis=0, ddof=1)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ratio = short_vol / long_vol
+
+            score = -ratio
+            compute_mask = exists & valid
+            result[compute_mask] = score[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/volatility.py`</sub>
 
 
@@ -537,7 +1532,11 @@ alpha = VolatilityRegimeAlpha(
 
 ## VolumeAlpha
 
-Volume alpha (recent volume / average volume).
+Volume alpha signal based on relative volume.
+
+Computes the ratio of the most recent volume to the average volume over
+a lookback window. Values greater than 1 indicate above-average activity.
+Formula: alpha = volume_current / mean(volume[-lookback:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -545,7 +1544,7 @@ Volume alpha (recent volume / average volume).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input for volume data. timeframe specifies data frequency. |
 
 ### Usage
 
@@ -555,6 +1554,50 @@ alpha = VolumeAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1:
+        window = min(self._lookback, len(values))
+        if window >= 1:
+            current = values[-1]
+            avg_volume = np.mean(values[-window:], axis=0)
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ratio = current / avg_volume
+
+            compute_mask = exists & valid
+            result[compute_mask] = ratio[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>
 
 
@@ -562,9 +1605,12 @@ alpha = VolumeAlpha(
 
 ## DollarVolumeAlpha
 
-Dollar volume alpha (average dollar volume).
+Dollar volume alpha signal based on average dollar volume.
 
-Requires two inputs: close and volume.
+Computes the mean dollar volume (price multiplied by volume) over a
+lookback window. Higher dollar volume indicates greater market activity
+and liquidity.
+Formula: alpha = mean(close[-window:] * volume[-window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -572,7 +1618,7 @@ Requires two inputs: close and volume.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inputs` | `List['Input']` | Required |  |
+| `inputs` | `List['Input']` | Required | List of 2 Inputs: [close, volume]. timeframe must match |
 
 ### Usage
 
@@ -585,6 +1631,55 @@ alpha = DollarVolumeAlpha(
 )
 ```
 
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 2:
+        raise ValueError("DollarVolumeAlpha requires [close, volume] inputs")
+
+    close_data = data[0]
+    volume_data = data[1]
+
+    close = close_data.value
+    volume = volume_data.value
+
+    last = close_data[-1] if len(close_data) > 0 else close_data
+    exists = last.exists
+    valid = last.valid
+
+    vol_last = volume_data[-1] if len(volume_data) > 0 else volume_data
+    exists = exists & vol_last.exists
+    valid = valid & vol_last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(close.shape) > 1:
+        dollar_volume = close * volume
+        window = min(self._lookback, len(dollar_volume))
+
+        avg_dv = np.mean(dollar_volume[-window:], axis=0)
+        compute_mask = exists & valid
+        result[compute_mask] = avg_dv[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
 <sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>
 
 
@@ -592,7 +1687,12 @@ alpha = DollarVolumeAlpha(
 
 ## VolumeRatioAlpha
 
-Volume ratio alpha (short-term / long-term average volume).
+Volume ratio alpha signal comparing short-term to long-term average volume.
+
+Computes the ratio of a short-window moving average of volume to a
+long-window moving average. Values greater than 1 indicate recent volume
+acceleration relative to the longer-term trend.
+Formula: alpha = mean(volume[-short_window:]) / mean(volume[-long_window:])
 
 **Role**: `ALPHA` | **Ephemeral**: No
 
@@ -600,8 +1700,8 @@ Volume ratio alpha (short-term / long-term average volume).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `short_window` | `int` | `5` |  |
+| `input` | `'Input'` | Required | Input for volume data. timeframe specifies data frequency. |
+| `short_window` | `int` | `5` | Number of periods for the short-term average |
 
 ### Usage
 
@@ -610,6 +1710,48 @@ alpha = VolumeRatioAlpha(
     Input("FIELD:volume", timeframe="1m", lookback=20),
     short_window=5,
 )
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if len(values.shape) > 1 and len(values) >= self._long_window:
+        short_avg = np.mean(values[-self._short_window:], axis=0)
+        long_avg = np.mean(values[-self._long_window:], axis=0)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            ratio = short_avg / long_avg
+
+        compute_mask = exists & valid
+        result[compute_mask] = ratio[compute_mask]
+
+    result_valid = exists & valid & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
 ```
 
 <sub>Source: `apps/trading/operators/signal/alpha/volume.py`</sub>

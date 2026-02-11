@@ -12,11 +12,18 @@ Clypt will host **hedge fund-style trading competitions** where participants com
 ### Tournament Structure
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
+
     A["Registration<br><i>Submit strategy</i>"] --> B["Qualifying Round<br><i>Backtest validation</i>"]
     B --> C["Semi-Finals<br><i>Paper trading</i>"]
     C --> D["Finals<br><i>Live trading</i>"]
     D --> E["Capital Allocation<br><i>Top performers get AUM</i>"]
+
+    class D action
+    class E success
 ```
 
 ### Qualifying Round (Backtest)

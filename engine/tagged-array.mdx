@@ -46,13 +46,20 @@ data.is_fresh    # = data.exists & data.valid & data.updated
 The 3 boolean fields form a **hierarchical gate** — each level only matters if the previous level is `True`:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart TB
+    classDef warn fill:#2a1f1f,stroke:#f87171,stroke-width:1.5px,color:#fecaca
+    classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
+
     A{"exists?"} -- No --> B["Not in domain<br>(delisted/unlisted).<br>Stop here."]
     A -- Yes --> C{"valid?"}
     C -- No --> D["In domain but no usable value<br>(missing data/warmup).<br>Stop here."]
     C -- Yes --> E{"updated?"}
     E -- No --> F["Valid value, but<br>forward-filled from<br>previous tick."]
     E -- Yes --> G["Fresh data.<br>Use with confidence."]
+
+    class B,D warn
+    class G success
 ```
 
 If `exists=False`, `valid` and `updated` are irrelevant.
@@ -271,7 +278,7 @@ Without TaggedArray, a delisted token, a data gap, and a warmup period all look 
 
 ### Forward-Fill Distinction
 
-This is critical for the [FIELD](/engine/field-data-principle) system. When a data source hasn't updated:
+This is critical for the [FIELD](/engine/field-state) system. When a data source hasn't updated:
 
 ```
 Tick 1: value=42000, updated=True   ← New data
@@ -284,8 +291,8 @@ Operators that should only act on new data check `updated`. Operators that need 
 
 ## Relationship to Other Concepts
 
-- **[FIELD Data Principle](/engine/field-data-principle)**: FIELD data arrives as TaggedArrays
-- **[STATE Principle](/engine/state-principle)**: STATE data arrives as TaggedArrays
+- **[FIELD Data Principle](/engine/field-state)**: FIELD data arrives as TaggedArrays
+- **[STATE Principle](/engine/field-state)**: STATE data arrives as TaggedArrays
 - **[Lookback Buffers](/engine/lookback-buffers)**: RollingBuffer stores TaggedArrays and delivers them as 2D TaggedArrays
 - **[StatefulGraph](/engine/stateful-graph)**: All operator inputs and outputs are TaggedArrays
 - **[Operator Protocol](/engine/operator-protocol)**: `compute()` receives and returns TaggedArrays

@@ -194,7 +194,11 @@ Focus on writing clean strategy logic using ClyptQ's operator framework. If your
 ## Development Workflow
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
 flowchart LR
+    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
+    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
+    classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
     S1["Explore<br><br>Helper.exchanges()<br>Helper.symbols()<br>Helper.data_catalog()"]
     S2["Build Graph<br><br>StatefulGraph<br>Operators<br>FIELD/STATE inputs"]
     S3["Backtest<br><br>mode=backtest"]
@@ -203,6 +207,9 @@ flowchart LR
     S6["Marketplace<br><br>Submit TradingSpec<br>for verification"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    class S2 source
+    class S5 action
+    class S6 highlight
 ```
 
 ## Step 1: Explore
@@ -478,58 +485,11 @@ Builders submit a **TradingSpec** — not source code. The spec defines the comp
 
 ### Verification process
 
-The platform independently verifies your strategy through 4 stages. Each stage protects the buyer — and in doing so, protects your reputation as a builder:
+The platform independently verifies your strategy through 4 stages: reproducibility check, cross-exchange validation, cost verification, and scale testing. Higher scores across all stages make your listing more attractive to buyers.
 
-**1. Reproducibility check**
-
-The platform runs your spec on your declared exchange data. Results must match within tolerance. This proves your reported metrics are real.
-
-**2. Cross-exchange validation (venue sampling)**
-
-The platform runs the same spec on exchanges you never tested (e.g., Bybit, Gateio, OKX). This catches overfitting to a single venue's microstructure.
-
-**Why this matters for builders**: A high consistency score across venues makes your strategy more attractive. Buyers trust strategies that generalize — and they're willing to pay more for them.
-
-```
-Your strategy on Binance:  Sharpe 1.8  ← you tested this
-Platform tests on Bybit:   Sharpe 1.5  ← you never saw this
-Platform tests on Gateio:  Sharpe 1.3  ← you never saw this
-
-Consistency score: 0.83 → displayed prominently in your listing
-```
-
-**3. Cost verification**
-
-Platform applies exchange-specific fees, funding rates, and liquidation logic. Strategies that are only profitable without real costs are flagged.
-
-**4. Scale testing (capacity validation)**
-
-Platform tests your strategy at 2×, 5×, and 10× your declared capital. This determines the **estimated capacity** — the maximum AUM where the strategy maintains acceptable performance.
-
-**Why this matters for builders**: Capacity directly affects your earning potential:
-
-| Capacity | Impact on Your Revenue |
-|----------|----------------------|
-| **High capacity** ($500K+) | More buyers can deploy simultaneously → higher total revenue |
-| **Medium capacity** ($50-500K) | Platform may limit concurrent deployments → moderate revenue |
-| **Low capacity** (< $50K) | Few deployment slots → limited revenue |
-
-**How to improve capacity**: Use longer timeframes (less trading = less market impact), diversify across symbols, and avoid illiquid assets.
-
-### Why validation helps you sell more
-
-The validation pipeline is not a burden — it's your **sales engine**:
-
-| You as Builder | | Buyer's Perspective |
-|---|---|---|
-| Self-reported metrics | | "Anyone can claim Sharpe 2.0" |
-| + Platform-verified | | "This is independently confirmed" |
-| + Cross-exchange valid | | "It works on venues I'll use" |
-| + Scale tested | | "It works at my capital level" |
-| + Real cost impact | | "Returns are after fees" |
-| **Result** | **=** | **HIGH TRUST = More subscriptions** |
-
-Every buyer who deploys your strategy generates revenue for you. The more trust signals your listing has, the more buyers convert.
+<Card title="Marketplace Validation" icon="shield-check" href="/platform/marketplace">
+  Full details on each verification stage, consistency scoring, capacity estimation, and how validation drives buyer trust
+</Card>
 
 ### Listing requirements
 
@@ -594,6 +554,6 @@ Set your strategy's price. The platform takes a commission on each transaction:
     How the strategy marketplace verification works
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse all 213+ available operators
+    Browse all 380+ available operators
   </Card>
 </CardGroup>

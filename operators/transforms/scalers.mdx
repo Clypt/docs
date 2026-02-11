@@ -29,11 +29,11 @@ This page documents **11 operators** (role: various).
 
 ## ZScore
 
-Z-Score normalization: (x - mean) / std.
+Z-Score normalization across symbols.
 
-Example:
-    zscore = ZScore(Input("momentum", timeframe="1m", lookback=1))
-    graph.add_node("zscore", zscore)
+Standardizes values by removing the cross-sectional mean and scaling
+by the cross-sectional standard deviation.
+Formula: z_i = (x_i - mean(x)) / max(std(x), min_std)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -41,8 +41,54 @@ Example:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `min_std` | `float` | `1e-08` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `min_std` | `float` | `1e-08` | Minimum standard deviation to avoid division by zero |
+
+### Usage
+
+```python
+zscore = ZScore(Input("momentum", timeframe="1m", lookback=1))
+graph.add_node("zscore", zscore)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        mean = np.mean(valid_values)
+        std = max(np.std(valid_values), self._min_std)
+        result[compute_mask] = (values[compute_mask] - mean) / std
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -51,7 +97,12 @@ Example:
 
 ## MinMaxScale
 
-Min-Max scaling to [0, 1] range.
+Min-Max scaling to a specified feature range.
+
+Linearly rescales values so the minimum maps to the lower bound and
+the maximum maps to the upper bound of the target range. When all
+valid values are identical, returns the midpoint of the range.
+Formula: scaled_i = (x_i - min(x)) / (max(x) - min(x)) * (range_max - range_min) + range_min
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -59,8 +110,61 @@ Min-Max scaling to [0, 1] range.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `feature_range` | `tuple` | `...` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `feature_range` | `tuple` | `...` | Target (min, max) range for scaled values |
+
+### Usage
+
+```python
+scaled = MinMaxScale(
+    Input("momentum", timeframe="1m", lookback=1),
+    feature_range=(0, 1),
+)
+graph.add_node("scaled", scaled)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        v_min, v_max = np.min(valid_values), np.max(valid_values)
+
+        if v_max - v_min < 1e-10:
+            result[compute_mask] = (self._min + self._max) / 2
+        else:
+            scaled = (values[compute_mask] - v_min) / (v_max - v_min)
+            result[compute_mask] = scaled * (self._max - self._min) + self._min
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -69,7 +173,12 @@ Min-Max scaling to [0, 1] range.
 
 ## Rank
 
-Rank transform to [0, 1] based on position.
+Cross-sectional rank transform to [0, 1].
+
+Assigns each symbol a rank based on its value relative to other symbols,
+then normalizes ranks to the [0, 1] interval. Uses ordinal ranking via
+double argsort.
+Formula: rank_i = argsort(argsort(x))[i] / (N - 1), where N is the number of valid symbols.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -77,7 +186,57 @@ Rank transform to [0, 1] based on position.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+ranked = Rank(Input("alpha", timeframe="1m", lookback=1))
+graph.add_node("ranked", ranked)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    n_valid = np.sum(compute_mask)
+    if n_valid > 0:
+        valid_indices = np.where(compute_mask)[0]
+        valid_values = values[compute_mask]
+
+        order = np.argsort(np.argsort(valid_values))
+        ranks = order / (n_valid - 1) if n_valid > 1 else np.zeros_like(order, dtype=float)
+
+        result[valid_indices] = ranks
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -86,7 +245,11 @@ Rank transform to [0, 1] based on position.
 
 ## Percentile
 
-Percentile rank (0-100).
+Cross-sectional percentile rank scaled to 0-100.
+
+Computes the percentage of valid symbols whose value is less than or
+equal to each symbol's value. Produces a score in the range [0, 100].
+Formula: percentile_i = (count(x &lt;= x_i) / N) * 100, where N is the number of valid symbols.
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -94,7 +257,56 @@ Percentile rank (0-100).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+pctl = Percentile(Input("alpha", timeframe="1m", lookback=1))
+graph.add_node("percentile", pctl)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    n_valid = np.sum(compute_mask)
+    if n_valid > 0:
+        valid_indices = np.where(compute_mask)[0]
+        valid_values = values[compute_mask]
+
+        for i, idx in enumerate(valid_indices):
+            val = valid_values[i]
+            result[idx] = np.sum(valid_values <= val) / n_valid * 100
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -103,7 +315,12 @@ Percentile rank (0-100).
 
 ## L1Norm
 
-L1 normalization - scale to sum to 1 (absolute values).
+L1 normalization so absolute values sum to one.
+
+Divides each value by the sum of absolute values across all valid
+symbols, producing weights that satisfy sum(|w_i|) = 1. Optionally
+clamps negative values to zero before normalizing (long-only mode).
+Formula: w_i = x_i / sum(|x|)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -111,8 +328,62 @@ L1 normalization - scale to sum to 1 (absolute values).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `long_only` | `bool` | `False` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `long_only` | `bool` | `False` | If True, clamp negative values to zero before normalizing |
+
+### Usage
+
+```python
+weights = L1Norm(
+    Input("alpha", timeframe="1m", lookback=1),
+    long_only=False,
+)
+graph.add_node("weights", weights)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        work_values = values.copy()
+        if self._long_only:
+            work_values = np.maximum(work_values, 0)
+
+        total = np.sum(np.abs(work_values[compute_mask]))
+        if total < 1e-10:
+            result[compute_mask] = 0.0
+        else:
+            result[compute_mask] = work_values[compute_mask] / total
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -121,7 +392,11 @@ L1 normalization - scale to sum to 1 (absolute values).
 
 ## L2Norm
 
-L2 normalization - scale to unit norm.
+L2 normalization to unit Euclidean norm.
+
+Divides each value by the L2 (Euclidean) norm of the valid values,
+producing a vector with unit length.
+Formula: w_i = x_i / sqrt(sum(x^2))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -129,7 +404,54 @@ L2 normalization - scale to unit norm.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+normed = L2Norm(Input("alpha", timeframe="1m", lookback=1))
+graph.add_node("normed", normed)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        norm = np.sqrt(np.sum(values[compute_mask] ** 2))
+        if norm < 1e-10:
+            result[compute_mask] = 0.0
+        else:
+            result[compute_mask] = values[compute_mask] / norm
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -138,7 +460,13 @@ L2 normalization - scale to unit norm.
 
 ## Softmax
 
-Softmax normalization with temperature.
+Softmax normalization with configurable temperature.
+
+Applies the softmax function to produce a probability distribution
+over symbols. A lower temperature sharpens the distribution (more
+weight on the largest values); a higher temperature flattens it.
+Uses the numerically stable form with max subtraction.
+Formula: w_i = exp((x_i - max(x)) / T) / sum(exp((x - max(x)) / T))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -146,8 +474,57 @@ Softmax normalization with temperature.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `temperature` | `float` | `1.0` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `temperature` | `float` | `1.0` | Temperature parameter controlling distribution sharpness |
+
+### Usage
+
+```python
+weights = Softmax(
+    Input("alpha", timeframe="1m", lookback=1),
+    temperature=0.5,
+)
+graph.add_node("softmax_weights", weights)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask] / self._temperature
+        exp_values = np.exp(valid_values - np.max(valid_values))
+        softmax_values = exp_values / np.sum(exp_values)
+        result[compute_mask] = softmax_values
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -156,7 +533,13 @@ Softmax normalization with temperature.
 
 ## Clip
 
-Clip values to range.
+Clip values to a specified lower and upper bound.
+
+Constrains each value to lie within [lower, upper]. Values below the
+lower bound are set to the lower bound; values above the upper bound
+are set to the upper bound. Either bound may be None to leave that
+side unconstrained.
+Formula: result_i = max(lower, min(x_i, upper))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -164,9 +547,59 @@ Clip values to range.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `lower` | `float` | `None` |  |
-| `upper` | `float` | `None` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `lower` | `float` | `None` | Lower clipping bound, or None for no lower bound |
+| `upper` | `float` | `None` | Upper clipping bound, or None for no upper bound |
+
+### Usage
+
+```python
+clipped = Clip(
+    Input("alpha", timeframe="1m", lookback=1),
+    lower=-0.05,
+    upper=0.05,
+)
+graph.add_node("clipped", clipped)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = values.copy()
+
+    if self._lower is not None:
+        result = np.maximum(result, self._lower)
+    if self._upper is not None:
+        result = np.minimum(result, self._upper)
+
+    result[~compute_mask] = np.nan
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -175,7 +608,13 @@ Clip values to range.
 
 ## Winsorize
 
-Winsorize outliers using standard deviation bounds.
+Winsorize outliers by clamping to standard-deviation bounds.
+
+Computes the cross-sectional mean and standard deviation, then clips
+values to [mean - k*std, mean + k*std]. This limits the influence of
+extreme outliers while preserving the relative ordering of non-outlier
+values.
+Formula: result_i = clip(x_i, mean(x) - k*std(x), mean(x) + k*std(x))
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -183,8 +622,62 @@ Winsorize outliers using standard deviation bounds.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `std_mult` | `float` | `3.0` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `std_mult` | `float` | `3.0` | Number of standard deviations for the clipping bounds |
+
+### Usage
+
+```python
+cleaned = Winsorize(
+    Input("alpha", timeframe="1m", lookback=1),
+    std_mult=3.0,
+)
+graph.add_node("winsorized", cleaned)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = values.copy()
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        mean = np.mean(valid_values)
+        std = np.std(valid_values)
+
+        lower = mean - self._std_mult * std
+        upper = mean + self._std_mult * std
+
+        result[compute_mask] = np.clip(values[compute_mask], lower, upper)
+
+    result[~compute_mask] = np.nan
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -193,10 +686,12 @@ Winsorize outliers using standard deviation bounds.
 
 ## Demean
 
-Cross-sectional demeaning: subtract mean across symbols.
+Cross-sectional demeaning by subtracting the mean across symbols.
 
-Example:
-    demean = Demean(Input("alpha", timeframe="1m", lookback=1))
+Centers the signal around zero by subtracting the cross-sectional
+mean of all valid values. This removes the common level so that
+only relative differences between symbols remain.
+Formula: result_i = x_i - mean(x)
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -204,7 +699,52 @@ Example:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+
+### Usage
+
+```python
+demean = Demean(Input("alpha", timeframe="1m", lookback=1))
+graph.add_node("demeaned", demean)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    if np.any(compute_mask):
+        valid_values = values[compute_mask]
+        mean = np.nanmean(valid_values)
+        result[compute_mask] = values[compute_mask] - mean
+
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 
@@ -213,15 +753,12 @@ Example:
 
 ## RollingStd
 
-Rolling standard deviation per symbol.
+Rolling standard deviation per symbol over a lookback window.
 
-Computes std of last `window` values for each symbol.
-
-Example:
-    volatility = RollingStd(
-        Input("returns", timeframe="1h", lookback=20),
-        window=20
-    )
+Computes the sample standard deviation (ddof=1) of the last `window`
+observations for each symbol along the time axis. Requires at least
+2 data points in the time dimension.
+Formula: std_i = sqrt(sum((x_t,i - mean_i)^2) / (T - 1)) for t in [now - window, now]
 
 **Role**: `UNKNOWN` | **Ephemeral**: No
 
@@ -229,8 +766,59 @@ Example:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input` | `'Input'` | Required |  |
-| `window` | `int` | `20` |  |
+| `input` | `'Input'` | Required | Input signal. timeframe specifies data frequency. |
+| `window` | `int` | `20` | Number of trailing observations to include |
+
+### Usage
+
+```python
+volatility = RollingStd(
+    Input("returns", timeframe="1h", lookback=20),
+    window=20,
+)
+graph.add_node("volatility", volatility)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    values = data.value
+    last = data[-1] if len(data) > 0 else data
+    exists = last.exists
+    valid = last.valid
+
+    n_symbols = len(exists)
+    result = np.full(n_symbols, np.nan)
+
+    # Need at least 2 data points for std
+    if len(values.shape) > 1 and len(values) >= 2:
+        window = min(self._window, len(values))
+        window_data = values[-window:]
+
+        with np.errstate(invalid='ignore'):
+            result = np.nanstd(window_data, axis=0, ddof=1)
+
+    compute_mask = exists & valid
+    result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
 
 <sub>Source: `apps/trading/operators/transform/scalers.py`</sub>
 

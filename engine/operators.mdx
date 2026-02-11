@@ -1,0 +1,137 @@
+---
+title: "Operators"
+description: "Stateless computation units — the building blocks of every ClyptQ strategy"
+---
+
+## What Is an Operator?
+
+An operator is a **stateless function** that receives data, computes something, and returns a result. Every computation in ClyptQ — from a simple moving average to an LLM-powered sentiment score — is an operator.
+
+```python
+class SMA(BaseOperator):
+    role = OperatorRole.INDICATOR
+
+    def __init__(self, input: Input, period: int = 14):
+        super().__init__(inputs=[input])
+        self._period = period
+
+    def compute(self, data, timestamp, context) -> TaggedArray:
+        if isinstance(data, list):
+            data = data[0]
+
+        last = data[-1]
+        values = np.array([data[t].value for t in range(len(data))])
+        period = min(self._period, len(data))
+
+        result = np.nanmean(values[-period:], axis=0)
+        result_valid = last.exists & last.valid & ~np.isnan(result)
+
+        return TaggedArray(
+            value=result, exists=last.exists,
+            valid=result_valid,
+            updated=np.ones(len(last.exists), dtype=bool),
+        )
+```
+
+**Three rules:**
+1. **TaggedArray in, TaggedArray out** — All inputs are [TaggedArrays](/engine/tagged-array) buffered by [RollingBuffers](/engine/lookback-buffers). Output is always a TaggedArray.
+2. **Stateless** — No mutable state between ticks. The [StatefulGraph](/engine/stateful-graph) manages all state.
+3. **Declare inputs upfront** — Each input is declared via `Input(source, timeframe, lookback)` at graph registration time.
+
+## 14 Operator Roles
+
+Every operator declares a `role` that describes its purpose:
+
+| Role | Count | What It Does | Output |
+|------|-------|-------------|--------|
+| **INDICATOR** | 138 | Technical indicators (SMA, RSI, MACD, Bollinger, 60 candlestick patterns) | Numeric values |
+| **ALPHA** | 122 | Predictive signals for future returns | Signal in [-1, 1] |
+| **FACTOR** | 8 | Cross-sectional systematic exposure | Rank/score per symbol |
+| **TRANSFORM** | 18 | Normalization (ZScore, Rank, Neutralize) | Transformed values |
+| **OPTIMIZER** | 5 | Portfolio weight optimization (MVO, RiskParity) | Weights summing to 1.0 |
+| **POSITION** | 7 | Position sizing and constraints | Position sizes |
+| **FILTER** | 6 | Boolean universe selection | 1.0 or 0.0 |
+| **SCORE** | 3 | Continuous ranking scores | Score per symbol |
+| **METRIC** | 33 | Performance measurement (Sharpe, drawdown, IC) | Rolling or cumulative |
+| **BALANCE** | 7 | Portfolio state queries (cash, equity) | State values |
+| **ORDER** | 6 | Order intention generation | TradingIntention |
+| **SEMANTIC** | 3 | LLM, web search, sentiment (ephemeral) | AI-generated signals |
+| **CONTROL** | 3 | Conditional gates (if/and/or) | Gate values (0 or 1) |
+| **UTILITY** | 25 | Data routing (Identity, Resample, Merge) | Transformed data |
+
+## How Operators Compose
+
+Operators connect into a DAG (Directed Acyclic Graph) inside a [StatefulGraph](/engine/stateful-graph). Each operator's output becomes another operator's input:
+
+```python
+graph = StatefulGraph()
+
+# Data source
+close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
+
+# Indicators
+graph.add_node("sma_fast", SMA(span=10), inputs=[close])
+graph.add_node("sma_slow", SMA(span=50), inputs=[close])
+
+# Signal (depends on indicators)
+graph.add_node("signal", CrossoverAlpha(), inputs=[
+    Input("sma_fast", "1m", lookback=2),
+    Input("sma_slow", "1m", lookback=2),
+])
+
+# Transform (depends on signal)
+graph.add_node("weights", EqualWeight(), inputs=[
+    Input("signal", "1m", lookback=1),
+])
+```
+
+The graph automatically determines execution order via topological sort — every operator's inputs are ready before it runs.
+
+## Creating Custom Operators
+
+Inherit from `BaseOperator`, set a `role`, implement `compute()`:
+
+```python
+from clyptq.apps.trading.operators.base import BaseOperator, OperatorRole
+from clyptq.system.tagged_tensor import TaggedArray
+import numpy as np
+
+class MyMomentumAlpha(BaseOperator):
+    role = OperatorRole.ALPHA
+
+    def __init__(self, lookback: int = 20):
+        self.lookback = lookback
+
+    def compute(self, data, timestamp, context):
+        close = data["close"]
+        returns = close.value[-1] / close.value[0] - 1.0
+
+        return TaggedArray(
+            value=returns,
+            exists=close.exists[-1],
+            valid=close.valid[-1] & close.valid[0],
+            updated=True,
+        )
+```
+
+Any Python library works inside `compute()` — NumPy, PyTorch, XGBoost, scikit-learn, HuggingFace, scipy.
+
+## Ephemeral Operators
+
+Operators that call external APIs (LLM, web search) are marked `ephemeral = True`. They:
+- Cannot reproduce outputs for the same historical input
+- Skip backtest validation
+- Only run in paper/live mode
+
+See [Semantic Operators](/operators/semantic) for details.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="plug" href="/engine/operator-protocol">
+    Detailed protocol: roles, self-referencing, ML/DL integration, ComputeContext
+  </Card>
+  <Card title="Browse 380+ Operators" icon="book" href="/operators/overview">
+    Complete catalog across 14 roles
+  </Card>
+</CardGroup>
