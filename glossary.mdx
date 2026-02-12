@@ -5,6 +5,9 @@ description: "Quick reference for ClyptQ terminology"
 
 ## Core Architecture
 
+**Von Neumann Architecture (Design Principle)**
+The foundational design principle behind ClyptQ's engine. Just as the Von Neumann architecture separates stateless computation (CPU) from stateful memory (RAM) connected by a control unit, ClyptQ separates stateless Operators from the stateful StatefulGraph, connected by the TradingDriver. This separation is what makes Research = Backtest = Live possible. [Architecture Overview →](/getting-started/architecture-overview#the-architecture-behind-the-architecture)
+
 **TradingSpec**
 The complete strategy definition: data + strategy + execution mode. Changing `mode` is all it takes to go from backtest to live. [Full Reference →](/engine/trading-spec)
 

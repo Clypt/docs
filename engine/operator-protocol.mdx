@@ -5,7 +5,7 @@ description: "The standardized interface for all computation in ClyptQ — 13 ro
 
 ## Core Interface
 
-Every operator in ClyptQ implements a single method:
+Every operator in ClyptQ implements a single method — the equivalent of a CPU instruction in the [Von Neumann-inspired architecture](/getting-started/architecture-overview#the-architecture-behind-the-architecture). Stateless, deterministic, and indifferent to where its data originates:
 
 ```python
 class BaseOperator(ABC):
@@ -304,7 +304,7 @@ This means:
 
 ## Execution Responsibility Separation
 
-ClyptQ separates execution into three **memoryless** components:
+Following the Von Neumann principle of separating computation from state, ClyptQ separates execution into three **memoryless** components:
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%

@@ -5,10 +5,10 @@ description: "DAG-based execution engine where operators are stateless and the g
 
 ## Core Design Principle
 
-ClyptQ separates **computation** from **state**:
+ClyptQ's engine is built on the same principle that underpins every modern computer: the [Von Neumann separation](/getting-started/architecture-overview#the-architecture-behind-the-architecture) of stateless computation from stateful memory.
 
-- **Operators are stateless**: They receive inputs, compute, and return outputs. No internal state between ticks.
-- **The Graph is stateful**: It manages buffers, routing, axis registration, and execution order.
+- **Operators are the CPU** — stateless computation units. They receive inputs, compute, and return outputs. No internal state between ticks. Like an ALU that processes whatever data it receives, operators do not know or care where their inputs originate.
+- **The Graph is the memory** — it manages buffers, routing, axis registration, and execution order via RollingBuffers. All state lives here, not in the operators.
 
 This separation is why the same strategy code runs identically in backtest and live — operators don't care where data comes from or when. The graph handles all the plumbing.
 
@@ -293,6 +293,8 @@ This is the key architectural insight:
 | Output | TaggedArray | Distributed to consumers |
 | Lifecycle | Created once, never mutated | Updated every tick |
 | Testable | In isolation with mock data | Integration test with full pipeline |
+
+This is the [Von Neumann principle](/getting-started/architecture-overview#the-architecture-behind-the-architecture) in action: computation units (operators) are pure functions with no memory, while the storage system (the graph) manages all state. This architectural split — not any individual feature — is what makes code parity across modes possible.
 
 ### Why This Matters
 

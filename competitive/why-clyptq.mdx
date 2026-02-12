@@ -247,15 +247,15 @@ ClyptQ's operator architecture is compatible with these research tools. You can 
 
 ## The Technical Moat
 
-ClyptQ's competitive advantage isn't any single feature — it's the **architectural decisions** that make everything else possible:
+ClyptQ's competitive advantage isn't any single feature — it's the **architectural foundation** that makes everything else possible. The engine was built on the [Von Neumann principle](/getting-started/architecture-overview#the-architecture-behind-the-architecture): separate stateless computation from stateful memory, and everything else follows.
 
-1. **FIELD/STATE Protocol** — Explicit data routing eliminates ambiguity and prevents lookahead bias by design
-2. **TaggedArray 4-Field System** — `exists`, `valid`, `updated` masks handle missing data, warmup, and staleness without special-case code
-3. **Stateless Operators, Stateful Graph** — Same operator code produces identical results in any environment
-4. **Memoryless Executor** — All metrics are operators, making everything customizable and auditable
-5. **380+ Pre-built Operators** — From SMA to LLM scoring, all composable in the same DAG
+1. **FIELD/STATE Protocol** — Two separate address spaces (like instruction and data memory) eliminate ambiguity and prevent lookahead bias by design
+2. **TaggedArray 4-Field System** — The "register format" — `exists`, `valid`, `updated` flags handle missing data, warmup, and staleness without special-case code
+3. **Stateless Operators, Stateful Graph** — The CPU/memory split. Same operator code produces identical results in any environment
+4. **Memoryless Executor** — The control unit: fetch, execute, update, forget. All metrics are operators, making everything customizable
+5. **380+ Pre-built Operators** — A growing instruction set from SMA to LLM scoring, all composable in the same DAG
 
-These aren't features that can be bolted on. They're **foundational design decisions** that determine what's possible.
+These aren't features that can be bolted on. They're **foundational design decisions** — the same category of decisions that defined the architecture of every modern computer.
 
 ## Competitive Deep Dives
 

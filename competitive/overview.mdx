@@ -145,14 +145,14 @@ ClyptQ's operator architecture is compatible with these tools. Train a model in 
 
 ## The Technical Moat
 
-ClyptQ's advantages are **structural, not incremental**:
+ClyptQ's advantages are **structural, not incremental**. The engine was deliberately modeled on the [Von Neumann architecture](/getting-started/architecture-overview#the-architecture-behind-the-architecture) — the separation of stateless computation (operators) from stateful memory (the graph), connected by a control loop (the driver). This foundational decision makes everything else possible:
 
-1. **Code parity** is built into the architecture ([StatefulGraph](/engine/stateful-graph) + [TradingSpec](/engine/trading-spec)), not bolted on
-2. **Lookahead prevention** is structural ([RollingBuffer](/engine/lookback-buffers)), not runtime checks
-3. **Cross-exchange validation** requires exchange-agnostic operators ([TaggedArray](/engine/tagged-array)) — an architectural decision from day one
-4. **380+ operators** form a growing library that increases switching costs
+1. **Code parity** is built into the architecture — stateless operators process data identically regardless of source ([StatefulGraph](/engine/stateful-graph) + [TradingSpec](/engine/trading-spec))
+2. **Lookahead prevention** is structural — [RollingBuffers](/engine/lookback-buffers) are the memory system, and operators can only access what the buffer provides
+3. **Cross-exchange validation** requires source-agnostic operators — [TaggedArray](/engine/tagged-array) is the "register format," neutral by design
+4. **380+ operators** form a growing instruction set that increases switching costs
 
-These cannot be added to existing platforms — they require rebuilding from the ground up.
+These cannot be added to existing platforms — they require rebuilding from the ground up. Just as you cannot make a non-Von Neumann machine behave like one through software patches, you cannot bolt code parity onto an architecture that was not designed for it.
 
 ## Competitive Deep Dives
 

@@ -57,6 +57,16 @@ The common thread: **if your research code and production code are different, yo
 
 ClyptQ has **one codebase, one execution path, one data flow** — for all modes.
 
+### Why This Works: The Von Neumann Insight
+
+The deepest reason ClyptQ achieves code parity is architectural, not accidental. The engine was deliberately modeled on the [Von Neumann architecture](/getting-started/architecture-overview#the-architecture-behind-the-architecture) — the same principle that makes every computer work.
+
+Consider how a CPU operates: the ALU (Arithmetic Logic Unit) executes the same instruction set regardless of whether the data it processes came from an SSD, RAM, a network socket, or a keyboard. The ALU does not know the data source. It does not need to. It simply processes the bits it receives according to its instruction.
+
+ClyptQ operators work the same way. An SMA operator computes a simple moving average on whatever TaggedArray it receives. It does not know — and cannot know — whether that TaggedArray was filled from a Parquet file (backtest), a WebSocket feed (live), or a simulated stream (paper). The `compute()` interface is the same. The data format is the same. The result is the same.
+
+This is not a convenient coincidence. It is the consequence of a deliberate architectural decision: **separate stateless computation from stateful storage, and make the computation layer source-agnostic.** The same decision that John von Neumann made in 1945 — applied to quantitative trading.
+
 ### The TradingSpec Architecture
 
 Everything in ClyptQ is defined in a single `TradingSpec`:

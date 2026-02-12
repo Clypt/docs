@@ -34,6 +34,68 @@ flowchart LR
   </Card>
 </CardGroup>
 
+## The Architecture Behind the Architecture
+
+When we set out to build ClyptQ, we asked a fundamental question: **what is the simplest possible architecture that makes Research = Backtest = Live not just possible, but inevitable?**
+
+The answer came from computer science fundamentals. Every computer built since 1945 follows the **Von Neumann architecture** — a design that separates stateless computation (the CPU) from stateful storage (RAM), connected by a control unit that orchestrates the fetch-decode-execute cycle. This separation is why the same program can process data from any source — disk, network, keyboard — without changing a single instruction.
+
+ClyptQ applies the same principle to quantitative trading:
+
+| Von Neumann | ClyptQ | Why It Matters |
+|---|---|---|
+| **CPU / ALU** | **Operators** | Pure computation. No memory, no side effects. Process input, produce output. |
+| **RAM / Memory** | **StatefulGraph** | Stores all state — buffers, history, routing — via RollingBuffers. |
+| **Control Unit** | **TradingDriver** | The fetch-decode-execute cycle: receive tick, execute graph, update state. |
+| **Registers** | **TaggedArray** | Fixed-format data containers with metadata (value, exists, valid, updated). |
+| **Address Space** | **FIELD / STATE** | Two separate memory namespaces — market data in, portfolio state back. |
+| **Instruction Pipeline** | **Topological Sort** | Dependency-driven execution order, computed once at graph construction. |
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
+flowchart LR
+    classDef vonNeumann fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#eaeaea
+    classDef clyptq fill:#134e4a,stroke:#94F1E8,stroke-width:2px,color:#94F1E8
+
+    subgraph VN["Von Neumann Architecture"]
+        direction TB
+        CU["Control Unit<br>(fetch-decode-execute)"]
+        CPU["CPU / ALU<br>(stateless computation)"]
+        MEM["Memory / RAM<br>(stateful storage)"]
+        REG["Registers<br>(data + status flags)"]
+        CU --> CPU
+        CPU <--> MEM
+        CPU --> REG
+    end
+
+    subgraph CQ["ClyptQ Engine"]
+        direction TB
+        DR["TradingDriver<br>(tick loop)"]
+        OP["Operators<br>(stateless compute())"]
+        SG["StatefulGraph<br>(RollingBuffers)"]
+        TA["TaggedArray<br>(value + 3 flags)"]
+        DR --> OP
+        OP <--> SG
+        OP --> TA
+    end
+
+    CU -.->|"inspired"| DR
+    CPU -.->|"inspired"| OP
+    MEM -.->|"inspired"| SG
+    REG -.->|"inspired"| TA
+
+    class CU,CPU,MEM,REG vonNeumann
+    class DR,OP,SG,TA clyptq
+```
+
+This is not a metaphor — it is the actual design principle. Operators are deliberately stateless so that the same `compute()` call produces identical results regardless of where data originates. The StatefulGraph deliberately owns all state so that buffer management, warmup, and routing are handled in one place. The TradingDriver deliberately follows a tick loop (fetch data, execute graph, update state) because that pattern guarantees deterministic execution across modes.
+
+**This is also the key to understanding Research = Backtest = Live.** Just as the same CPU executes the same instruction set whether data comes from an SSD, RAM, or a network socket, ClyptQ operators execute identically whether data comes from Parquet files (backtest), WebSocket feeds (live), or simulated streams (paper). The computation layer does not know — and does not need to know — where its data originates.
+
+<Tip>
+This design principle is useful for understanding every page in the Engine Fundamentals section. When you read about StatefulGraph, think "memory." When you read about operators, think "CPU instructions." When you read about FIELD/STATE, think "address spaces."
+</Tip>
+
 ## The 4-Layer Architecture
 
 ```mermaid
