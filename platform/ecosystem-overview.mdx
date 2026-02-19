@@ -31,22 +31,22 @@ flowchart LR
 ```
 
 <CardGroup cols={3}>
-  <Card title="For Builders" icon="wrench">
+  <Card title="For Builders" icon="wrench" href="/platform/builder-guide">
     - Production infrastructure (data + execution + monitoring)
     - Same code from research to live trading
     - Revenue via marketplace (performance fee, subscription)
   </Card>
 
-  <Card title="For Buyers" icon="chart-line">
-    - Independently verified strategy metrics
+  <Card title="Marketplace" icon="store" href="/platform/marketplace">
+    - Independent backtest verification
     - Cross-exchange validation on unseen data
-    - One-click deploy: paper → live
+    - Platform-computed metrics builders can't manipulate
   </Card>
 
-  <Card title="For Investors" icon="building-columns">
-    - Quantified technical moat (code parity, structural safety)
-    - Network effects (more builders → more buyers → more data)
-    - Multiple revenue streams (commissions, subscriptions, data)
+  <Card title="For Buyers" icon="chart-line" href="/platform/buyer-guide">
+    - Evaluate verified strategies at a glance
+    - One-click deploy: paper → live
+    - Built-in safety (emergency shutdown, balance sync)
   </Card>
 </CardGroup>
 
