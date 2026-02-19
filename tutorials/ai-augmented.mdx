@@ -237,26 +237,13 @@ df_equity = driver.to_dataframe("equity")
 df_equity.plot(title="AI-Augmented Strategy (Backtest - Technical Only)", figsize=(14, 5))
 ```
 
-### Paper trading (technical + AI)
+### Paper & Live Trading
 
-```python
-spec_paper = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="paper",  # AI operators now active
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
-        execution_price_source="ohlcv",
-    ),
-)
+After backtesting, **submit your strategy and run paper/live from the dashboard**. Semantic operators (LLM scoring, web search) are only active in paper and live modes — they are skipped during backtest since they require real-time data.
 
-driver = TradingDriver.from_spec(spec_paper)
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+<Info>
+Paper and live trading are not available in notebook cells. Submit your strategy and manage execution from the dashboard.
+</Info>
 
 ## The Complete Graph
 

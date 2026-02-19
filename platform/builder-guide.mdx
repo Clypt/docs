@@ -14,7 +14,7 @@ This guide walks you through the full Builder workflow: develop a strategy in Ju
 | **Production Infrastructure** | Data (5 crypto exchanges), execution engine, monitoring — ready to use |
 | **Code Parity** | Same `StatefulGraph` runs in backtest, paper, and live. No rewrite needed |
 | **Python Freedom** | Use PyTorch, XGBoost, HuggingFace, scipy — any library inside operators |
-| **Monetization** | List strategies on marketplace with performance fee or subscription pricing |
+| **Monetization** | List strategies on marketplace — buyers pay a one-time purchase price |
 | **Independent Verification** | Platform verifies your backtest + runs cross-exchange validation |
 
 ## Template Format
@@ -392,36 +392,18 @@ spec_zero = TradingSpec(
 
 If the gap between zero-cost and real-cost returns is > 50% of gross return, your strategy may have excessive trading costs.
 
-## Step 4: Paper Trading
+## Step 4: Submit & Paper Trade
 
-Change `mode` and remove `start`/`end` — everything else stays the same:
+After validating your backtest, **submit your strategy to the platform**. Paper and live trading cannot be run from notebook cells — they are managed through the **dashboard**.
 
-```python
-spec_paper = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-        # No start/end — paper mode uses live data
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="paper",         # ← Changed from "backtest"
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
-        execution_price_source="ohlcv",
-    ),
-)
-
-driver = TradingDriver.from_spec(spec_paper)
-
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+1. Submit your strategy via the marketplace submission flow
+2. From the dashboard, start a **Paper Trade** run
 
 **What happens internally:**
 1. Historical warmup loads past data to fill all RollingBuffers
 2. Clock syncs to the next real-time bar boundary
 3. Live data arrives via WebSocket
-4. Orders are executed by `BacktestFactory` (same as backtest — simulated fills)
+4. Orders are executed with simulated fills (same fill model as backtest)
 
 **Recommended duration:**
 
@@ -433,37 +415,11 @@ for result in driver:
 
 ## Step 5: Live Trading (Small)
 
-Change `mode` to `"live"` and add API credentials:
-
-```python
-spec_live = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="live",          # ← Changed from "paper"
-        accounts=[AccountSpec(
-            exchange="binance",
-            market_type="futures",
-            api_key="your_api_key",
-            api_secret="your_api_secret",
-            # initial_cash is ignored in live — uses real exchange balance
-        )],
-    ),
-)
-
-driver = TradingDriver.from_spec(spec_live)
-
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+From the dashboard, switch to **Live** mode and connect your exchange API credentials.
 
 **Safety features built in:**
-- **Emergency shutdown**: Ctrl+C (SIGINT) or SIGTERM closes all positions
+- **Emergency shutdown**: Stop from the dashboard to close all positions immediately
 - **Balance sync**: Detects external changes (manual trades, liquidations, funding)
-- **Heartbeat**: Prevents Kernel idle timeout during long runs
 - **First tick skip**: Skips execution on the first real-time tick to avoid stale signals
 
 **Scaling guidance:**
@@ -500,13 +456,13 @@ The platform independently verifies your strategy through 4 stages: reproducibil
 
 ### Pricing
 
-Set your strategy's price. The platform takes a commission on each transaction:
+Set your strategy's price. Buyers pay a **one-time purchase fee**, and the platform takes a commission on each transaction:
 
-| Model | How It Works | Best For |
-|-------|-------------|---------|
-| **Subscription** | Fixed monthly fee per buyer | Predictable revenue, consistent strategies |
-| **Performance fee** | % of buyer's profits (with high water mark) | High-conviction strategies |
-| **Hybrid** | Base subscription + performance fee | Most strategies |
+| Component | Description |
+|-----------|------------|
+| **Strategy price** | One-time fee set by the builder |
+| **Platform commission** | Platform takes a percentage of each sale |
+| **Builder payout** | Builder receives the remainder after commission |
 
 ## Best Practices
 

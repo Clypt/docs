@@ -79,23 +79,11 @@ Before deploying any strategy:
 
 ## Deployment
 
+After purchasing a strategy, you deploy it from the **dashboard** — not from notebook cells. Paper and live trading are managed entirely through the platform UI.
+
 ### Step 1: Paper Trading
 
-Paper trading uses live data with simulated fills. No real money at risk:
-
-```python
-from clyptq.apps.trading.driver import TradingDriver
-
-# The marketplace provides the TradingSpec
-# Paper mode uses live data but simulated fills
-spec_paper = marketplace.get_spec("momentum_crossover_pro", mode="paper")
-
-driver = TradingDriver.from_spec(spec_paper)
-
-# Same iterator pattern — now running on live data
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+Paper trading uses live data with simulated fills. No real money at risk. Start a paper run from the dashboard by selecting the purchased strategy and clicking **Paper Trade**.
 
 **What happens:**
 1. Historical warmup fills all operator buffers with past data
@@ -118,20 +106,7 @@ for result in driver:
 
 ### Step 2: Live (Small Capital)
 
-If paper results match expectations, deploy with small capital:
-
-```python
-# Switch to live — same graph, only mode and credentials change
-spec_live = marketplace.get_spec("momentum_crossover_pro", mode="live",
-    api_key="your_api_key",
-    api_secret="your_api_secret",
-)
-
-driver = TradingDriver.from_spec(spec_live)
-
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+If paper results match expectations, switch to live from the dashboard. Connect your exchange API credentials and allocate capital.
 
 **Start small, scale gradually:**
 
@@ -165,43 +140,32 @@ Track key metrics during live trading:
 | **First tick skip** | Skips execution on first real-time tick | Transition from warmup to live |
 | **Funding auto-injection** | Includes funding costs in simulation | Automatically for futures |
 
-## Pricing Models
+## Pricing
 
-### Performance fee
+### Strategy Purchase
 
-```
-Model:    Performance-based
-Fee:      20% of profits (example)
-Example:  $10,000 invested → $2,000 profit → $400 fee → $1,600 net profit
-          High water mark: fees only charged on new highs
-```
-
-### Subscription
+Strategies are purchased with a **one-time fee** set by the builder:
 
 ```
-Model:    Fixed monthly
-Fee:      $100/month (example)
-Example:  $10,000 invested → strategy runs regardless of profit/loss
+Strategy price:       Set by builder (e.g., $200)
+Platform commission:  Platform takes a percentage of the sale
+You pay:              The listed price — no recurring fees for the strategy itself
 ```
 
-### Hybrid
+### Platform Subscription
 
-```
-Model:    Base subscription + performance fee
-Fee:      $50/month + 10% of profits (example)
-Example:  Combines predictable cost with profit-sharing
-```
+Running strategies (paper or live) requires a **platform subscription**. Your subscription tier determines how many strategies you can run concurrently on the dashboard.
 
 ## Common Questions
 
 **What if a strategy loses money?**
-Performance fee models only charge on profits (with high water mark). You can stop a strategy at any time — emergency shutdown closes all positions immediately.
+The strategy purchase is a one-time fee — there are no ongoing charges tied to performance. You can stop a strategy at any time via the dashboard — emergency shutdown closes all positions immediately.
 
 **Can I modify a strategy?**
 Buyers can adjust risk parameters (capital allocation, max leverage) but not strategy logic. The graph is the builder's intellectual property.
 
 **Can I run multiple strategies?**
-Yes. Each strategy runs as an independent `TradingDriver` with its own account and risk parameters.
+Yes. The number of strategies you can run concurrently depends on your platform subscription tier. Each strategy runs independently with its own account and risk parameters.
 
 **What's the minimum investment?**
 Varies by strategy. Typically $1,000-$10,000. The listing specifies minimum capital for the strategy to work effectively.

@@ -135,34 +135,17 @@ for result in driver:
     pass
 ```
 
-### Cell 6: Go Paper → Live
+### Cell 6: Submit & Deploy
 
-Change `mode` to switch from backtest to paper or live. The graph, operators, and analysis code stay identical:
+Once you're satisfied with your backtest results, **submit your strategy to the platform**. Paper and live trading are not available in notebook cells — they are managed through the **dashboard**.
 
-```python
-# Paper trading (live data, simulated fills)
-spec_paper = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="paper",  # ← Only this changes
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
-        execution_price_source="ohlcv",
-    ),
-)
+1. Submit your strategy from the notebook or via the marketplace submission flow
+2. Open the dashboard to start **Paper Trade** or **Live** runs
+3. Monitor performance, manage risk parameters, and scale capital from the dashboard
 
-driver = TradingDriver.from_spec(spec_paper)
-for result in driver:
-    # Same monitoring code as backtest
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
-
-<Warning>
-Paper and live trading in **Kernel mode** (ClyptQ cloud Jupyter) have a 30-minute idle timeout. For long-running strategies, deploy via the Trading Service. The driver sends periodic heartbeats to prevent premature timeouts during active execution.
-</Warning>
+<Info>
+The same `StatefulGraph` you developed in Jupyter runs identically on the dashboard. Code parity is preserved — the only difference is where execution is triggered.
+</Info>
 
 ## Python Ecosystem Freedom
 

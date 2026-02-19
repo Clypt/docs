@@ -79,39 +79,19 @@ spec_zero = TradingSpec(
 )
 ```
 
-## Phase 2: Paper Trading
+## Phase 2: Submit & Paper Trade
 
-### Switch to paper mode
+After validating your backtest, **submit your strategy to the platform**. Paper and live trading are managed through the **dashboard** — not from notebook cells.
 
-```python
-spec_paper = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-        # No start/end — paper mode uses live data
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="paper",         # ← Changed from "backtest"
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
-        execution_price_source="ohlcv",
-    ),
-)
-
-driver = TradingDriver.from_spec(spec_paper)
-
-# Same iterator — now running on live data with simulated fills
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-    # Your logging, monitoring, alerting code goes here
-```
+1. Submit your strategy via the marketplace submission flow
+2. From the dashboard, start a **Paper Trade** run
 
 ### What happens internally
 
 1. **Historical warmup**: Loads past data from Parquet to fill all RollingBuffers
 2. **Clock sync**: Aligns to the next real-time bar boundary
-3. **Live ticks**: Receives data via WebSocket from Binance
-4. **Simulated fills**: Orders are executed by `BacktestFactory` (same as backtest)
+3. **Live ticks**: Receives data via WebSocket from the exchange
+4. **Simulated fills**: Orders are executed with the same fill model as backtest
 5. **STATE updates**: Portfolio state updates with simulated positions and PnL
 
 Paper mode is intentionally identical to backtest in execution — the only difference is the data source (live instead of historical).
@@ -126,58 +106,28 @@ Paper mode is intentionally identical to backtest in execution — the only diff
 
 ### What to verify
 
-- **Latency**: Check `⏱️ Latency` logs — if processing exceeds clock interval, orders are delayed
-- **Data gaps**: Check `warmup_info` — are there gaps in the live data feed?
 - **Equity tracking**: Does paper equity roughly match what backtest predicted for similar market conditions?
 - **Order execution**: Are intentions generating reasonable deltas?
+- **Signal frequency**: Are signals generating at expected frequency?
 
 ## Phase 3: Live Trading (Small)
 
-### Switch to live mode
-
-```python
-spec_live = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=symbol_source_map,
-        observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
-    ),
-    strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
-    execution=TradingExecutionSpec(
-        mode="live",          # ← Changed from "paper"
-        accounts=[AccountSpec(
-            exchange="binance",
-            market_type="futures",
-            api_key="your_api_key",
-            api_secret="your_api_secret",
-            # Start with small capital
-            # initial_cash is ignored in live mode — uses real exchange balance
-        )],
-    ),
-)
-
-driver = TradingDriver.from_spec(spec_live)
-
-# Same iterator — now trading real money
-for result in driver:
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
-```
+From the dashboard, switch to **Live** mode. Connect your exchange API credentials and start with small capital.
 
 ### What happens internally
 
-1. **Balance sync**: Fetches real account balance from Binance before warmup
+1. **Balance sync**: Fetches real account balance from the exchange before warmup
 2. **Historical warmup**: Same as paper mode
-3. **Live ticks**: WebSocket data from Binance
-4. **Real orders**: `LiveFactory` sends orders to Binance via CCXT
+3. **Live ticks**: WebSocket data from the exchange
+4. **Real orders**: Orders are sent to the exchange via CCXT
 5. **Balance re-sync**: Before each tick, checks for external changes (liquidations, manual trades, funding)
-6. **Shutdown handlers**: SIGINT/SIGTERM automatically closes all positions
 
 ### Safety features
 
 | Feature | What It Does |
 |---------|-------------|
-| **Emergency shutdown** | Ctrl+C or SIGTERM → close all positions immediately |
+| **Emergency shutdown** | Stop from dashboard to close all positions immediately |
 | **Balance sync** | Detects external changes (manual trades, auto-liquidation) |
-| **Heartbeat** | Prevents Kernel idle timeout during long-running strategies |
 | **First tick skip** | Skips execution on the first real-time tick to avoid stale signals |
 
 ### Scaling up
@@ -192,12 +142,12 @@ Start small, scale gradually:
 
 At each phase, compare live performance to backtest expectations. Significant divergence indicates issues with execution, data, or market regime change.
 
-## The Code Comparison
+## Code Parity
 
-Here's what changes at each stage — and what doesn't:
+The same `StatefulGraph` you build in Jupyter runs identically on the dashboard in paper and live modes. Only the execution mode and data source change — the graph, operators, and strategy logic stay the same.
 
 ```python
-# Graph: IDENTICAL across all modes
+# This graph runs identically in backtest (notebook), paper, and live (dashboard)
 graph = StatefulGraph()
 graph.add_node("sma_fast", SMA(span=10), inputs=[close])
 graph.add_node("sma_slow", SMA(span=50), inputs=[close])
@@ -206,23 +156,6 @@ graph.add_node("weights", EqualWeight(), inputs=[...])
 graph.add_node("equity", EquityCalculator(...))
 graph.add_node("book", BookSize(...), inputs=[...])
 graph.add_node("intention", FuturesTargetPositionIntention(...))
-
-# Strategy spec: IDENTICAL
-strategy = TradingStrategySpec(graph=graph, output_nodes=["equity"])
-
-# Data spec: start/end removed for paper/live
-data_backtest = TradingDataSpec(..., start=start, end=end)
-data_live = TradingDataSpec(...)  # No start/end
-
-# Execution spec: mode + credentials change
-exec_backtest = TradingExecutionSpec(mode="backtest", accounts=[...])
-exec_paper = TradingExecutionSpec(mode="paper", accounts=[...])
-exec_live = TradingExecutionSpec(mode="live", accounts=[...with api_key...])
-
-# Driver loop: IDENTICAL
-for result in driver:
-    # Same logging, monitoring, analysis code
-    print(f"{result.timestamp} | equity: {result.outputs.get('equity')}")
 ```
 
 ## Related Pages
