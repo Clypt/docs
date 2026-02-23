@@ -36,15 +36,14 @@ flowchart TB
 | Order matching | Python classes | Object allocation per order, per tick |
 | Backtest (1yr, 100 symbols, 1m) | ~30 minutes | Too slow for parameter sweeps |
 
-### Target Performance (Rust)
+### Target Architecture (Rust)
 
-| Component | Target | Improvement |
+| Component | Target | Benefit |
 |---|---|---|
 | Graph tick loop | Rust `tokio` async loop | No GIL. True parallelism |
-| TaggedArray operations | `ndarray` + SIMD | 10-50x for element-wise ops |
+| TaggedArray operations | `ndarray` + SIMD | Faster element-wise ops |
 | RollingBuffer | Zero-copy circular buffer | No reallocation. No copies |
 | Order matching | Stack-allocated structs | No heap allocation per order |
-| Backtest (1yr, 100 symbols, 1m) | ~30 seconds | **60x speedup** |
 
 ### Rust vs Alternatives
 
@@ -291,34 +290,6 @@ pub fn load_ohlcv(path: &Path, start: DateTime, end: DateTime) -> OHLCVData {
 
 **Key principle:** Just as PyTorch lets ML researchers write Python while CUDA handles the heavy lifting, ClyptQ lets quant researchers write Python strategies while Rust handles tick-by-tick execution.
 
-## Performance Targets
-
-### Backtesting Speed
-
-| Scenario | Python (Current) | Rust (Target) | Speedup |
-|---|---|---|---|
-| 1 month, 10 symbols, 1m bars | ~2 min | ~2 sec | 60x |
-| 1 year, 10 symbols, 1m bars | ~30 min | ~30 sec | 60x |
-| 1 year, 100 symbols, 1m bars | ~5 hours | ~5 min | 60x |
-| Parameter sweep (100 iterations) | ~50 hours | ~8 hours | 6x (parallelized) |
-
-### Memory Usage
-
-| Component | Python | Rust | Reduction |
-|---|---|---|---|
-| TaggedArray (100 symbols) | ~4 KB + Python overhead | ~3.3 KB (no overhead) | ~20% |
-| RollingBuffer (lookback=252, 100 symbols) | ~280 KB + Python objects | ~277 KB (pure arrays) | ~1% |
-| Graph overhead (50 nodes) | ~50 MB (Python objects) | ~5 MB (Rust structs) | 90% |
-| Order processing (per tick) | ~10 KB allocations | ~0 KB (stack allocated) | 100% |
-
-### Live Trading Latency
-
-| Operation | Python | Rust | Improvement |
-|---|---|---|---|
-| Single tick through graph (50 nodes) | ~5 ms | ~0.1 ms | 50x |
-| Order intention → exchange API | ~10 ms | ~2 ms | 5x |
-| Full tick-to-order latency | ~15 ms | ~2.5 ms | 6x |
-
 ## Developer Experience
 
 ### For Strategy Builders (No Change)
@@ -374,13 +345,13 @@ results.plot_equity_curve()
 
 ## Timeline
 
-| Phase | Component | Target | Speedup |
-|---|---|---|---|
-| **Phase 1** | TaggedArray + RollingBuffer | 2025 H2 | 10-50x per operation |
-| **Phase 2** | Graph execution engine | 2026 H1 | 20-60x backtesting |
-| **Phase 3** | Built-in operators (SMA, RSI, Alpha_101) | 2026 H1 | 100x for pure-Rust operators |
-| **Phase 4** | Order matching + risk engine | 2026 H2 | 50x order processing |
-| **Phase 5** | Data I/O + storage | 2027 | 5-10x data loading |
+| Phase | Component | Target |
+|---|---|---|
+| **Phase 1** | TaggedArray + RollingBuffer | 2025 H2 |
+| **Phase 2** | Graph execution engine | 2026 H1 |
+| **Phase 3** | Built-in operators (SMA, RSI, Alpha_101) | 2026 H1 |
+| **Phase 4** | Order matching + risk engine | 2026 H2 |
+| **Phase 5** | Data I/O + storage | 2027 |
 
 ## Technology Stack
 

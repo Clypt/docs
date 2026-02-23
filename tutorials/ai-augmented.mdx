@@ -222,10 +222,10 @@ spec = TradingSpec(
     ),
     strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "combined"]),
     execution=TradingExecutionSpec(
-        mode="backtest",
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        accounts=[AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000)],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 
@@ -239,7 +239,7 @@ df_equity.plot(title="AI-Augmented Strategy (Backtest - Technical Only)", figsiz
 
 ### Paper & Live Trading
 
-After backtesting, **submit your strategy and run paper/live from the dashboard**. Semantic operators (LLM scoring, web search) are only active in paper and live modes — they are skipped during backtest since they require real-time data.
+After backtesting, **submit your strategy** to the platform. Paper and live trading run on the dashboard — semantic operators (LLM scoring, web search) activate automatically in paper and live modes. They are skipped during backtest because they require real-time data and produce non-reproducible results.
 
 <Info>
 Paper and live trading are not available in notebook cells. Submit your strategy and manage execution from the dashboard.

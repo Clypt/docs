@@ -36,7 +36,7 @@ spec = TradingSpec(
 )
 
 # This SAME loop runs in backtest, paper, and live
-driver = TradingDriver(spec)
+driver = TradingDriver.from_spec(spec)
 for result in driver:
     equity_curve.append(result.equity)
     if result.trades:
@@ -118,7 +118,7 @@ No sandbox. No language restrictions. No "approved library list." If it runs in 
 
 ClyptQ provides **exchange-quality OHLCV data** out of the box. No separate data subscriptions needed:
 
-- **5 exchanges**: Binance, Gate.io, Bybit, Kraken, Coinbase
+- **Multiple exchanges**: Binance, Gate.io, Bybit, Coinbase, Kraken, OKX, and more
 - **Spot + Futures**: Both market types with full historical depth
 - **1-minute resolution**: Tick-level granularity for accurate backtesting
 - **Automatic alignment**: Multi-symbol, multi-exchange data is pre-aligned and gap-filled
@@ -134,14 +134,10 @@ ClyptQ's marketplace creates a new category: **Trading Commerce**.
 - Cross-exchange verification proves strategy works across venues
 - Performance metrics are independently computed
 
-**For Buyers:**
+**For Traders:**
 - Verified backtest results (not self-reported)
 - Cross-exchange validation ensures strategies aren't overfit to one venue
 - One-click deployment to live trading
-
-**For Investors:**
-- Transparent risk metrics
-- Portfolio-level diversification across strategy providers
 - Institutional-grade reporting
 
 No other platform offers a marketplace where backtests are **independently verified** against cross-exchange data that the strategy builder never had access to.
@@ -177,7 +173,7 @@ Every component is designed for **one principle**: the same code, the same data 
 | **Research = Live** | Yes | No | Partial | Partial (Moonshot) | No |
 | **Lookahead prevention** | Structural | Manual | Structural | Manual (Moonshot) | Manual |
 | **Language** | Python (any library) | C#/Python (limited) | Rust/Cython | Python (pandas) | Python (rigid) |
-| **Data included** | Yes (5 exchanges) | Partial (delayed) | No | IB data (requires account) | No |
+| **Data included** | Yes (multiple exchanges) | Partial (delayed) | No | IB data (requires account) | No |
 | **Futures support** | Full (margin, leverage, funding) | Yes | Yes | Basic (IB) | Limited |
 | **Multi-exchange** | Native | Yes | Yes | IB only | Limited |
 | **Marketplace** | Verified | Alpha Streams | No | No | No |
@@ -199,10 +195,10 @@ Some open-source projects focus on **specific domains** within quantitative fina
 | **Focus** | RL agent training for trading | General-purpose quant trading |
 | **Strength** | Easy RL experimentation (PPO, A2C, DDPG) | Full trading pipeline (signal → execution) |
 | **Backtesting** | Simplified gym environment | Tick-by-tick state machine with cost modeling |
-| **Live trading** | Experimental (Alpaca API) | Production-grade (5 exchanges) |
+| **Live trading** | Experimental (Alpaca API) | Production-grade (multiple exchanges) |
 | **Cost modeling** | Flat transaction cost | Exchange-specific fees, funding, liquidation |
 | **State management** | Gym observation space | FIELD/STATE protocol |
-| **Non-RL strategies** | Not designed for | 380+ operators (technical, factor, AI) |
+| **Non-RL strategies** | Not designed for | Operators (technical, factor, AI) |
 
 **FinRL is great for**: Publishing RL research papers, experimenting with RL-based portfolio management.
 
@@ -253,7 +249,7 @@ ClyptQ's competitive advantage isn't any single feature — it's the **architect
 2. **TaggedArray 4-Field System** — The "register format" — `exists`, `valid`, `updated` flags handle missing data, warmup, and staleness without special-case code
 3. **Stateless Operators, Stateful Graph** — The CPU/memory split. Same operator code produces identical results in any environment
 4. **Memoryless Executor** — The control unit: fetch, execute, update, forget. All metrics are operators, making everything customizable
-5. **380+ Pre-built Operators** — A growing instruction set from SMA to LLM scoring, all composable in the same DAG
+5. **Pre-built Operators** — A growing instruction set from SMA to LLM scoring, all composable in the same DAG
 
 These aren't features that can be bolted on. They're **foundational design decisions** — the same category of decisions that defined the architecture of every modern computer.
 

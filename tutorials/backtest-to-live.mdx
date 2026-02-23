@@ -15,8 +15,8 @@ flowchart TB
 
     BT["Backtest<br>(mode=backtest)"]
     BT -- "Validate strategy logic,<br>measure Sharpe, check costs" --> PP["Paper<br>(mode=paper)"]
-    PP -- "Verify on live data with<br>simulated fills, 2-4 weeks" --> LV["Live<br>(mode=live)"]
-    LV -- "Real money, start small,<br>scale gradually" --> SC["Scale"]
+    PP -- "Verify on live data with<br>simulated fills" --> LV["Live<br>(mode=live)"]
+    LV -- "Real money,<br>scale gradually" --> SC["Scale"]
 
     class LV action
     class SC success
@@ -38,10 +38,10 @@ spec = TradingSpec(
     ),
     strategy=TradingStrategySpec(graph=graph, output_nodes=["equity"]),
     execution=TradingExecutionSpec(
-        mode="backtest",
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        accounts=[AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000)],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 
@@ -54,28 +54,19 @@ df_equity = driver.to_dataframe("equity")
 
 ### What to check
 
-Before moving to paper trading, verify:
-
-| Check | What to Look For |
-|-------|-----------------|
-| **Sharpe ratio** | > 1.0 after fees and funding |
-| **Max drawdown** | Acceptable for your risk tolerance |
-| **Fee impact** | Run with zero fees vs real fees — if gap > 50% of return, reconsider |
-| **Trade frequency** | Too many trades = high fee drag |
-| **Funding cost** | For long-hold strategies, check cumulative funding impact |
-| **Rejection rate** | `export_results()["rejection_stats"]` — many rejections = sizing issues |
+Before moving to paper trading, review key metrics like Sharpe ratio, max drawdown, fee impact, and trade frequency. Compare zero-cost vs real-cost backtests to understand fee drag.
 
 ```python
 # Compare with zero-cost backtest
 spec_zero = TradingSpec(
     ...
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[AccountSpec(
-            exchange="binance", market_type="futures", initial_cash=10_000,
+            exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000,
             cost_model=CostModelSpec(maker_fee=0, taker_fee=0, slippage_bps=0),
         )],
     ),
+    mode="backtest",
 )
 ```
 
@@ -95,14 +86,6 @@ After validating your backtest, **submit your strategy to the platform**. Paper 
 5. **STATE updates**: Portfolio state updates with simulated positions and PnL
 
 Paper mode is intentionally identical to backtest in execution — the only difference is the data source (live instead of historical).
-
-### How long to paper trade
-
-| Strategy Type | Recommended Paper Period | Why |
-|--------------|-------------------------|-----|
-| **Intraday** (minutes-hours) | 1-2 weeks | Need enough trades for statistical significance |
-| **Daily** (hours-days) | 2-4 weeks | Capture different market conditions |
-| **Swing** (days-weeks) | 4-8 weeks | Need multiple full trade cycles |
 
 ### What to verify
 
@@ -132,15 +115,7 @@ From the dashboard, switch to **Live** mode. Connect your exchange API credentia
 
 ### Scaling up
 
-Start small, scale gradually:
-
-| Phase | Capital | Duration | Purpose |
-|-------|---------|----------|---------|
-| **Small** | 5-10% of target | 1-2 weeks | Verify real fills match expectations |
-| **Medium** | 25-50% of target | 2-4 weeks | Check for capacity constraints |
-| **Full** | 100% | Ongoing | Monitor continuously |
-
-At each phase, compare live performance to backtest expectations. Significant divergence indicates issues with execution, data, or market regime change.
+Start small and scale gradually. Compare live performance to backtest expectations at each stage — significant divergence may indicate issues with execution, data, or market regime change.
 
 ## Code Parity
 

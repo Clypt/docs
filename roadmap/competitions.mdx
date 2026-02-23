@@ -30,9 +30,8 @@ flowchart LR
 
 Participants submit strategies via the platform. All strategies undergo:
 1. **Cross-exchange validation** — Same strategy tested on unseen exchange data
-2. **Scale testing** — Tested at 2x/5x/10x the declared capital
-3. **Cost model verification** — Realistic fees, slippage, funding rates applied
-4. **Lookahead bias check** — Structural verification via ClyptQ's RollingBuffer architecture
+2. **Cost model verification** — Realistic fees, slippage, funding rates applied
+3. **Lookahead bias check** — Structural verification via ClyptQ's RollingBuffer architecture
 
 Only strategies that pass all validation gates advance.
 
@@ -81,7 +80,6 @@ This creates a hedge fund talent pipeline through the platform.
 |---------|-----------------|
 | **Cross-exchange validation** | Overfitting to single-exchange patterns |
 | **Randomized test periods** | Data-mining and curve-fitting |
-| **Scale testing** | Strategies that only work at tiny scale |
 | **Code parity enforcement** | Different backtest vs live logic |
 | **Position limit constraints** | Excessive concentration risk |
 

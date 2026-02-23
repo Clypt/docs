@@ -83,7 +83,7 @@ QuantRocket requires Docker familiarity and system administration. ClyptQ requir
 
 | | QuantRocket | ClyptQ |
 |---|---|---|
-| **Primary focus** | US equities, futures (via IB) | Crypto (5 exchanges) |
+| **Primary focus** | US equities, futures (via IB) | Crypto (multiple exchanges) |
 | **Crypto support** | Limited (through IB crypto or manual) | Native (Binance, Gate.io, Bybit, Kraken, Coinbase) |
 | **Futures modeling** | Basic (no funding rate, no liquidation) | Full (funding, margin, liquidation) |
 | **Data** | IB data + third-party (Sharadar, EDI) | Included (exchange-quality OHLCV) |
@@ -145,7 +145,7 @@ ClyptQ achieves both — accurate event-driven backtesting with full code parity
 |---|---|---|
 | **Strategy pattern** | Function/class returning pandas DataFrames | Composable operator DAG |
 | **Composability** | Limited (monolithic functions) | High (independent operators) |
-| **Operator library** | No pre-built operators (DIY with pandas/ta-lib) | 380+ pre-built operators |
+| **Operator library** | No pre-built operators (DIY with pandas/ta-lib) | Pre-built operators |
 | **AI operators** | None | LLMScorer, WebSearch, Sentiment |
 | **Custom indicators** | pandas/ta-lib | BaseOperator inheritance |
 
@@ -166,13 +166,13 @@ ClyptQ achieves both — accurate event-driven backtesting with full code parity
 | **Code parity** | Structural (one codebase) | Partial (Moonshot only, vectorized) |
 | **Backtesting model** | Tick-by-tick state machine | Zipline (event) or Moonshot (vectorized) |
 | **Language** | Python (any library) | Python (pandas-centric) |
-| **Data included** | Yes (5 crypto exchanges) | IB data (requires IB account) |
+| **Data included** | Yes (multiple crypto exchanges) | IB data (requires IB account) |
 | **Asset classes** | Crypto (stocks planned) | US equities, futures, forex (via IB) |
 | **Futures support** | Full (funding, margin, liquidation) | Basic (IB margin rules) |
 | **Multi-exchange** | Native (FIELD protocol) | Single broker (IB) |
 | **Deployment** | SaaS (managed) | Docker (self-hosted) |
 | **Setup time** | Minutes | Hours |
-| **Operator library** | 380+ pre-built | None (DIY) |
+| **Operator library** | Pre-built | None (DIY) |
 | **AI operators** | Yes | No |
 | **Marketplace** | Verified strategies | None |
 | **Scheduling** | Managed | Cron-based (self-managed) |
@@ -195,7 +195,7 @@ ClyptQ is the better choice if you:
 - **Trade crypto** — native multi-exchange support with exchange-specific cost modeling
 - **Want zero infrastructure** — SaaS with no Docker, no servers, no maintenance
 - **Need accurate crypto backtests** — funding rates, liquidation, tiered fees
-- **Want composable strategies** — 380+ operators in a DAG vs monolithic pandas functions
+- **Want composable strategies** — Operators in a DAG vs monolithic pandas functions
 - **Want AI-powered trading** — LLM, web search, sentiment as first-class operators
 - **Want to sell strategies** — verified marketplace
 - **Value code parity without accuracy trade-offs** — event-driven AND single codebase

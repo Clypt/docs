@@ -5,7 +5,7 @@ description: "The unified configuration hierarchy that defines everything about 
 
 ## What is TradingSpec?
 
-`TradingSpec` is the **single configuration object** that completely defines a trading system — what data to use, what strategy to run, and how to execute orders. Change `mode` from `"backtest"` to `"live"` and the same strategy runs against real markets with real money.
+`TradingSpec` is the **single configuration object** that completely defines a trading system — what data to use, what strategy to run, and how to execute orders. In notebook development, `mode` is always `"backtest"`. Paper and live trading run on the platform after you submit your strategy — the same graph runs identically in all modes.
 
 ```python
 spec = TradingSpec(
@@ -179,10 +179,14 @@ execution = TradingExecutionSpec(
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `accounts` | `Tuple[AccountSpec, ...]` | `()` | Trading accounts (required) |
-| `execution_price_source` | `"ohlcv"` \| `"orderbook"` | `None` | Price source for backtest fills |
+| `execution_price_source` | `"ohlcv"` \| `"orderbook"` | `None` | Price source for backtest fills (`"ohlcv"` recommended) |
 | `max_position_size` | `Optional[float]` | `None` | Global position size limit |
 | `max_order_size` | `Optional[float]` | `None` | Global order size limit |
 | `min_order_interval_s` | `float` | `0.0` | Minimum seconds between orders |
+
+<Note>
+`mode` is a top-level field on `TradingSpec`, not on `TradingExecutionSpec`. In notebook development, always set `mode="backtest"` directly on `TradingSpec`.
+</Note>
 
 ### AccountSpec
 
@@ -249,35 +253,29 @@ spec = TradingSpec(
 - Simulated execution with CostModelSpec fees
 - `initial_cash` required per account
 - No API credentials needed
+- **The only mode used in notebook cells**
 
 ### Paper
 
-```python
-spec = TradingSpec(
-    ...,
-    mode="paper",
-)
-```
-
-- Uses live/current data from exchange
+- Uses live/current data from the exchange
 - Simulated execution (no real orders placed)
 - `initial_cash` optional (defaults to 10000.0)
 - No API credentials needed
 
-### Live
+<Info>
+Paper trading is managed through the dashboard after strategy submission. It cannot be run from notebook cells.
+</Info>
 
-```python
-spec = TradingSpec(
-    ...,
-    mode="live",
-)
-```
+### Live
 
 - Uses live data from exchange APIs
 - Real order execution
 - **Requires** API credentials
 - **Forbids** `initial_cash` (uses actual exchange balance)
-- Credentials from environment: `CLYPTQ_{EXCHANGE}_{MARKET_TYPE}_API_KEY`
+
+<Info>
+Live trading is managed through the dashboard after strategy submission. It cannot be run from notebook cells.
+</Info>
 
 ## Supported Exchanges
 
@@ -370,36 +368,15 @@ driver = TradingDriver.from_spec(spec)
 results = driver.run()
 ```
 
-### Switching to Live
+### Going to Paper or Live
 
-Only `mode`, `initial_cash`, and `credentials` change:
+Paper and live trading are not configured from notebook cells. After backtesting your strategy:
 
-```python
-live_spec = TradingSpec(
-    data=TradingDataSpec(
-        symbol_source_map=same_symbol_map,
-        observations=same_observations,
-        # No start/end for live
-    ),
-    strategy=same_strategy,       # Identical graph
-    execution=TradingExecutionSpec(
-        accounts=(
-            AccountSpec(
-                exchange="binance",
-                market_type="futures",
-                base_currency="USDT",
-                # No initial_cash — uses exchange balance
-                max_leverage=3.0,
-                credentials=VenueCredential(
-                    api_key=os.getenv("CLYPTQ_BINANCE_FUTURES_API_KEY"),
-                    api_secret=os.getenv("CLYPTQ_BINANCE_FUTURES_API_SECRET"),
-                ),
-            ),
-        ),
-    ),
-    mode="live",                  # Only this changes
-)
-```
+1. Submit your strategy via the dashboard
+2. The platform validates and re-runs your backtest for independent verification
+3. Start a Paper or Live run from the dashboard — the same `StatefulGraph` runs without any code changes
+
+See [Backtest to Live](/tutorials/backtest-to-live) for the full deployment lifecycle.
 
 ## Multi-Exchange Example
 

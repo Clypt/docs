@@ -4,12 +4,12 @@ Official documentation for the Clypt Trading Commerce Platform and ClyptQ Tradin
 
 ## Overview
 
-Clypt is a **Trading Commerce platform** that establishes trust between strategy **Buyers** and **Builders** through transparent, reproducible, and reliable algorithmic trading infrastructure powered by the ClyptQ Trading Engine.
+Clypt is a **Trading Commerce platform** that establishes trust between strategy **Traders** and **Builders** through transparent, reproducible, and reliable algorithmic trading infrastructure powered by the ClyptQ Trading Engine.
 
 ## Documentation Structure
 
 - **Get Started**: Quick start guide and introduction
-- **Clypt Ecosystem**: Understanding the Trading Commerce platform and Buyer-Builder trust relationship
+- **Clypt Ecosystem**: Understanding the Trading Commerce platform and Trader-Builder trust relationship
 - **ClyptQ Trading Engine**: Production-grade quantitative trading engine documentation
 - **API Reference**: Complete API documentation
 

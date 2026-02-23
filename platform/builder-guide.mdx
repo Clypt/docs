@@ -11,10 +11,10 @@ This guide walks you through the full Builder workflow: develop a strategy in Ju
 
 | Benefit | What You Get |
 |---------|-------------|
-| **Production Infrastructure** | Data (5 crypto exchanges), execution engine, monitoring — ready to use |
+| **Production Infrastructure** | Data, execution engine, monitoring — ready to use |
 | **Code Parity** | Same `StatefulGraph` runs in backtest, paper, and live. No rewrite needed |
 | **Python Freedom** | Use PyTorch, XGBoost, HuggingFace, scipy — any library inside operators |
-| **Monetization** | List strategies on marketplace — buyers pay a one-time purchase price |
+| **Monetization** | List strategies on marketplace — traders pay a one-time purchase price |
 | **Independent Verification** | Platform verifies your backtest + runs cross-exchange validation |
 
 ## Template Format
@@ -44,12 +44,14 @@ def main(mode, accounts):
         data=TradingDataSpec(...),
         strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
         execution=TradingExecutionSpec(
-            mode=mode,  # Use the injected mode
             accounts=[AccountSpec(
-                "binance", "futures",
+                exchange="binance",
+                market_type="futures",
+                base_currency="USDT",
                 initial_cash=accounts["binance:futures"]["initial_cash"],
             )],
         ),
+        mode=mode,   # Injected by the platform: "backtest", "paper", or "live"
         debug=True,
     )
 
@@ -80,7 +82,7 @@ def main():
 
 ### Required metric operators
 
-For marketplace listing, your graph **must** include three metric operators with **exact node names**. These operators are computed by ClyptQ's internal code — the platform extracts final values from these nodes to display verified metrics to buyers.
+For marketplace listing, your graph **must** include three metric operators with **exact node names**. These operators are computed by ClyptQ's internal code — the platform extracts final values from these nodes to display verified metrics to traders.
 
 ```python
 from clyptq.apps.trading.operators.metric import (
@@ -154,10 +156,10 @@ During validation, the platform injects these variables into your execution envi
 | Variable | Type | Description |
 |----------|------|-------------|
 | `__SANDBOX_CONFIG__` | `dict` | Contains `symbols`, `start`, `end`, `timeframe`, `initial_cash` |
-| `__SANDBOX_INITIAL_CASH__` | `float` | Target initial cash for current scale test |
+| `__SANDBOX_INITIAL_CASH__` | `float` | Target initial cash for validation |
 | `__SANDBOX_ACCOUNTS__` | `dict` or `None` | Multi-venue accounts: `{"binance:futures": {"initial_cash": 10000.0}}` |
 
-For multi-scale validation, the platform runs your strategy at multiple capital levels (e.g., $1K, $10K, $100K). The injected values are adjusted proportionally for each scale — your code should use these values instead of hardcoding initial cash.
+During validation, the platform injects the capital level used for testing. Your code should use these values instead of hardcoding initial cash.
 
 ### Ephemeral operators
 
@@ -201,15 +203,16 @@ flowchart LR
     classDef highlight fill:#134e4a,stroke:#94F1E8,stroke-width:2.5px,color:#94F1E8
     S1["Explore<br><br>Helper.exchanges()<br>Helper.symbols()<br>Helper.data_catalog()"]
     S2["Build Graph<br><br>StatefulGraph<br>Operators<br>FIELD/STATE inputs"]
-    S3["Backtest<br><br>mode=backtest"]
-    S4["Paper Trade<br><br>mode=paper<br>2-4 weeks"]
-    S5["Live (Small)<br><br>mode=live<br>5-10% capital"]
-    S6["Marketplace<br><br>Submit TradingSpec<br>for verification"]
+    S3["Backtest<br><br>mode=backtest<br>(notebook)"]
+    S4["Submit<br><br>Dashboard submission<br>→ platform validates"]
+    S5["Paper Trade<br><br>mode=paper<br>(dashboard)"]
+    S6["Live<br><br>mode=live<br>(dashboard)"]
+    S7["Marketplace<br><br>List for traders"]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
     class S2 source
-    class S5 action
-    class S6 highlight
+    class S6 action
+    class S7 highlight
 ```
 
 ## Step 1: Explore
@@ -333,15 +336,16 @@ spec = TradingSpec(
         output_nodes=["equity", "signal"],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[AccountSpec(
             exchange="binance",
             market_type="futures",
+            base_currency="USDT",
             initial_cash=10_000.0,
             max_leverage=3.0,
         )],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 
@@ -355,24 +359,6 @@ df_signal = driver.to_dataframe("signal")
 df_equity.plot(title="Equity Curve", figsize=(14, 5))
 ```
 
-### Validation checklist
-
-<Info>
-**Required metrics for marketplace submission** — the platform computes and displays three core metrics, all **annualized** with `periods_per_year=252`:
-- **Annualized Total Return (CAGR)**: Compound annual growth rate
-- **Maximum Drawdown (MDD)**: Peak-to-trough percentage decline
-- **Annualized Sharpe Ratio**: Risk-adjusted return (excess return / annualized std deviation)
-</Info>
-
-| Check | Target | How to Verify |
-|-------|--------|--------------|
-| **Sharpe ratio (annualized)** | > 1.0 after costs | `driver.export_results()` |
-| **Max drawdown (MDD)** | < 20% (or your tolerance) | `df_equity.min()` relative analysis |
-| **Total return (CAGR)** | Positive, annualized | `driver.export_results()` |
-| **Fee impact** | < 50% of gross return | Compare zero-fee vs real-fee backtest |
-| **Trade frequency** | Reasonable for timeframe | Check signal changes in `df_signal` |
-| **Rejection rate** | Low | `driver.export_results()["rejection_stats"]` |
-
 ### Compare with zero-cost backtest
 
 ```python
@@ -381,12 +367,12 @@ from clyptq.apps.trading.spec.execution import CostModelSpec
 spec_zero = TradingSpec(
     ...  # same data and strategy
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[AccountSpec(
-            exchange="binance", market_type="futures", initial_cash=10_000,
+            exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000,
             cost_model=CostModelSpec(maker_fee=0, taker_fee=0, slippage_bps=0),
         )],
     ),
+    mode="backtest",
 )
 ```
 
@@ -405,15 +391,7 @@ After validating your backtest, **submit your strategy to the platform**. Paper 
 3. Live data arrives via WebSocket
 4. Orders are executed with simulated fills (same fill model as backtest)
 
-**Recommended duration:**
-
-| Strategy Type | Paper Period | Why |
-|--------------|-------------|-----|
-| Intraday (minutes) | 1-2 weeks | Need enough trades for significance |
-| Daily (hours-days) | 2-4 weeks | Capture different market conditions |
-| Swing (days-weeks) | 4-8 weeks | Need multiple full trade cycles |
-
-## Step 5: Live Trading (Small)
+## Step 5: Live Trading
 
 From the dashboard, switch to **Live** mode and connect your exchange API credentials.
 
@@ -421,14 +399,6 @@ From the dashboard, switch to **Live** mode and connect your exchange API creden
 - **Emergency shutdown**: Stop from the dashboard to close all positions immediately
 - **Balance sync**: Detects external changes (manual trades, liquidations, funding)
 - **First tick skip**: Skips execution on the first real-time tick to avoid stale signals
-
-**Scaling guidance:**
-
-| Phase | Capital | Duration | Purpose |
-|-------|---------|----------|---------|
-| Small | 5-10% of target | 1-2 weeks | Verify real fills match backtest |
-| Medium | 25-50% of target | 2-4 weeks | Check capacity constraints |
-| Full | 100% | Ongoing | Monitor continuously |
 
 ## Step 6: Marketplace Listing
 
@@ -441,51 +411,49 @@ Builders submit a **TradingSpec** — not source code. The spec defines the comp
 
 ### Verification process
 
-The platform independently verifies your strategy through 4 stages: reproducibility check, cross-exchange validation, cost verification, and scale testing. Higher scores across all stages make your listing more attractive to buyers.
+The platform independently verifies your strategy through automated validation: code validation, backtesting, multi-scale backtesting, and venue sampling (cross-exchange validation).
 
 <Card title="Marketplace Validation" icon="shield-check" href="/platform/marketplace">
-  Full details on each verification stage, consistency scoring, capacity estimation, and how validation drives buyer trust
+  Full details on each verification stage, consistency scoring, and how validation works
 </Card>
 
 ### Listing requirements
 
-- 1+ year backtest history
-- 2+ weeks paper trading verification
-- 1+ month live trading (optional but strongly recommended)
-- Risk profile specification (max leverage, max drawdown target)
+- Strategy code passes validation (syntax + security checks)
+- Required metric operators present (`sharpe`, `max_drawdown`, `total_return`)
+- `main()` function exists and returns `TradingDriver`
+- `"equity"` included in `output_nodes`
+- All venues have matching `AccountSpec` with `initial_cash`
 
 ### Pricing
 
-Set your strategy's price. Buyers pay a **one-time purchase fee**, and the platform takes a commission on each transaction:
+Set your strategy's price (minimum $10). Traders pay a **one-time purchase fee**, and the platform takes a commission based on your seller tier:
 
-| Component | Description |
-|-----------|------------|
-| **Strategy price** | One-time fee set by the builder |
-| **Platform commission** | Platform takes a percentage of each sale |
-| **Builder payout** | Builder receives the remainder after commission |
+| Seller Tier | Max Listing Price | Builder Revenue Share | Platform Commission |
+|-------------|-------------------|----------------------|---------------------|
+| **Free** | $499 | 80% | 20% |
+| **Bronze** | $699 | 80% | 20% |
+| **Silver** | $999 | 90% | 10% |
+| **Gold** | $999 | 97.5% | 2.5% |
+
+**Tier progression:**
+- **Bronze**: 5+ strategies sold
+- **Silver**: 20+ strategies sold, $5,000+ total revenue
+- **Gold**: 35+ strategies sold, $50,000+ total revenue
 
 ## Best Practices
 
 ### Strategy development
 
-- **Keep it simple**: 3-5 parameters is usually enough. 20 parameters → likely overfit
+- **Keep it simple**: Fewer parameters reduce the risk of overfitting
 - **Use universe filters**: Don't trade every symbol. Filter by volume and liquidity
 - **Minimize lookback**: Smaller lookback = faster warmup + less memory
 - **Test across periods**: Use out-of-sample testing. Don't curve-fit to a single year
 
 ### Backtesting
 
-- **Always test LATENT mode**: INSTANT (perfect fills) overstates returns. LATENT adds realistic slippage
-- **Check fee impact**: Compare zero-cost vs real-cost. If gap > 50% of return, reconsider
-- **Sufficient period**: 1+ year minimum. Include different market regimes (bull, bear, sideways)
+- **Compare zero-cost vs real-cost**: Check the fee impact on your returns
 - **Verify with funding costs**: For futures, cumulative funding can erode profits significantly
-
-### Paper and live
-
-- **Paper for 2+ weeks minimum**: Statistical significance requires enough trades
-- **Start live at 5-10%**: Verify real fills match paper before scaling
-- **Monitor latency**: Check `Latency` logs. If processing exceeds clock interval, orders are delayed
-- **Set up alerts**: Track drawdown, equity changes, execution errors
 
 ### Common pitfalls
 
@@ -510,6 +478,6 @@ Set your strategy's price. Buyers pay a **one-time purchase fee**, and the platf
     How the strategy marketplace verification works
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse all 380+ available operators
+    Browse all available operators
   </Card>
 </CardGroup>

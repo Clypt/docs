@@ -45,11 +45,11 @@ spec = TradingSpec(
         ],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
-            AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000),
+            AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000),
         ],
     ),
+    mode="backtest",
 )
 ```
 

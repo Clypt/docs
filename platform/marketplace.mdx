@@ -1,6 +1,6 @@
 ---
 title: "Strategy Marketplace"
-description: "How the Clypt strategy marketplace works for builders and buyers"
+description: "How the Clypt strategy marketplace works for builders and traders"
 ---
 
 ## Trading Commerce
@@ -23,7 +23,7 @@ flowchart TB
         C --> D["Compute verified metrics"]
         D --> E["Publish with Verified badge"]
     end
-    subgraph Buyer
+    subgraph Trader
         F["Deploy: paper → live"]
     end
     A --> B
@@ -43,7 +43,8 @@ Builders submit a **TradingSpec** — not source code. The TradingSpec defines t
 spec = TradingSpec(
     data=data_config,
     strategy=TradingStrategySpec(graph=graph),
-    execution=TradingExecutionSpec(mode="backtest", accounts=[account]),
+    execution=TradingExecutionSpec(accounts=[account]),
+    mode="backtest",
 )
 
 # Submit to marketplace
@@ -62,11 +63,9 @@ spec = TradingSpec(
 
 3. **Cost model verification**: Platform applies exchange-specific fees, funding rates, and liquidation logic. Strategies that are only profitable without costs are flagged.
 
-4. **Scale testing**: Strategy is tested at 2×, 5×, and 10× the declared capital level. If Sharpe ratio degrades significantly, the strategy may have capacity constraints (noted in listing).
+## Why Validation Matters: Builder → Platform → Trader Trust Chain
 
-## Why Validation Matters: Builder → Platform → Buyer Trust Chain
-
-The validation pipeline exists because **the buyer's capital is at stake**. Every validation step directly addresses a specific risk that the buyer faces:
+The validation pipeline exists because **the trader's capital is at stake**. Every validation step directly addresses a specific risk that the trader faces:
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
@@ -77,34 +76,30 @@ flowchart LR
         direction TB
         B1["Sharpe 2.0"]
         B2["Works everywhere"]
-        B3["Profitable at $1M"]
-        B4["Low cost impact"]
+        B3["Low cost impact"]
     end
     subgraph PV["Platform Validates"]
         direction TB
         P1["Reproduce backtest"]
         P2["Unseen exchanges"]
-        P3["Scale 2x/5x/10x"]
-        P4["Real venue fees"]
+        P3["Real venue fees"]
     end
-    subgraph BY["Buyer Sees"]
+    subgraph BY["Trader Sees"]
         direction TB
         Y1["Sharpe 1.98 ✓"]
         Y2["Consistency 0.85"]
-        Y3["Capacity $500K"]
-        Y4["Fee impact -12%"]
+        Y3["Fee impact -12%"]
     end
     B1 --> P1 --> Y1
     B2 --> P2 --> Y2
     B3 --> P3 --> Y3
-    B4 --> P4 --> Y4
-    class P1,P2,P3,P4 highlight
-    class Y1,Y2,Y3,Y4 success
+    class P1,P2,P3 highlight
+    class Y1,Y2,Y3 success
 ```
 
-**Without this chain:** Buyers would have to trust self-reported metrics — the same broken trust model that plagues every existing copy-trading platform.
+**Without this chain:** Traders would have to trust self-reported metrics — the same broken trust model that plagues every existing copy-trading platform.
 
-**With this chain:** Every number the buyer sees was computed by the platform, on data the builder didn't choose, at scales the builder didn't test.
+**With this chain:** Every number the trader sees was computed by the platform, on data the builder didn't choose.
 
 ## Cross-Exchange Validation (Venue Sampling)
 
@@ -133,14 +128,14 @@ Platform runs validation across venue samples:
 
 ### What it catches
 
-| Problem | How Venue Validation Detects It | Impact on Buyer |
+| Problem | How Venue Validation Detects It | Impact on Trader |
 |---------|-------------------------------|-----------------|
-| **Venue-specific overfitting** | Sharpe drops 50%+ on other venues | Buyer avoids deploying on other exchanges |
-| **Microstructure exploitation** | Works on Binance, fails on Bybit | Buyer knows the alpha source is fragile |
-| **Data artifact trading** | Profits only from one feed's anomalies | Buyer avoids strategies that can't generalize |
-| **Robust alpha** | Consistent Sharpe across 4+ venues | Buyer has high confidence in deploying |
+| **Venue-specific overfitting** | Sharpe drops 50%+ on other venues | Trader avoids deploying on other exchanges |
+| **Microstructure exploitation** | Works on Binance, fails on Bybit | Trader knows the alpha source is fragile |
+| **Data artifact trading** | Profits only from one feed's anomalies | Trader avoids strategies that can't generalize |
+| **Robust alpha** | Consistent Sharpe across 4+ venues | Trader has high confidence in deploying |
 
-### What the buyer sees
+### What the trader sees
 
 The marketplace listing displays:
 - **Primary exchange** results (builder's declared venue)
@@ -148,54 +143,11 @@ The marketplace listing displays:
 - **Consistency score** — how stable performance is across venues (0 = unstable, 1 = perfectly consistent)
 - **Recommended venues** — which exchanges are suitable for deployment
 
-## Scale Testing (Capacity Validation)
-
-### Why it's necessary
-
-A strategy that earns 50% return on $10K might earn 5% on $1M — or lose money entirely. This happens because:
-- **Market impact** — Larger orders move prices, eating into profits
-- **Liquidity limits** — Not enough volume to fill large orders at desired prices
-- **Funding drag** — Larger positions accumulate more funding costs
-- **Margin pressure** — Higher notional value increases liquidation risk
-
-### How it works
-
-The platform runs the same strategy at multiple capital levels:
-
-```
-Builder's declared capital: $10,000
-
-Platform scale tests:
-  1× ($10K)   → Sharpe 1.8, Return 45%
-  2× ($20K)   → Sharpe 1.7, Return 42%   (minimal degradation ✓)
-  5× ($50K)   → Sharpe 1.2, Return 28%   (moderate degradation ⚠️)
-  10× ($100K) → Sharpe 0.6, Return 8%    (significant degradation ✗)
-
-→ Listing shows: "Estimated capacity: $50K"
-```
-
-### What it tells the buyer
-
-| Scale Result | What It Means | Buyer Action |
-|-------------|--------------|-------------|
-| **Sharpe stable at 10×** | Strategy has high capacity — works at large AUM | Safe to deploy with significant capital |
-| **Sharpe drops at 5×** | Moderate capacity — works up to ~5× declared capital | Deploy up to estimated capacity limit |
-| **Sharpe drops at 2×** | Low capacity — fragile at any scale increase | Only deploy at or below declared capital |
-
-**This directly protects the buyer** from deploying $100K into a strategy that was only validated at $10K.
-
-### Connection to builder monetization
-
-Capacity constraints affect builder revenue:
-- **High capacity strategies** attract more buyers (each can deploy more capital) → higher total revenue
-- **Low capacity strategies** may limit the number of concurrent buyers → platform may cap deployment slots
-- **Builders are incentivized** to create robust, scalable strategies — aligned with buyer interests
-
-## Buyer Experience
+## Trader Experience
 
 ### Strategy Evaluation
 
-Buyers see independently verified metrics for each strategy:
+Traders see independently verified metrics for each strategy:
 
 | Metric | Source | Standardization | Builder Can Manipulate? |
 |--------|--------|----------------|------------------------|
@@ -215,13 +167,12 @@ Buyers see independently verified metrics for each strategy:
 
 ### Deployment
 
-Buyers deploy strategies with one click:
+Traders deploy strategies from the dashboard:
 
-1. **Paper trading** — Strategy runs on live data with simulated fills. Buyer monitors for 1-4 weeks.
-2. **Live (small)** — Buyer allocates initial capital. Strategy trades real money.
-3. **Scale up** — If paper and small-live match expectations, increase capital.
+1. **Paper trading** — Strategy runs on live data with simulated fills.
+2. **Live trading** — Trader allocates capital. Strategy trades real money.
 
-The buyer's `TradingSpec` uses the same graph as the builder's — ensuring verified performance matches deployed performance.
+The trader's `TradingSpec` uses the same graph as the builder's — ensuring verified performance matches deployed performance.
 
 ## Revenue Model
 
@@ -229,32 +180,39 @@ The platform generates revenue from two primary streams:
 
 ### 1. Platform Subscription
 
-Builders and buyers pay a monthly subscription for access to infrastructure. The subscription tier determines the number of strategies you can run concurrently on the dashboard:
+Builders and traders pay a monthly subscription for access to infrastructure. The subscription tier determines the number of strategies you can run concurrently on the dashboard:
 
-| Tier | What's Included | Target |
-|------|----------------|--------|
-| **Free** | Backtest (limited), 2 symbols, community data | Exploration |
-| **Builder** | Unlimited backtest, paper/live, marketplace listing | Active builders |
-| **Pro** | Priority data, lower latency, advanced analytics | Serious traders |
+| Plan | Price | Live Trading Bots | LLM Credits | Backtest Data |
+|------|-------|-------------------|-------------|---------------|
+| **Starter** | Free | 1 | 5 / month | Limited |
+| **Pro** | $30/month | 1 | 85 / month | Broad + Early Access Beta Data (on-chain, news, etc.) |
+| **Premium** | $200/month | 5 | 730 / month | Full Data Access |
 
 ### 2. Marketplace Transaction Fee
 
 Strategies are sold as **one-time purchases**. The platform takes a commission on each sale:
 
 ```
-Buyer pays one-time price → Platform takes commission → Builder receives remainder
+Trader pays one-time price → Platform takes commission → Builder receives remainder
 ```
 
-The builder sets the strategy price. The platform commission aligns incentives: more verified strategies attract more buyers, generating more sales for both builders and the platform.
+The builder sets the strategy price (minimum $10). The platform commission varies by seller tier:
+
+| Seller Tier | Builder Revenue Share | Platform Commission |
+|-------------|----------------------|---------------------|
+| **Free** | 80% | 20% |
+| **Bronze** | 80% | 20% |
+| **Silver** | 90% | 10% |
+| **Gold** | 97.5% | 2.5% |
 
 ## Builder Monetization
 
 Builders earn revenue without revealing their strategy logic:
 
-- **Source code is never shared** — buyers receive a deployed strategy, not source files
+- **Source code is never shared** — traders receive a deployed strategy, not source files
 - **Cross-exchange validation proves** the strategy works without revealing how
 - **Performance metrics are independently computed** — no self-reporting
-- **Multiple buyers can deploy** the same strategy simultaneously
+- **Multiple traders can deploy** the same strategy simultaneously
 
 ## Trust Guarantees
 
@@ -274,7 +232,7 @@ Builders earn revenue without revealing their strategy logic:
   <Card title="Builder Guide" icon="wrench" href="/platform/builder-guide">
     How to develop and submit strategies
   </Card>
-  <Card title="Buyer Guide" icon="chart-line" href="/platform/buyer-guide">
+  <Card title="Trader Guide" icon="chart-line" href="/platform/trader-guide">
     How to evaluate and deploy strategies
   </Card>
   <Card title="Code Parity" icon="equals" href="/competitive/code-parity">

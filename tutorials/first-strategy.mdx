@@ -191,17 +191,18 @@ spec = TradingSpec(
         output_nodes=["equity", "signal"],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
             AccountSpec(
                 exchange="binance",
                 market_type="futures",
+                base_currency="USDT",
                 initial_cash=10_000.0,
                 max_leverage=3.0,
             ),
         ],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 ```
@@ -272,13 +273,13 @@ flowchart TB
 
 <CardGroup cols={2}>
   <Card title="Backtest to Live" icon="arrow-right" href="/tutorials/backtest-to-live">
-    Deploy this strategy from backtest to paper to live
+    Submit this strategy and run it in paper or live mode on the platform
   </Card>
   <Card title="Multi-Factor Strategy" icon="layer-group" href="/tutorials/multi-factor">
     Combine multiple alpha signals with risk management
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse all 380+ available operators
+    Browse all available operators
   </Card>
   <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
     Understand cost models, funding, and liquidation

@@ -5,7 +5,7 @@ description: "Exchange support matrix with market types, fees, limits, and capab
 
 ## Exchange Matrix
 
-ClyptQ supports 5 cryptocurrency exchanges for data, backtesting, and live trading:
+ClyptQ supports the following cryptocurrency exchanges for data, backtesting, and live trading:
 
 | Exchange | Spot | Futures | Max Leverage | Quote Currencies | Live Trading |
 |----------|------|---------|--------------|------------------|--------------|
@@ -37,6 +37,7 @@ If you have VIP status, override fees in your `AccountSpec`:
 AccountSpec(
     exchange="binance",
     market_type="futures",
+    base_currency="USDT",
     cost_model=CostModelSpec(
         maker_fee=0.0002,   # VIP 1: 0.02%
         taker_fee=0.0004,   # VIP 1: 0.04%
@@ -78,23 +79,25 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 
 | Exchange | Timeframes | Historical Depth | Storage |
 |----------|-----------|-----------------|---------|
-| **Binance** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Full (from listing date) | Parquet |
-| **Bybit** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Full | Parquet |
-| **Gateio** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Full | Parquet |
-| **Coinbase** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Full | Parquet |
-| **Kraken** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Full | Parquet |
+| **Binance** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Bybit** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Gateio** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Coinbase** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Kraken** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
 
-Use `Helper.data_catalog()` to check locally available data and date ranges.
+<Note>
+Historical depth varies by exchange and symbol. Data is available from listing date but coverage may be partial. Use `Helper.data_catalog()` to check available symbols, exchanges, and date ranges for your local data.
+</Note>
 
 ### Live Data
 
-| Exchange | WebSocket | Latency | Reconnection |
-|----------|-----------|---------|-------------|
-| **Binance** | Yes | ~50-100ms | Automatic |
-| **Bybit** | Yes | ~50-100ms | Automatic |
-| **Gateio** | Yes | ~100-200ms | Automatic |
-| **Coinbase** | Yes | ~100-200ms | Automatic |
-| **Kraken** | Yes | ~100-200ms | Automatic |
+| Exchange | WebSocket | Reconnection |
+|----------|-----------|-------------|
+| **Binance** | Yes | Automatic |
+| **Bybit** | Yes | Automatic |
+| **Gateio** | Yes | Automatic |
+| **Coinbase** | Yes | Automatic |
+| **Kraken** | Yes | Automatic |
 
 ## Settlement Currencies
 
@@ -135,9 +138,9 @@ spec = TradingSpec(
         observations=[OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m")],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        accounts=[AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000)],
     ),
+    mode="backtest",
 )
 ```
 
@@ -157,12 +160,12 @@ spec = TradingSpec(
         ],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
-            AccountSpec(exchange="binance", market_type="futures", initial_cash=30_000),
-            AccountSpec(exchange="gateio", market_type="futures", initial_cash=20_000),
+            AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=30_000),
+            AccountSpec(exchange="gateio", market_type="futures", base_currency="USDT", initial_cash=20_000),
         ],
     ),
+    mode="backtest",
 )
 ```
 

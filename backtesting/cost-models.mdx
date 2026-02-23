@@ -17,6 +17,7 @@ ClyptQ models costs at the venue level: each exchange-account pair has its own `
 AccountSpec(
     exchange="binance",
     market_type="futures",
+    base_currency="USDT",
     initial_cash=10_000.0,
     cost_model=CostModelSpec(
         maker_fee=0.0002,      # 0.02% (VIP 1)
@@ -85,6 +86,7 @@ If you specify a `CostModelSpec` in your `AccountSpec`, it takes absolute preced
 AccountSpec(
     exchange="binance",
     market_type="futures",
+    base_currency="USDT",
     cost_model=CostModelSpec(
         maker_fee=0.0002,    # My VIP 1 rate
         taker_fee=0.0004,
@@ -153,6 +155,7 @@ This captures:
 binance_account = AccountSpec(
     exchange="binance",
     market_type="futures",
+    base_currency="USDT",
     initial_cash=50_000.0,
     max_leverage=10.0,
     cost_model=CostModelSpec(
@@ -166,6 +169,7 @@ binance_account = AccountSpec(
 gateio_account = AccountSpec(
     exchange="gateio",
     market_type="futures",
+    base_currency="USDT",
     initial_cash=50_000.0,
     max_leverage=5.0,
     # No cost_model → auto-fetched from Gateio API
@@ -175,10 +179,10 @@ spec = TradingSpec(
     data=data_config,
     strategy=TradingStrategySpec(graph=graph),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[binance_account, gateio_account],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
 )
 ```
 

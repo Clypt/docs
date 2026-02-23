@@ -45,8 +45,8 @@ graph.add_node("sma", SMA(span=20),
 
 spec = TradingSpec(
     strategy=TradingStrategySpec(graph=graph, initial_cash=10_000.0),
-    execution=TradingExecutionSpec(mode="backtest"),  # Change to "live"
-    ...
+    execution=TradingExecutionSpec(accounts=[account]),
+    mode="backtest",  # Paper/live managed by platform after submit
 )
 ```
 
@@ -103,11 +103,11 @@ ClyptQ's `RollingBuffer` architecture means memory usage is **constant** regardl
 |---|---|---|
 | **What's sold** | Alpha signals (not strategies) | Complete strategies |
 | **Verification** | Platform-run backtests | Cross-exchange verification |
-| **Buyer experience** | Signal subscription | One-click deployment |
+| **Trader experience** | Signal subscription | One-click deployment |
 | **Builder control** | Limited (signals extracted) | Source code never revealed |
 | **Status** | Restructured (reduced activity) | Active development |
 
-QuantConnect's Alpha Streams sells **signals**, not strategies. The buyer receives alpha values and must build their own execution. ClyptQ sells **complete strategies** that buyers deploy directly.
+QuantConnect's Alpha Streams sells **signals**, not strategies. The trader receives alpha values and must build their own execution. ClyptQ sells **complete strategies** that traders deploy directly.
 
 ## Feature Comparison
 
@@ -116,11 +116,11 @@ QuantConnect's Alpha Streams sells **signals**, not strategies. The buyer receiv
 | **Code parity** | Structural (one codebase) | Partial (notebook ≠ algorithm) |
 | **Primary language** | Python (native) | C# (Python via bridge) |
 | **Backtesting model** | Tick-by-tick state machine | Event-driven (similar) |
-| **Data included** | Yes (5 crypto exchanges) | Yes (US equities, forex, some crypto) |
+| **Data included** | Yes (multiple crypto exchanges) | Yes (US equities, forex, some crypto) |
 | **Asset classes** | Crypto (stocks planned) | Multi-asset (equities, options, futures, crypto, forex) |
 | **Futures support** | Full (funding, margin, liquidation) | Basic for crypto perpetuals |
 | **Multi-exchange** | Native (FIELD protocol) | Supported but manual routing |
-| **Custom operators** | `BaseOperator` inheritance, 380+ built-in | `QCAlgorithm` class, indicator library |
+| **Custom operators** | `BaseOperator` inheritance, built-in | `QCAlgorithm` class, indicator library |
 | **AI operators** | LLMScorer, WebSearch, Sentiment | None built-in |
 | **Deployment** | Jupyter SaaS | Cloud IDE + local (LEAN) |
 | **Marketplace** | Verified strategies | Alpha Streams (signals) |

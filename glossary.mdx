@@ -18,7 +18,7 @@ The runtime orchestrator. Reads a TradingSpec, computes warmup, and runs the tic
 A DAG execution engine where operators are stateless and the graph manages all state via RollingBuffers. [Deep Dive →](/engine/stateful-graph)
 
 **Operator**
-A stateless computation unit that receives TaggedArrays and returns a TaggedArray. ClyptQ ships 380+ across 14 roles. [Operator System →](/engine/operators)
+A stateless computation unit that receives TaggedArrays and returns a TaggedArray. ClyptQ ships operators across 14 roles. [Operator System →](/engine/operators)
 
 **BaseOperator**
 The abstract base class all operators inherit from. Requires implementing `compute()` and declaring a `role`. [Protocol Reference →](/engine/operator-protocol)
@@ -78,7 +78,7 @@ The guarantee that the same graph runs identically in backtest, paper, and live 
 Platform tests strategies on exchange data the builder never saw, proving the strategy isn't overfit to a single venue. [Marketplace →](/platform/marketplace)
 
 **Trading Commerce**
-The marketplace model: builders create strategies, platform verifies them, buyers deploy them. [Marketplace →](/platform/marketplace)
+The marketplace model: builders create strategies, platform verifies them, traders deploy them. [Marketplace →](/platform/marketplace)
 
 ## Backtesting Concepts
 

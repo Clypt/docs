@@ -85,10 +85,10 @@ spec = TradingSpec(
     ),
     strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
     execution=TradingExecutionSpec(
-        mode="backtest",
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        accounts=[AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000)],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 

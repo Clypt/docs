@@ -58,10 +58,10 @@ graph.add_node("sma_fast", SMA(span=10), inputs=[close])
 graph.add_node("sma_slow", SMA(span=50), inputs=[close])
 graph.add_node("signal", CrossoverAlpha(), inputs=[...])
 
-# Only the execution spec changes
-TradingExecutionSpec(mode="backtest", ...)  # Historical data + simulated fills
-TradingExecutionSpec(mode="paper", ...)     # Live data + simulated fills
-TradingExecutionSpec(mode="live", ...)      # Live data + real orders
+# Only the mode changes (top-level on TradingSpec)
+TradingSpec(..., mode="backtest")   # Historical data + simulated fills
+TradingSpec(..., mode="paper")      # Live data + simulated fills (platform-managed)
+TradingSpec(..., mode="live")       # Live data + real orders (platform-managed)
 ```
 
 ### Structural lookahead prevention
@@ -134,7 +134,7 @@ flowchart TB
     class E warn
 ```
 
-**What the buyer sees:** Independently computed metrics, cross-exchange consistency scores, and real-cost impact — not self-reported numbers.
+**What the trader sees:** Independently computed metrics, cross-exchange consistency scores, and real-cost impact — not self-reported numbers.
 
 ## Who Benefits
 
@@ -147,7 +147,7 @@ flowchart TB
 | No way to monetize | Marketplace listing with revenue |
 | Trust me, it works | Platform-verified metrics |
 
-### Buyers (Capital Providers)
+### Traders (Strategy Consumers)
 
 | Before ClyptQ | With ClyptQ |
 |---------------|-------------|
@@ -156,14 +156,6 @@ flowchart TB
 | Backtest ≠ live | Code parity guarantee |
 | Manual deployment | One-click paper → live |
 
-### Investors
-
-| Before ClyptQ | With ClyptQ |
-|---------------|-------------|
-| Generic SaaS metrics | Quantified technical moat |
-| No network effects | Builder-Buyer flywheel |
-| Single revenue stream | Commissions + subscriptions + data |
-
 ## The Technical Moat
 
 ClyptQ's advantages are **structural, not incremental**:
@@ -171,7 +163,7 @@ ClyptQ's advantages are **structural, not incremental**:
 1. **Code parity** is built into the architecture (StatefulGraph + TradingSpec), not bolted on
 2. **Lookahead prevention** is structural (RollingBuffer), not runtime checks
 3. **Cross-exchange validation** requires exchange-agnostic operators (TaggedArray), which is an architectural decision made from day one
-4. **380+ operators** form a growing library that increases switching costs
+4. **Operator library** forms a growing set of composable components
 
 These are not features that can be added to existing platforms — they require rebuilding from the ground up.
 

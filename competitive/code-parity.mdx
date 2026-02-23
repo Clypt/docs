@@ -5,7 +5,7 @@ description: "The code parity guarantee that only hedge funds had — until now"
 
 ## The Most Expensive Bug in Quant Trading
 
-You've spent weeks researching a strategy. The backtest shows a 2.1 Sharpe ratio. You deploy to live trading. Three months later, the live Sharpe is 0.3.
+You've spent weeks researching a strategy. The backtest looks promising. You deploy to live trading. Weeks later, live performance diverges significantly from the backtest.
 
 What went wrong? **The code changed.**
 
@@ -88,13 +88,14 @@ spec = TradingSpec(
         initial_cash=10_000.0,
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",              # ← Only this changes
         accounts=[AccountSpec(
             exchange="binance",
             market_type="futures",
+            base_currency="USDT",
             cost_model=CostModelSpec(exchange="binance"),
         )],
     ),
+    mode="backtest",                  # ← Only this changes (top-level)
 )
 ```
 
@@ -102,8 +103,8 @@ To go from backtest to live, you change **one field**:
 
 ```python
 # Backtest → Paper → Live
-spec.execution.mode = "paper"   # Paper trading with real data
-spec.execution.mode = "live"    # Live trading with real money
+spec.mode = "paper"   # Paper trading with real data (platform-managed)
+spec.mode = "live"    # Live trading with real money (platform-managed)
 ```
 
 ### What Stays Identical
@@ -202,7 +203,7 @@ These two approaches can produce different results due to:
 The reason ClyptQ's code is identical across modes is not just that the spec is the same — it's that the **user-facing execution interface is the same**. You iterate over a `TradingDriver`, and it yields results tick by tick:
 
 ```python
-driver = TradingDriver(spec)
+driver = TradingDriver.from_spec(spec)
 
 for result in driver:
     # result is yielded every tick — backtest, paper, or live
@@ -223,7 +224,7 @@ The driver abstracts **only** what differs (data source, fill execution). Everyt
 Because the driver is an iterator, you have **full Python control between ticks**:
 
 ```python
-driver = TradingDriver(spec)
+driver = TradingDriver.from_spec(spec)
 
 equity_curve = []
 trade_log = []
@@ -400,7 +401,8 @@ When you need to inspect intermediate node outputs — not just the final result
 spec = TradingSpec(
     data=data_config,
     strategy=TradingStrategySpec(graph=graph),
-    execution=TradingExecutionSpec(mode="backtest", accounts=[account]),
+    execution=TradingExecutionSpec(accounts=[account]),
+    mode="backtest",
     debug=True,  # ← Store all tick results for post-analysis
 )
 
@@ -477,14 +479,14 @@ spec = TradingSpec(
     data=data_config,
     strategy=TradingStrategySpec(graph=graph, initial_cash=10_000.0),
     execution=TradingExecutionSpec(
-        mode="backtest",     # ← Change to "paper" or "live"
         accounts=[account],
     ),
+    mode="backtest",     # ← Paper/live managed by platform after submit
 )
 
 
 # === 3. Run — SAME code for all modes ===
-driver = TradingDriver(spec)
+driver = TradingDriver.from_spec(spec)
 
 equity_curve = []
 for result in driver:
@@ -501,7 +503,7 @@ max_dd = compute_max_drawdown(equity_curve)
 plot_equity_curve(equity_curve)
 ```
 
-The graph, the spec, the `for result in driver` loop, the logging, the analysis — **all identical**. Change `mode="backtest"` to `mode="live"` and the same code trades real money.
+The graph, the spec, the `for result in driver` loop, the logging, the analysis — **all identical**. After submitting your strategy, the platform handles paper and live execution with the same code.
 
 ## What This Means for You
 

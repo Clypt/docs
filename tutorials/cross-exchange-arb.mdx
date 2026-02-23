@@ -261,21 +261,23 @@ spec = TradingSpec(
         output_nodes=["total_equity", "arb_signal", "spot_equity", "futures_equity"],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
             # Separate accounts for each venue
             AccountSpec(
                 exchange="binance", market_type="spot",
+                base_currency="USDT",
                 initial_cash=25_000.0,
             ),
             AccountSpec(
                 exchange="binance", market_type="futures",
+                base_currency="USDT",
                 initial_cash=25_000.0,
                 max_leverage=1.0,  # 1× for matched arb
             ),
         ],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,
 )
 
@@ -356,12 +358,12 @@ spec = TradingSpec(
         ],
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
-            AccountSpec(exchange="binance", market_type="futures", initial_cash=25_000),
-            AccountSpec(exchange="bybit", market_type="futures", initial_cash=25_000),
+            AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=25_000),
+            AccountSpec(exchange="bybit", market_type="futures", base_currency="USDT", initial_cash=25_000),
         ],
     ),
+    mode="backtest",
 )
 ```
 

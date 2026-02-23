@@ -114,17 +114,18 @@ spec = TradingSpec(
         output_nodes=["equity"],  # Nodes to track for analysis
     ),
     execution=TradingExecutionSpec(
-        mode="backtest",
         accounts=[
             AccountSpec(
                 exchange="binance",
                 market_type="futures",
+                base_currency="USDT",
                 initial_cash=10_000.0,
                 max_leverage=3.0,
             ),
         ],
         execution_price_source="ohlcv",
     ),
+    mode="backtest",
     debug=True,  # Store results for to_dataframe()
 )
 ```
@@ -136,7 +137,7 @@ from clyptq.apps.trading.driver import TradingDriver
 
 driver = TradingDriver.from_spec(spec)
 
-# The driver iterator runs tick by tick — same loop for backtest, paper, and live
+# The driver iterates tick by tick over the backtest period
 equity_curve = []
 for result in driver:
     if "equity" in result.outputs:
@@ -158,31 +159,15 @@ results = driver.export_results(output_dir="./results", format="parquet")
 print(results["state"])  # Account summary
 ```
 
-## 6. Go Live (Same Code)
+## 6. Deploy to Paper or Live
 
-Change one parameter to switch from backtest to live:
+Paper and live trading are **not run from notebook cells**. Once you've validated your strategy in backtest, submit it to the platform:
 
-```python
-spec = TradingSpec(
-    data=data_config,
-    strategy=TradingStrategySpec(graph=graph),  # ← Same graph
-    execution=TradingExecutionSpec(
-        mode="live",                             # ← Only this changes
-        accounts=[
-            AccountSpec(
-                exchange="binance",
-                market_type="futures",
-                api_key="your_api_key",
-                api_secret="your_api_secret",
-            ),
-        ],
-    ),
-)
+1. Submit your strategy code via the dashboard
+2. The platform independently validates and backtests your strategy
+3. Start a **Paper Trade** or **Live Trade** run from the dashboard — no code changes needed
 
-driver = TradingDriver.from_spec(spec)
-for result in driver:  # ← Same loop, now trading real money
-    print(f"{result.timestamp} | equity: {result.outputs['equity']}")
-```
+The same `StatefulGraph` you built in your notebook runs identically in paper and live modes on the platform. See [Backtest to Live](/tutorials/backtest-to-live) and the [Builder Guide](/platform/builder-guide) for the full submission flow.
 
 ## What's Next?
 
@@ -191,7 +176,7 @@ for result in driver:  # ← Same loop, now trading real money
     Understand how data flows through the graph
   </Card>
   <Card title="Operator Reference" icon="book" href="/operators/overview">
-    Browse 380+ operators: indicators, signals, transforms, AI
+    Browse operators: indicators, signals, transforms, AI
   </Card>
   <Card title="Backtesting Accuracy" icon="shield" href="/backtesting/overview">
     Cost models, funding rates, liquidation simulation

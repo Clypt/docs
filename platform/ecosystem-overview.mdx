@@ -5,7 +5,7 @@ description: "Production-grade quantitative trading engine powering the Trading 
 
 ## Ecosystem Vision
 
-ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative strategies are independently verified, cross-exchange validated, and deployed with cryptographic trust between Builders and Buyers.
+ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative strategies are independently verified, cross-exchange validated, and deployed with trust between Builders and Traders.
 
 **Core Principles**:
 - **Code Parity**: The same `StatefulGraph` runs identically in backtest, paper, and live
@@ -22,10 +22,10 @@ flowchart LR
     classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
     Builder["Builder<br><br>Develop in Jupyter<br>Backtest → Paper → Live<br>Submit to Marketplace"]
     Platform["ClyptQ Platform<br><br>Reproduce backtest<br>Cross-exchange validation<br>Compute all metrics"]
-    Buyer["Buyer<br><br>Evaluate verified metrics<br>Paper trade 2-4 weeks<br>Deploy live"]
+    Trader["Trader<br><br>Evaluate verified metrics<br>Paper trade<br>Deploy live"]
     Revenue["Revenue<br><br>Flows back<br>to Builder"]
 
-    Builder --> Platform --> Buyer --> Revenue
+    Builder --> Platform --> Trader --> Revenue
     class Platform highlight
     class Revenue success
 ```
@@ -43,7 +43,7 @@ flowchart LR
     - Platform-computed metrics builders can't manipulate
   </Card>
 
-  <Card title="For Buyers" icon="chart-line" href="/platform/buyer-guide">
+  <Card title="For Traders" icon="chart-line" href="/platform/trader-guide">
     - Evaluate verified strategies at a glance
     - One-click deploy: paper → live
     - Built-in safety (emergency shutdown, balance sync)
@@ -91,9 +91,9 @@ flowchart LR
     - **TradingDriver**: Warmup → tick loop → shutdown orchestration
   </Accordion>
 
-  <Accordion title="2. Operator Layer — 380+ Strategy Components">
-    - **[Indicators](/operators/overview)**: SMA, EMA, RSI, MACD, Bollinger, ATR, and 130+ more
-    - **[Signals](/operators/signals/alphas)**: 21 alpha generators + 8 factor models + Alpha-101
+  <Accordion title="2. Operator Layer — Strategy Components">
+    - **[Indicators](/operators/overview)**: SMA, EMA, RSI, MACD, Bollinger, ATR, and more
+    - **[Signals](/operators/signals/alphas)**: Alpha generators, factor models, Alpha-101
     - **[Transforms](/operators/transforms/scalers)**: ZScore, Rank, MVO, RiskParity, EqualWeight
     - **[Universe](/operators/universe/filters)**: Volume/volatility filters and liquidity scores
     - **[Semantic](/operators/semantic)**: LLM scoring, web search — paper/live only (ephemeral)
@@ -107,7 +107,7 @@ flowchart LR
   </Accordion>
 
   <Accordion title="4. Data Layer — Multi-Source Integration">
-    - **Crypto**: 5 exchanges (Binance, Bybit, Gateio, Coinbase, Kraken)
+    - **Crypto**: Binance, Bybit, Gate.io, Coinbase, Kraken, OKX, and more
     - **Storage**: Parquet files with automatic caching
     - **Live**: WebSocket feeds with automatic reconnection
   </Accordion>
@@ -159,33 +159,22 @@ See [FIELD Data Principle](/engine/field-state) and [STATE Principle](/engine/fi
 
 ### Code Parity
 
-The same graph runs identically across all modes. Only the `TradingExecutionSpec` changes:
+The same graph runs identically across all modes. Only the top-level `mode` on `TradingSpec` changes:
 
 ```python
-# Backtest
-TradingExecutionSpec(mode="backtest", accounts=[...])
+# Backtest (notebook)
+TradingSpec(..., mode="backtest")
 
-# Paper (live data, simulated fills)
-TradingExecutionSpec(mode="paper", accounts=[...])
+# Paper (platform-managed after submit)
+TradingSpec(..., mode="paper")
 
-# Live (real money)
-TradingExecutionSpec(mode="live", accounts=[...with api_key...])
+# Live (platform-managed after submit)
+TradingSpec(..., mode="live")
 ```
 
 See [Code Parity](/competitive/code-parity) for the full comparison.
 
-## Why ClyptQ?
-
-| Capability | ClyptQ | QuantConnect | Nautilus | Vectorized (Zipline, Backtrader) |
-|-----------|--------|-------------|---------|--------------------------------|
-| **Code Parity** | Same graph runs in all modes | Research ≠ Live | Same engine | Backtest only |
-| **Lookahead Prevention** | Structural (RollingBuffer) | Runtime checks | Runtime checks | None — manual discipline |
-| **Language** | Python (any library) | C# primary | Rust only | Python |
-| **Data Included** | 5 crypto exchanges | Limited | None | None |
-| **Marketplace** | Cross-exchange verified | Community (unverified) | None | None |
-| **Cost Modeling** | Exchange-specific (auto CCXT) | Generic | Generic | Basic |
-
-See [Why ClyptQ](/competitive/overview) for the detailed comparison.
+See [Why ClyptQ](/competitive/overview) for a detailed comparison with other platforms.
 
 ## Next Steps
 
@@ -198,7 +187,7 @@ See [Why ClyptQ](/competitive/overview) for the detailed comparison.
     Full strategy development and marketplace listing workflow
   </Card>
 
-  <Card title="Buyer Guide" icon="chart-line" href="/platform/buyer-guide">
+  <Card title="Trader Guide" icon="chart-line" href="/platform/trader-guide">
     How to evaluate, deploy, and manage strategies
   </Card>
 

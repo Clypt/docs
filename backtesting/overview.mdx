@@ -60,6 +60,7 @@ Fees are auto-fetched from each exchange via CCXT. Maker/taker splits, VIP tier 
 AccountSpec(
     exchange="binance",
     market_type="futures",
+    base_currency="USDT",
     cost_model=CostModelSpec(
         maker_fee=0.0002,    # VIP 1 rate
         taker_fee=0.0004,
@@ -156,31 +157,9 @@ Conditional orders are registered after trade execution and checked every tick u
 - **Both triggered in same candle**: Conservative assumption — SL executes first
 - **Paired positions** (arbitrage): When one leg's TP/SL triggers, the paired leg closes automatically
 
-## Comparing Backtest Accuracy
-
-| Feature | ClyptQ | Zipline | Backtrader | Freqtrade | VectorBT |
-|---|---|---|---|---|---|
-| **Lookahead prevention** | Structural (RollingBuffer) | Manual | Manual | Manual | None (vectorized) |
-| **Fee model** | Exchange-specific (CCXT) | Flat rate | Configurable | Flat rate | Flat rate |
-| **Funding rates** | Auto-injected, 8h cycle | No | No | No | No |
-| **Liquidation** | Exchange-specific MMR | No | No | No | No |
-| **Order validation** | Exchange limits (CCXT) | No | No | Basic | No |
-| **Margin tracking** | Full (cross/isolated) | No | No | No | No |
-| **Orderbook simulation** | LATENT mode | No | No | No | No |
-| **TP/SL simulation** | OHLC-aware | No | Basic | Basic | No |
-
 ## What This Means in Practice
 
-A typical perpetual futures strategy with 3× leverage on Binance:
-
-| Cost Component | Annual Impact | Without Simulation |
-|---|---|---|
-| **Taker fees** (0.04%) | ~2-5% of equity | Often underestimated |
-| **Funding rates** | ~5-15% of equity | Completely ignored |
-| **Liquidation events** | Position wipeout | Never happens |
-| **Order rejections** | Missed trades | All trades execute |
-
-The difference between a "50% annual return" backtest (without proper cost modeling) and reality (with all costs simulated) can easily be **30+ percentage points**. ClyptQ's backtesting doesn't just produce prettier charts — it produces results you can actually trust.
+ClyptQ's five layers of accuracy — structural lookahead prevention, exchange-specific cost models, funding rate simulation, margin-based liquidation, and order validation — work together to produce backtest results that closely reflect real trading conditions.
 
 ## Helper: Exchange Discovery
 

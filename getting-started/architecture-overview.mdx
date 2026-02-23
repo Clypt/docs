@@ -5,7 +5,7 @@ description: "The 4-layer architecture of ClyptQ and the Trading Commerce ecosys
 
 ## Trading Commerce Ecosystem
 
-ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative strategies are independently verified, cross-exchange validated, and deployed with trust between Builders and Buyers.
+ClyptQ is a **Trading Commerce platform** — a marketplace where quantitative strategies are independently verified, cross-exchange validated, and deployed with trust between Builders and Traders.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
@@ -14,10 +14,10 @@ flowchart LR
     classDef success fill:#0f2d2b,stroke:#2dd4bf,stroke-width:1.5px,color:#ccfbf1
     Builder["Builder<br><br>Develop in Jupyter<br>Backtest → Paper → Live<br>Submit to Marketplace"]
     Platform["ClyptQ Platform<br><br>Reproduce backtest<br>Cross-exchange validation<br>Compute all metrics"]
-    Buyer["Buyer<br><br>Evaluate verified metrics<br>Paper trade 2-4 weeks<br>Deploy live"]
+    Trader["Trader<br><br>Evaluate verified metrics<br>Paper trade<br>Deploy live"]
     Revenue["Revenue<br><br>Flows back<br>to Builder"]
 
-    Builder --> Platform --> Buyer --> Revenue
+    Builder --> Platform --> Trader --> Revenue
     class Platform highlight
     class Revenue success
 ```
@@ -29,7 +29,7 @@ flowchart LR
   <Card title="Marketplace" icon="store" href="/platform/marketplace">
     Independent backtest verification, cross-exchange validation, platform-computed metrics
   </Card>
-  <Card title="For Buyers" icon="chart-line" href="/platform/buyer-guide">
+  <Card title="For Traders" icon="chart-line" href="/platform/trader-guide">
     Evaluate verified strategies, one-click deploy, built-in safety features
   </Card>
 </CardGroup>
@@ -136,9 +136,9 @@ spec = TradingSpec(
     ),
     strategy=TradingStrategySpec(graph=graph, output_nodes=["equity", "signal"]),
     execution=TradingExecutionSpec(
-        mode="backtest",
-        accounts=[AccountSpec(exchange="binance", market_type="futures", initial_cash=10_000)],
+        accounts=[AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=10_000)],
     ),
+    mode="backtest",
 )
 ```
 
@@ -146,7 +146,7 @@ spec = TradingSpec(
 |----------|----------------|------------|
 | **TradingDataSpec** | What data to load | `symbol_source_map`, `observations`, `start`/`end` |
 | **TradingStrategySpec** | What computation to run | `graph` (StatefulGraph), `output_nodes` |
-| **TradingExecutionSpec** | How to trade | `mode`, `accounts` (with fees, leverage) |
+| **TradingExecutionSpec** | How to trade | `accounts` (with fees, leverage) |
 
 ## Layer 2: TradingDriver (Orchestrator)
 
@@ -265,6 +265,6 @@ Everything above the line is identical. Only the data source and fill engine cha
     Complete configuration hierarchy reference
   </Card>
   <Card title="Operator System" icon="plug" href="/engine/operators">
-    380+ operators across 14 roles
+    Operators across 14 roles
   </Card>
 </CardGroup>
