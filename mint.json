@@ -2,7 +2,8 @@
   "name": "Clypt",
   "logo": {
     "dark": "/logo/clypt_logo.svg",
-    "light": "/logo/clypt_logo_black.png"
+    "light": "/logo/clypt_logo_black.png",
+    "href": "https://clypt.ai"
   },
   "favicon": "/favicon.ico",
   "colors": {
