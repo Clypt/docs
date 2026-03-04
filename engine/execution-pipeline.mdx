@@ -51,7 +51,8 @@ graph.add_node("intention", FuturesTargetPositionIntention(
 |----------|-----------|-------------|
 | `FuturesTargetPositionIntention` | Futures | Target position from weights + book size, with leverage |
 | `TargetPositionIntention` | Spot | Target position from weights + book size |
-| `VenueAwareSizing` | Multi-venue | Allocates across venues for arbitrage |
+| `ArbitrageIntention` | Multi-venue | Allocates across venues for arbitrage |
+| `DynamicUniverseIntention` | Dynamic | Target positions with runtime symbol selection |
 
 ### Stage 2: Delta Calculation
 
@@ -89,6 +90,9 @@ The delta is converted to an order and executed by the fill engine:
 | `LIMIT` | Limit order | Maker fee | None (INSTANT mode) |
 | `STOP` | Stop market order | Taker fee | Applied |
 | `STOP_LIMIT` | Stop limit order | Maker fee | None |
+| `TRAILING_STOP` | Trailing stop order | Taker fee | Applied |
+
+**TimeInForce options:** `GTC` (Good Till Cancel), `IOC` (Immediate or Cancel), `FOK` (Fill or Kill), `POST_ONLY`
 
 ## Execution Modes: INSTANT vs LATENT
 

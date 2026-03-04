@@ -13,9 +13,9 @@ spec = TradingSpec(
     data=data_config,
     strategy=TradingStrategySpec(graph=graph),
     execution=TradingExecutionSpec(
-        mode="backtest",    # ← Change to "paper" or "live"
         accounts=[account],
     ),
+    mode="backtest",    # ← Change to "paper" or "live"
 )
 
 driver = TradingDriver.from_spec(spec)

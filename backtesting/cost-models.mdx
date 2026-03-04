@@ -23,7 +23,6 @@ AccountSpec(
         maker_fee=0.0002,      # 0.02% (VIP 1)
         taker_fee=0.0004,      # 0.04% (VIP 1)
         slippage_bps=1.0,      # 0.01% slippage on market orders
-        min_tick_size=0.01,    # Price precision ($0.01)
     ),
 )
 ```
@@ -32,10 +31,9 @@ AccountSpec(
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `maker_fee` | `float` | `0.001` | Fee rate for maker (limit) orders. 0.001 = 0.1% |
-| `taker_fee` | `float` | `0.001` | Fee rate for taker (market) orders. 0.001 = 0.1% |
-| `slippage_bps` | `float` | `0.0` | Slippage in basis points for market orders. 1.0 = 0.01% |
-| `min_tick_size` | `float` | `0.01` | Minimum price increment for rounding |
+| `maker_fee` | `float` | `0.0002` | Fee rate for maker (limit) orders. 0.0002 = 0.02% |
+| `taker_fee` | `float` | `0.0004` | Fee rate for taker (market) orders. 0.0004 = 0.04% |
+| `slippage_bps` | `float` | `2.0` | Slippage in basis points for market orders. 2.0 = 0.02% |
 
 ### How Fees Are Calculated
 

@@ -151,18 +151,13 @@ Traders see independently verified metrics for each strategy:
 
 | Metric | Source | Standardization | Builder Can Manipulate? |
 |--------|--------|----------------|------------------------|
-| **Sharpe Ratio** | Platform-computed | **Annualized** (`periods_per_year=252`) | No |
+| **Sharpe Ratio** | Platform-computed | **Annualized** (requires `periods_per_year` or `timeframe`) | No |
 | **Max Drawdown (MDD)** | Platform-computed | **Peak-to-trough**, percentage | No |
-| **Total Return** | Platform-computed | **Annualized** (CAGR) | No |
+| **Total Return** | Platform-computed | Cumulative return `(V_current - V_first) / V_first` | No |
 | Win Rate | Platform-computed | Percentage of positive returns | No |
-| Volatility | Platform-computed | **Annualized** std deviation | No |
-| Avg Trade Duration | Platform-computed | Time-weighted | No |
-| Fee Impact | Platform-computed (real exchange fees) | Basis points | No |
-| Funding Cost | Platform-computed (historical rates) | Annualized drag | No |
-| Cross-Exchange Consistency | Platform-computed (unseen data) | 0-1 score | No |
 
 <Info>
-**All core metrics are annualized and standardized.** Sharpe Ratio, Total Return (CAGR), and Volatility use `periods_per_year=252` for consistent comparison across strategies with different timeframes. MDD is reported as the maximum peak-to-trough drawdown percentage. These three — **Annualized Return, MDD, and Annualized Sharpe** — are the required metrics for every marketplace listing.
+**Required metrics for every marketplace listing:** Sharpe Ratio (`AccumSharpe`), Maximum Drawdown (`AccumMaxDrawdown`), and Total Return (`AccumTotalReturn`). Sharpe requires explicit `periods_per_year` or `timeframe` parameter. Total Return is cumulative (not CAGR). MDD is reported as the maximum peak-to-trough drawdown percentage.
 </Info>
 
 ### Deployment
@@ -196,14 +191,14 @@ Strategies are sold as **one-time purchases**. The platform takes a commission o
 Trader pays one-time price → Platform takes commission → Builder receives remainder
 ```
 
-The builder sets the strategy price (minimum $10). The platform commission varies by seller tier:
+The builder sets the strategy price. The platform commission varies by seller tier:
 
-| Seller Tier | Builder Revenue Share | Platform Commission |
-|-------------|----------------------|---------------------|
-| **Free** | 80% | 20% |
-| **Bronze** | 80% | 20% |
-| **Silver** | 90% | 10% |
-| **Gold** | 97.5% | 2.5% |
+| Seller Tier | Max Listing Price | Builder Revenue Share | Platform Commission |
+|-------------|-------------------|----------------------|---------------------|
+| **Free** | $99 | 20% | 80% |
+| **Bronze** | $299 | 40% | 60% |
+| **Silver** | $599 | 60% | 40% |
+| **Gold** | $999 | 70% | 30% |
 
 ## Builder Monetization
 

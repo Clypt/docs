@@ -1,6 +1,6 @@
 ---
 title: "Exchange Specifics"
-description: "Per-exchange details for Binance, Bybit, Gateio, Coinbase, and Kraken"
+description: "Per-exchange details for Binance, Bybit, Gateio, OKX, Coinbase, Kraken, and Aster"
 ---
 
 ## Overview
@@ -11,13 +11,15 @@ Each supported exchange has unique characteristics that ClyptQ models precisely.
 
 ### Market Type Support
 
-| Exchange | Spot | Futures (Linear) | Max Leverage | Quote Currency | Funding Rates |
-|----------|------|-------------------|--------------|----------------|---------------|
-| **Binance** | Yes | Yes | 125× | USDT, USDC | Full history |
-| **Bybit** | Yes | Yes | 100× | USDT, USDC | Full history |
-| **Gateio** | Yes | Yes | 100× | USDT | Full history |
-| **Coinbase** | Yes | Yes (perpetual) | 10× (CFTC) | USDC | Limited (~42 days) |
-| **Kraken** | Yes | Yes | 50× | USD | Full history |
+| Exchange | Spot | Derivatives | Market Type | Max Leverage | Quote Currency | Funding Rates |
+|----------|------|-------------|-------------|--------------|----------------|---------------|
+| **Binance** | Yes | Yes | `futures` | 125× | USDT, USDC | Full history |
+| **Bybit** | Yes | Yes | `linear` | 100× | USDT, USDC | Full history |
+| **Gateio** | Yes | Yes | `futures` | 100× | USDT | Full history |
+| **Coinbase** | Yes | Yes (perpetual) | `perpetual` | 10× (CFTC) | USDC | Collected (not auto-injected) |
+| **Kraken** | Yes | Yes | `perpetual` | 50× | USD | Full history |
+| **OKX** | Yes | Yes | `swap` | 125× | USDT, USDC | Full history |
+| **Aster** | Yes | Yes | `futures` | 20× | USDT | Full history |
 
 ### Default Fee Rates (Non-VIP)
 
@@ -30,6 +32,7 @@ Fees are auto-fetched via CCXT. These are default tier rates — VIP rates are l
 | **Gateio** | 0.20% | 0.20% | 0.015% | 0.05% |
 | **Coinbase** | 0.40% | 0.60% | 0.02% | 0.06% |
 | **Kraken** | 0.25% | 0.40% | 0.02% | 0.05% |
+| **OKX** | 0.08% | 0.10% | 0.02% | 0.05% |
 
 <Info>
 VIP rates can be 2-10× lower than default rates. Use `CostModelSpec` to override with your actual tier. See [Cost Models](/backtesting/cost-models) for details.
@@ -44,6 +47,8 @@ VIP rates can be 2-10× lower than default rates. Use `CostModelSpec` to overrid
 | **Gateio** | 1.0% | 0.5% | 1.5 | Normal (more conservative) |
 | **Coinbase** | 6.67% | 1.0% | 1.0 | Normal (CFTC regulated) |
 | **Kraken** | 2.0% | 1.5% | 1.0 | Normal (regulated) |
+| **OKX** | 0.5% | 0.5% | 1.0 | Inverted (MMR/Equity × 100) |
+| **Aster** | 2.5% | 2.5% | 1.0 | Normal (DEX) |
 
 See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation examples.
 
@@ -54,8 +59,10 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 | **Binance** | 8 hours | 00:00, 08:00, 16:00 | Standard |
 | **Bybit** | 8 hours | 00:00, 08:00, 16:00 | Standard |
 | **Gateio** | 8 hours | 00:00, 08:00, 16:00 | Standard |
-| **Coinbase** | 1 hour | Every hour | `has_funding_rate=False` — not simulated |
+| **Coinbase** | 1 hour | Every hour | `has_funding_rate=False` — collected but not auto-injected |
 | **Kraken** | 4 hours | 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 | 6× per day, fully simulated |
+| **OKX** | 8 hours | 00:00, 08:00, 16:00 | Standard |
+| **Aster** | 8 hours | 00:00, 08:00, 16:00 | Standard |
 
 ## Per-Exchange Details
 
@@ -100,7 +107,7 @@ Known for derivatives trading with competitive fee structures.
 ```python
 AccountSpec(
     exchange="bybit",
-    market_type="futures",
+    market_type="linear",     # Bybit uses "linear" (auto-normalized from "futures")
     base_currency="USDT",
     initial_cash=30_000.0,
     max_leverage=10.0,
@@ -145,7 +152,7 @@ US-regulated exchange with CFTC oversight and strict leverage limits.
 - **No funding simulation**: `has_funding_rate=False` — funding not auto-injected
 
 <Warning>
-Coinbase has `has_funding_rate=False`, so funding is **not simulated** in backtest or paper trading (rate defaults to 0). Historical funding data is limited to ~42 days and the live API is unsupported. Futures backtest P&L will not include funding costs. Consider using Binance or Bybit for accurate futures backtests.
+Coinbase has `has_funding_rate=False`, so funding is **not auto-injected** in backtest or paper trading (rate defaults to 0). Funding data is collected (1h intervals) but not applied to backtest P&L. Consider using Binance or Bybit for accurate futures backtests with funding simulation.
 </Warning>
 
 ### Kraken
@@ -166,15 +173,40 @@ Kraken's 4-hour funding schedule means 6 settlements per day (00:00, 04:00, 08:0
 **CCXT note**: `fetch_funding_rate_history()` returns data at 1h intervals for Kraken, but the intermediate values (01h, 02h, 03h, etc.) are **predicted rates**, not actual settlements. Only the 4h boundary values represent real funding charges. The settlement hour gatekeeping ensures only real settlement times are applied.
 </Note>
 
+### OKX
+
+Global exchange with Binance-style margin calculation and passphrase authentication.
+
+**Key characteristics:**
+- **Market types**: Spot, USDT-M Swap (linear)
+- **Quote currencies**: USDT, USDC
+- **Max leverage**: 125× (BTC/ETH)
+- **Inverted margin**: Same formula as Binance (MMR/Equity × 100, trigger at ≥ 100%)
+- **Passphrase required**: OKX API keys require an additional passphrase field
+- **Hedge mode**: Supports both one-way and hedge mode
+
+**Configuration example:**
+```python
+AccountSpec(
+    exchange="okx",
+    market_type="swap",       # OKX uses "swap" (auto-normalized from "futures")
+    base_currency="USDT",
+    initial_cash=30_000.0,
+    max_leverage=20.0,
+)
+```
+
 ## Settlement Currencies
 
 | Exchange | Spot | Futures |
 |----------|------|---------|
-| **Binance** | USDT (primary), FDUSD, USDC | USDT, USDC |
-| **Bybit** | USDT, USDC | USDT |
-| **Gateio** | USDT | USDT |
+| **Binance** | USDT, FDUSD, USDC, BTC, ETH | USDT, USDC |
+| **Bybit** | USDT, USDC | USDT, USDC |
+| **Gateio** | USDT, BTC, ETH | USDT |
 | **Coinbase** | USD, USDC | USDC |
 | **Kraken** | USD, USDT | USD |
+| **OKX** | USDT, USDC | USDT, USDC |
+| **Aster** | USDT | USDT |
 
 Symbol formats differ by exchange:
 
@@ -192,8 +224,10 @@ Coinbase: BTC/USDC:USDC
 | **Binance** | Yes | Yes | `position_side: "long"/"short"` |
 | **Bybit** | Yes | Yes | |
 | **Gateio** | Yes | Yes | |
+| **OKX** | Yes | Yes | |
 | **Coinbase** | Yes | No | `position_side: "both"` only |
 | **Kraken** | Yes | No | |
+| **Aster** | Yes | No | DEX |
 
 ## Order Validation Limits
 

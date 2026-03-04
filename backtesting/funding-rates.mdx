@@ -116,6 +116,8 @@ Not all exchanges provide full historical funding rate data:
 | **Gateio** | Full history | Yes | Standard 8h intervals |
 | **Kraken** | Full history | Yes | 4h intervals (6× per day) — all 6 daily settlements applied |
 | **Coinbase** | Limited (~42 days) | No | `has_funding_rate=False` — funding not simulated (falls back to 0) |
+| **OKX** | Full history | Yes | Standard 8h intervals |
+| **Aster** | Full history | Yes | Standard 8h intervals |
 
 For exchanges with `has_funding_rate=False`, ClyptQ logs an info message and skips auto-injection. The backtest will run without funding simulation for that venue.
 

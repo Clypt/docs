@@ -346,7 +346,7 @@ The same pattern works across different exchanges:
 ```python
 symbol_source_map = SymbolSourceMap({
     "binance:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
-    "bybit:futures": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
+    "bybit:linear": ["BTC/USDT:USDT", "ETH/USDT:USDT"],
 })
 
 spec = TradingSpec(
@@ -354,13 +354,13 @@ spec = TradingSpec(
         symbol_source_map=symbol_source_map,
         observations=[
             OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
-            OHLCVSpec(exchange="bybit", market_type="futures", timeframe="1m"),
+            OHLCVSpec(exchange="bybit", market_type="linear", timeframe="1m"),
         ],
     ),
     execution=TradingExecutionSpec(
         accounts=[
             AccountSpec(exchange="binance", market_type="futures", base_currency="USDT", initial_cash=25_000),
-            AccountSpec(exchange="bybit", market_type="futures", base_currency="USDT", initial_cash=25_000),
+            AccountSpec(exchange="bybit", market_type="linear", base_currency="USDT", initial_cash=25_000),
         ],
     ),
     mode="backtest",

@@ -32,7 +32,7 @@ Every operator implements a single method:
 
 ```python
 class MyOperator(BaseOperator):
-    role = OperatorRole.ALPHA  # One of 13 roles
+    role = OperatorRole.ALPHA  # One of 14 roles
 
     def compute(self, data: Dict[str, TaggedArray], timestamp, context) -> TaggedArray:
         close = data["close"]  # Input from RollingBuffer

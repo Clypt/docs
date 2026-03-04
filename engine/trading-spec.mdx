@@ -206,11 +206,11 @@ AccountSpec(
 
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
-| `exchange` | `str` | Required | `"binance"`, `"gateio"`, `"bybit"`, `"coinbase"`, `"kraken"` |
+| `exchange` | `str` | Required | `"binance"`, `"gateio"`, `"bybit"`, `"okx"`, `"coinbase"`, `"kraken"`, `"aster"` |
 | `market_type` | `str` | Required | `"spot"`, `"futures"`, `"perpetual"`, `"linear"` |
 | `base_currency` | `str` | Required | `"USDT"`, `"USDC"`, `"USD"` (must be uppercase) |
-| `initial_cash` | `Optional[float]` | `None` | Required for backtest. Forbidden for live. Defaults to 10000 if unset. |
-| `max_leverage` | `Optional[float]` | `None` | Auto: 1.0 for spot, venue max for futures |
+| `initial_cash` | `Optional[float]` | `None` | Optional for backtest (defaults to 10000 if unset). Optional for live (acts as capital cap if set). |
+| `max_leverage` | `Optional[float]` | `None` | Auto: 1.0 for spot, venue max for futures (fallback: 10.0 for non-spot) |
 | `cost_model` | `Optional[CostModelSpec]` | `None` | Override fees. None = auto-fetch. |
 | `credentials` | `Optional[VenueCredential]` | `None` | Required for live mode |
 
@@ -271,7 +271,7 @@ Paper trading is managed through the dashboard after strategy submission. It can
 - Uses live data from exchange APIs
 - Real order execution
 - **Requires** API credentials
-- **Forbids** `initial_cash` (uses actual exchange balance)
+- `initial_cash` is optional — if set, it acts as a capital cap (actual balance must be >= initial_cash)
 
 <Info>
 Live trading is managed through the dashboard after strategy submission. It cannot be run from notebook cells.
@@ -281,11 +281,13 @@ Live trading is managed through the dashboard after strategy submission. It cann
 
 | Exchange | Spot | Futures | Max Leverage | Notes |
 |----------|------|---------|-------------|-------|
-| Binance | USDT, FDUSD, USDC, BTC, ETH | USDT, USDC | 125x | |
-| Gate.io | USDT, BTC, ETH | USDT | 100x | |
-| Bybit | USDT, USDC | USDT, USDC | 100x | Also supports `linear` |
-| Kraken | USD | USD | 50x | 4h funding intervals |
-| Coinbase | USD, USDC | USDC | 10x | Perpetual (limited) |
+| Binance | USDT, FDUSD, USDC, BTC, ETH | USDT, USDC | 125x | `market_type="futures"` |
+| Gate.io | USDT, BTC, ETH | USDT | 100x | `market_type="futures"` |
+| Bybit | USDT, USDC | USDT, USDC | 100x | `market_type="linear"` (normalized from `"futures"`) |
+| Kraken | USD, USDT | USD | 50x | `market_type="perpetual"` (4h funding) |
+| Coinbase | USD, USDC | USDC | 10x | `market_type="perpetual"` (CFTC) |
+| OKX | USDT, USDC | USDT, USDC | 125x | `market_type="swap"` (normalized from `"futures"`) |
+| Aster | USDT | USDT | 20x | `market_type="futures"` (DEX) |
 
 ## Validation
 
@@ -294,7 +296,7 @@ Live trading is managed through the dashboard after strategy submission. It cann
 1. **Mode** must be explicitly set (`"backtest"`, `"paper"`, or `"live"`)
 2. **Strategy.graph** must not be None
 3. **Observations** must not be empty
-4. **Live mode**: accounts must have credentials, `initial_cash` must NOT be set
+4. **Live mode**: accounts must have credentials, `initial_cash` is optional (capital cap if set)
 5. **Backtest mode**: accounts need observation data at system clock resolution
 
 `AccountSpec.__post_init__()` validates:
@@ -435,12 +437,13 @@ data = TradingDataSpec(
 ### initial_cash in live mode
 
 ```python
+# initial_cash is optional in live mode — acts as a capital cap
 AccountSpec(
     exchange="binance", market_type="futures",
     base_currency="USDT",
-    initial_cash=10000.0,  # Forbidden in live mode!
+    initial_cash=10000.0,  # Optional: caps capital usage to $10,000
+    # Actual exchange balance must be >= initial_cash (validated at runtime)
 )
-# → Validation error: use actual exchange balance
 ```
 
 ## Relationship to Other Concepts

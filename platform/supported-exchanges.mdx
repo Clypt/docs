@@ -7,13 +7,19 @@ description: "Exchange support matrix with market types, fees, limits, and capab
 
 ClyptQ supports the following cryptocurrency exchanges for data, backtesting, and live trading:
 
-| Exchange | Spot | Futures | Max Leverage | Quote Currencies | Live Trading |
-|----------|------|---------|--------------|------------------|--------------|
-| **Binance** | Yes | Yes (USDT-M) | 125× | USDT, USDC | Yes |
-| **Bybit** | Yes | Yes (USDT Perp) | 100× | USDT, USDC | Yes |
-| **Gateio** | Yes | Yes (USDT Futures) | 100× | USDT | Yes |
-| **Coinbase** | Yes | Yes (USDC Perp) | 10× (CFTC) | USDC | Yes |
-| **Kraken** | Yes | Yes (USD Futures) | 50× | USD | Yes |
+| Exchange | Spot | Derivatives | Market Type | Max Leverage | Quote Currencies | Live Trading |
+|----------|------|-------------|-------------|--------------|------------------|--------------|
+| **Binance** | Yes | Yes (USDT-M) | `futures` | 125× | USDT, USDC | Yes |
+| **Bybit** | Yes | Yes (USDT Perp) | `linear` | 100× | USDT, USDC | Yes |
+| **Gateio** | Yes | Yes (USDT Futures) | `futures` | 100× | USDT | Yes |
+| **Coinbase** | Yes | Yes (USDC Perp) | `perpetual` | 10× (CFTC) | USDC | Yes |
+| **Kraken** | Yes | Yes (USD Perp) | `perpetual` | 50× | USD | Yes |
+| **OKX** | Yes | Yes (USDT-M Swap) | `swap` | 125× | USDT, USDC | Yes |
+| **Aster** | Yes | Yes (USDT Futures) | `futures` | 20× | USDT | Yes |
+
+<Note>
+**Market type normalization:** `normalize_market_type("futures", "bybit")` auto-maps to `"linear"`. `normalize_market_type("futures", "coinbase")` and `normalize_market_type("futures", "kraken")` auto-map to `"perpetual"`. `normalize_market_type("futures", "okx")` auto-maps to `"swap"`. You can use `"futures"` in code and it will be normalized per exchange.
+</Note>
 
 ## Fee Structures
 
@@ -28,6 +34,7 @@ Fees are **auto-fetched from each exchange via CCXT**. These are default tier ra
 | **Gateio** | 0.20% | 0.20% | 0.015% | 0.05% |
 | **Coinbase** | 0.40% | 0.60% | 0.02% | 0.06% |
 | **Kraken** | 0.25% | 0.40% | 0.02% | 0.05% |
+| **OKX** | 0.08% | 0.10% | 0.02% | 0.05% |
 
 ### VIP Rate Override
 
@@ -56,6 +63,8 @@ See [Cost Models](/backtesting/cost-models) for the full fee resolution priority
 | **Gateio** | 1.0% | 0.5% | 1.5 | Normal (conservative) |
 | **Coinbase** | 6.67% | 1.0% | 1.0 | Normal (CFTC) |
 | **Kraken** | 2.0% | 1.5% | 1.0 | Normal |
+| **OKX** | 0.5% | 0.5% | 1.0 | Inverted (MMR/Equity) |
+| **Aster** | 2.5% | 2.5% | 1.0 | Normal (DEX) |
 
 See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation formulas.
 
@@ -66,11 +75,13 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 | **Binance** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
 | **Bybit** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
 | **Gateio** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
-| **Coinbase** | 1h | Every hour | ~42 days | No (live API unsupported) |
+| **Coinbase** | 1h | Every hour | Collected (1h) | No (`has_funding_rate=False`) |
 | **Kraken** | 4h | 6× per day | Full | Yes |
+| **OKX** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
+| **Aster** | 8h | 00:00, 08:00, 16:00 | Full | Yes |
 
 <Note>
-**Backtest funding accuracy**: Binance, Bybit, and Gateio have full 8h funding simulation. Kraken's 4h schedule is fully simulated at all 6 daily settlement times. Coinbase funding is not simulated due to limited historical data (`has_funding_rate=False`). See [Funding Rate Simulation](/backtesting/funding-rates) for details.
+**Backtest funding accuracy**: Binance, Bybit, Gateio, OKX, and Aster have full 8h funding simulation. Kraken's 4h schedule is fully simulated at all 6 daily settlement times. Coinbase funding data is collected but not auto-injected in backtests (`has_funding_rate=False`). See [Funding Rate Simulation](/backtesting/funding-rates) for details.
 </Note>
 
 ## Data Availability
@@ -82,8 +93,10 @@ See [Liquidation Logic](/backtesting/liquidation-logic) for detailed calculation
 | **Binance** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
 | **Bybit** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
 | **Gateio** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
-| **Coinbase** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Coinbase** | 1m, 5m, 15m, 30m, 1h, 2h, 6h, 1d | Partial | Parquet |
 | **Kraken** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **OKX** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
+| **Aster** | 1m, 5m, 15m, 30m, 1h, 4h, 1d | Partial | Parquet |
 
 <Note>
 Historical depth varies by exchange and symbol. Data is available from listing date but coverage may be partial. Use `Helper.data_catalog()` to check available symbols, exchanges, and date ranges for your local data.
@@ -98,16 +111,20 @@ Historical depth varies by exchange and symbol. Data is available from listing d
 | **Gateio** | Yes | Automatic |
 | **Coinbase** | Yes | Automatic |
 | **Kraken** | Yes | Automatic |
+| **OKX** | Yes | Automatic |
+| **Aster** | Yes | Automatic |
 
 ## Settlement Currencies
 
 | Exchange | Spot | Futures |
 |----------|------|---------|
-| **Binance** | USDT (primary), FDUSD, USDC | USDT, USDC |
-| **Bybit** | USDT, USDC | USDT |
-| **Gateio** | USDT | USDT |
+| **Binance** | USDT, FDUSD, USDC, BTC, ETH | USDT, USDC |
+| **Bybit** | USDT, USDC | USDT, USDC |
+| **Gateio** | USDT, BTC, ETH | USDT |
 | **Coinbase** | USD, USDC | USDC |
 | **Kraken** | USD, USDT | USD |
+| **OKX** | USDT, USDC | USDT, USDC |
+| **Aster** | USDT | USDT |
 
 <Note>
 Multi-exchange strategies require matching symbol formats: `BTC/USDT` (Binance) vs `BTC/USD:USD` (Kraken). The `convert_symbol()` function handles automatic conversion.
@@ -120,8 +137,10 @@ Multi-exchange strategies require matching symbol formats: `BTC/USDT` (Binance) 
 | **Binance** | Yes | Yes | `position_side: "long"/"short"` |
 | **Bybit** | Yes | Yes | |
 | **Gateio** | Yes | Yes | |
+| **OKX** | Yes | Yes | |
 | **Coinbase** | Yes | No | `position_side: "both"` only |
 | **Kraken** | Yes | No | |
+| **Aster** | Yes | No | DEX |
 
 ## Configuration Examples
 

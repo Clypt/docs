@@ -56,8 +56,7 @@ def main(mode, accounts):
     )
 
     driver = TradingDriver.from_spec(spec)
-    for result in driver:
-        pass
+    driver.warmup()
 
     return driver  # MUST return the driver
 ```
@@ -70,8 +69,7 @@ def main():
 
     # ... build graph and spec ...
     driver = TradingDriver.from_spec(spec)
-    for result in driver:
-        pass
+    driver.warmup()
 
     return driver  # MUST return the driver
 ```
@@ -85,7 +83,7 @@ def main():
 For marketplace listing, your graph **must** include three metric operators with **exact node names**. These operators are computed by ClyptQ's internal code — the platform extracts final values from these nodes to display verified metrics to traders.
 
 ```python
-from clyptq.apps.trading.operators.metric import (
+from clyptq.apps.trading.operators.metrics import (
     AccumSharpe,
     AccumMaxDrawdown,
     AccumTotalReturn,
@@ -93,15 +91,15 @@ from clyptq.apps.trading.operators.metric import (
 
 # These three are REQUIRED — node names must match exactly
 graph.add_node("sharpe", AccumSharpe(
-    equity=Input("equity", "1m", lookback=1),
+    Input("equity", "1m", lookback=1), timeframe="1m",
 ))
 
 graph.add_node("max_drawdown", AccumMaxDrawdown(
-    equity=Input("equity", "1m", lookback=1),
+    Input("equity", "1m", lookback=1),
 ))
 
 graph.add_node("total_return", AccumTotalReturn(
-    equity=Input("equity", "1m", lookback=1),
+    Input("equity", "1m", lookback=1),
 ))
 ```
 
@@ -254,7 +252,6 @@ symbol_source_map = SymbolSourceMap({
 ```python
 from clyptq.system.graph import StatefulGraph, Input
 from clyptq.apps.trading.operators.indicator import SMA
-from clyptq.apps.trading.operators.signal import CrossoverAlpha
 from clyptq.apps.trading.operators.transform import EqualWeight
 from clyptq.apps.trading.operators.balance import EquityCalculator, BookSize
 from clyptq.apps.trading.operators.order import FuturesTargetPositionIntention
@@ -265,15 +262,15 @@ graph = StatefulGraph()
 close = Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=50)
 
 # Indicators
-graph.add_node("sma_fast", SMA(span=10), inputs=[close])
-graph.add_node("sma_slow", SMA(span=50), inputs=[close])
+graph.add_node("sma_fast", SMA(close, period=10))
+graph.add_node("sma_slow", SMA(close, period=50))
 
-# Signal — crossover detection
-graph.add_node("signal", CrossoverAlpha(),
-    inputs=[
-        Input("sma_fast", "1m", lookback=2),
-        Input("sma_slow", "1m", lookback=2),
-    ])
+# Signal — custom operator (user-defined BaseOperator subclass)
+# Example: returns +1 when fast > slow, -1 otherwise
+graph.add_node("signal", MySignalOperator(
+    fast=Input("sma_fast", "1m", lookback=2),
+    slow=Input("sma_slow", "1m", lookback=2),
+))
 
 # Transform — equal weight allocation
 graph.add_node("weights", EqualWeight(),
@@ -288,8 +285,9 @@ graph.add_node("equity", EquityCalculator(
     axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
 ))
 
-graph.add_node("book", BookSize(min_book_size=100.0),
-    inputs=[Input("equity", "1m", lookback=1)])
+graph.add_node("book", BookSize(
+    Input("equity", "1m", lookback=1), min_book_size=100.0,
+))
 
 # Order generation — target position intention
 graph.add_node("intention", FuturesTargetPositionIntention(
@@ -350,6 +348,8 @@ spec = TradingSpec(
 )
 
 driver = TradingDriver.from_spec(spec)
+driver.warmup()
+
 for result in driver:
     pass
 
@@ -427,19 +427,19 @@ The platform independently verifies your strategy through automated validation: 
 
 ### Pricing
 
-Set your strategy's price (minimum $10). Traders pay a **one-time purchase fee**, and the platform takes a commission based on your seller tier:
+Set your strategy's price. Traders pay a **one-time purchase fee**, and the platform takes a commission based on your seller tier:
 
 | Seller Tier | Max Listing Price | Builder Revenue Share | Platform Commission |
 |-------------|-------------------|----------------------|---------------------|
-| **Free** | $499 | 80% | 20% |
-| **Bronze** | $699 | 80% | 20% |
-| **Silver** | $999 | 90% | 10% |
-| **Gold** | $999 | 97.5% | 2.5% |
+| **Free** | $99 | 20% | 80% |
+| **Bronze** | $299 | 40% | 60% |
+| **Silver** | $599 | 60% | 40% |
+| **Gold** | $999 | 70% | 30% |
 
-**Tier progression:**
-- **Bronze**: 5+ strategies sold
-- **Silver**: 20+ strategies sold, $5,000+ total revenue
-- **Gold**: 35+ strategies sold, $50,000+ total revenue
+**Tier progression** (based on total revenue):
+- **Bronze**: $10,000+ total revenue
+- **Silver**: $40,000+ total revenue
+- **Gold**: $70,000+ total revenue
 
 ## Best Practices
 

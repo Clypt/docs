@@ -19,7 +19,7 @@ This page outlines the general regulatory landscape for cryptocurrency trading a
 | Area | Clypt's Role | User's Role |
 |------|-------------|------------|
 | **Fund custody** | Never holds user funds | Maintains own exchange accounts |
-| **API keys** | Zero storage — API keys are NOT retained in Clypt databases | Manages own API key permissions |
+| **API keys** | Encrypted storage — API keys are encrypted with Fernet (PBKDF2-derived AES) before database storage | Manages own API key permissions |
 | **KYC/AML** | Does not perform KYC (not a financial intermediary) | Completes KYC on each exchange directly |
 | **Trade execution** | Routes orders via user's exchange API | Responsible for complying with local laws |
 | **Tax reporting** | Provides trade history export | Files own taxes per local requirements |
@@ -31,9 +31,9 @@ This page outlines the general regulatory landscape for cryptocurrency trading a
 
 | Exchange | US | EU | UK | Japan | Singapore | Australia |
 |----------|----|----|----|----|-----------|-----------|
-| **Binance** | Restricted (Binance.US only) | Yes | Yes | No | Yes | Yes |
 | **Coinbase** | Yes | Yes | Yes | No | Yes | Yes |
-| **Kraken** | Yes | Yes | Yes | Yes | Yes | Yes |
+| **Kraken** | Yes | Yes | Yes | No | Yes | Yes |
+| **Bitstamp** | Yes | Yes | Yes | No | Yes | Yes |
 
 ### Tier 2: Regional Restrictions
 
@@ -58,7 +58,8 @@ This page outlines the general regulatory landscape for cryptocurrency trading a
 
 **United Kingdom (FCA)**
 - FCA regulates crypto asset promotions
-- Derivatives trading banned for retail consumers (2021)
+- Leverage capped at 2× for retail consumers
+- Risk warning required for crypto derivatives
 - Spot trading permitted through FCA-registered firms
 
 **Japan (FSA)**
@@ -94,7 +95,7 @@ Clypt itself may implement user verification in the future for:
 |-------------|-------------------|-------|
 | **US** | Varies by product | CFTC-regulated futures only |
 | **EU** | 2x (crypto CFDs under ESMA) | Higher for professional clients |
-| **UK** | Banned (retail crypto derivatives) | Professional clients exempt |
+| **UK** | 2x (retail crypto derivatives) | Professional clients exempt |
 | **Japan** | 2x | FSA regulation |
 | **Australia** | Restricted | ASIC limits on retail |
 | **Singapore** | No specific cap | MAS guidance applies |
@@ -122,7 +123,7 @@ Clypt follows strict security design principles:
 | Principle | Implementation |
 |-----------|---------------|
 | **No custody** | Clypt never holds, transfers, or accesses user funds |
-| **Zero storage** | API keys are NOT retained in Clypt databases |
+| **Encrypted storage** | API keys are encrypted with Fernet (PBKDF2-derived AES) before database storage |
 | **End-to-end encryption** | TLS + AES-256 for all communication |
 | **SOC 2 & ISO 27001** | Planned — not yet certified |
 | **GDPR & CCPA aligned** | User data limited to what is essential for service delivery |
@@ -132,10 +133,10 @@ Clypt follows strict security design principles:
 Clypt respects user privacy and data protection:
 
 - **Minimal data collection** — Email and account credentials for login only
-- **No access to exchange data** — Clypt does not access exchange balances, trade history, or keys
+- **Encrypted exchange credentials** — API keys are encrypted at rest; used only for order execution and balance checks
 - **Optional analytics** — Aggregated anonymously, never sold to third parties
 - **User-owned strategy code** — Builder-owned, encrypted, not visible to platform staff
-- **Full compliance** — GDPR, CCPA, and U.S. Privacy Shield Framework
+- **Full compliance** — GDPR, CCPA, and EU-U.S. Data Privacy Framework
 
 ## Risk Disclosure
 

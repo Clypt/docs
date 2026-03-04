@@ -52,19 +52,27 @@ An `OHLCVSpec` provides these FIELD inputs to the graph:
 # Load from multiple exchanges in a single spec
 observations = [
     OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
-    OHLCVSpec(exchange="bybit", market_type="futures", timeframe="1m"),
+    OHLCVSpec(exchange="bybit", market_type="linear", timeframe="1m"),
 ]
 ```
 
 Or use the list shorthand:
 
 ```python
-OHLCVSpec(exchange=["binance", "bybit"], market_type="futures", timeframe="1m")
+OHLCVSpec(exchange=["binance", "bybit"], market_type=["futures", "linear"], timeframe="1m")
 ```
+
+<Note>
+Bybit uses `"linear"` as its futures market type, not `"futures"`. If you pass `market_type="futures"` for Bybit, it is auto-normalized to `"linear"` internally, but using `"linear"` explicitly is recommended for clarity. Binance and Gate.io use `"futures"` as expected.
+</Note>
 
 ### Supported timeframes
 
-All exchanges support: `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`
+Most exchanges support: `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`
+
+<Note>
+Coinbase does **not** support `4h`. It supports `2h` and `6h` instead. Check [Supported Exchanges](/platform/supported-exchanges) for the full per-exchange timeframe matrix.
+</Note>
 
 ## TradingDataSpec
 

@@ -60,7 +60,7 @@ Rust is the clear choice: **memory safety without GC**, **zero-cost abstractions
 
 ### Phase 1: Hot Path (TaggedArray + RollingBuffer)
 
-**Target: 2025 H2**
+**Target: TBD** (deferred — no Rust code written yet)
 
 The innermost loop — TaggedArray operations and buffer management — moves to Rust first.
 
@@ -138,7 +138,7 @@ class MyAlpha(Operator):
 
 ### Phase 2: Graph Execution Engine
 
-**Target: 2026 H1**
+**Target: TBD** (depends on Phase 1 completion)
 
 The `StatefulGraph.on_tick()` loop moves to Rust. Operators are still defined in Python, but the graph orchestration (buffer management, topological execution, input distribution) runs in Rust.
 
@@ -178,7 +178,7 @@ impl RustGraph {
 
 ### Phase 3: Built-in Operators in Rust
 
-**Target: 2026 H1**
+**Target: TBD** (depends on Phase 2 completion)
 
 Common operators (SMA, EMA, RSI, MACD, all 101 Alpha operators) get Rust implementations. Python definitions become thin wrappers.
 

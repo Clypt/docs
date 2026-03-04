@@ -44,16 +44,20 @@ FIELD:{exchange}:{market_type}:ohlcv:{field_name}
 | Component | Description | Examples |
 |-----------|-------------|---------|
 | `FIELD` | Protocol prefix | Always `FIELD` |
-| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit`, `kraken`, `coinbase` |
-| `market_type` | Market category | `spot`, `futures` |
+| `exchange` | Exchange identifier | `binance`, `bybit`, `gateio`, `okx`, `coinbase`, `kraken`, `aster` |
+| `market_type` | Market category | `spot`, `futures`, `linear` |
 | `ohlcv` | Data domain | `ohlcv` (more domains planned) |
 | `field_name` | Data field | `close`, `open`, `high`, `low`, `volume` |
 
 ```python
 "FIELD:binance:futures:ohlcv:close"     # Binance futures close price
 "FIELD:gateio:spot:ohlcv:volume"        # Gate.io spot volume
-"FIELD:bybit:futures:ohlcv:high"        # Bybit futures high price
+"FIELD:bybit:linear:ohlcv:high"         # Bybit linear futures high price
 ```
+
+<Note>
+Bybit uses `linear` (not `futures`) as its market type for USDT-margined perpetual contracts. If you specify `"futures"` for Bybit, the system auto-normalizes it to `"linear"`, but using `"linear"` explicitly is recommended.
+</Note>
 
 ### Using FIELD in a Graph
 
@@ -144,8 +148,8 @@ STATE:{exchange}:{market_type}:{key}
 | Component | Description | Examples |
 |-----------|-------------|---------|
 | `STATE` | Protocol prefix | Always `STATE` |
-| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit` |
-| `market_type` | Market category | `spot`, `futures` |
+| `exchange` | Exchange identifier | `binance`, `bybit`, `gateio`, `okx`, `coinbase`, `kraken`, `aster` |
+| `market_type` | Market category | `spot`, `futures`, `linear` |
 | `key` | State key | `cash`, `pos_quantity`, `pos_entry_price`, `available_margin` |
 
 ```python

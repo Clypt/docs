@@ -22,8 +22,8 @@ FIELD:{exchange}:{market_type}:ohlcv:{field_name}
 | Component | Description | Examples |
 |-----------|-------------|---------|
 | `FIELD` | Protocol prefix (literal) | Always `FIELD` |
-| `exchange` | Exchange identifier | `binance`, `gateio`, `bybit`, `kraken`, `coinbase` |
-| `market_type` | Market category | `spot`, `futures`, `perpetual`, `linear` |
+| `exchange` | Exchange identifier | `binance`, `bybit`, `gateio`, `okx`, `coinbase`, `kraken`, `aster` |
+| `market_type` | Market category | `spot`, `futures`, `linear` |
 | `ohlcv` | Data domain (currently OHLCV only) | `ohlcv` |
 | `field_name` | Data field | `close`, `open`, `high`, `low`, `volume` |
 
@@ -31,8 +31,12 @@ FIELD:{exchange}:{market_type}:ohlcv:{field_name}
 ```python
 "FIELD:binance:futures:ohlcv:close"     # Binance futures close price
 "FIELD:gateio:spot:ohlcv:volume"        # Gate.io spot volume
-"FIELD:bybit:futures:ohlcv:high"        # Bybit futures high price
+"FIELD:bybit:linear:ohlcv:high"         # Bybit linear futures high price
 ```
+
+<Note>
+Bybit uses `linear` (not `futures`) as its market type for USDT-margined perpetual contracts. If you specify `"futures"` for Bybit, the system auto-normalizes it to `"linear"`, but using `"linear"` explicitly is recommended.
+</Note>
 
 ## How FIELD Works in Practice
 
