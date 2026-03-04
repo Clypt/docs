@@ -43,6 +43,10 @@ TRADING_OPS = CLYPTQ_BASE / "apps" / "trading" / "operators"
 CORE_OPS = CLYPTQ_BASE / "operator"
 SYSTEM_OPS = CLYPTQ_BASE / "system"
 
+# Fallback source for operators that only exist in clypt-backend
+CLYPTQ_BACKEND_BASE = PROJECT_ROOT / "clypt-backend" / "clyptq" / "clyptq"
+TRADING_OPS_BACKEND = CLYPTQ_BACKEND_BASE / "apps" / "trading" / "operators"
+
 # Output directory
 OUTPUT_DIR = DOCS_DIR / "operators"
 
@@ -115,6 +119,10 @@ CATEGORY_MAP = {
         "doc_dir": "signals",
         "subcategories": {"_default": "alpha-101"},
     },
+    "signal/alpha/alpha_191": {
+        "doc_dir": "signals",
+        "subcategories": {"_default": "alpha-191"},
+    },
     "signal/factor": {
         "doc_dir": "signals",
         "subcategories": {"_default": "factors"},
@@ -152,6 +160,14 @@ CATEGORY_MAP = {
         "doc_dir": "",
         "subcategories": {"_default": "semantic"},
     },
+    "balance": {
+        "doc_dir": "",
+        "subcategories": {"_default": "balance"},
+    },
+    "control": {
+        "doc_dir": "",
+        "subcategories": {"_default": "control"},
+    },
 }
 
 
@@ -159,7 +175,7 @@ CATEGORY_MAP = {
 # AST extraction
 # ---------------------------------------------------------------------------
 
-def extract_operators_from_file(filepath: Path) -> list[OperatorInfo]:
+def extract_operators_from_file(filepath: Path, base_path: Optional[Path] = None) -> list[OperatorInfo]:
     """Parse a Python file and extract operator class info via AST."""
     try:
         source = filepath.read_text(encoding="utf-8")
@@ -181,7 +197,8 @@ def extract_operators_from_file(filepath: Path) -> list[OperatorInfo]:
                 class_params[node.name] = params
 
     operators: list[OperatorInfo] = []
-    module_path = str(filepath.relative_to(CLYPTQ_BASE))
+    _base = base_path or CLYPTQ_BASE
+    module_path = str(filepath.relative_to(_base))
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
@@ -255,10 +272,11 @@ def _is_operator_class(node: ast.ClassDef) -> bool:
         return False
 
     # Check base classes
+    _KNOWN_BASES = ("BaseOperator", "SemanticOperator", "Alpha191Base")
     for base in node.bases:
-        if isinstance(base, ast.Name) and base.id in ("BaseOperator", "SemanticOperator"):
+        if isinstance(base, ast.Name) and base.id in _KNOWN_BASES:
             return True
-        if isinstance(base, ast.Attribute) and base.attr in ("BaseOperator", "SemanticOperator"):
+        if isinstance(base, ast.Attribute) and base.attr in _KNOWN_BASES:
             return True
 
     # Check for role class variable
@@ -370,28 +388,31 @@ def _extract_compute_source(node: ast.ClassDef, source: str) -> str:
     the raw source text.  Falls back to searching parent private base
     classes defined in the same file when the class itself doesn't define
     compute().
+
+    Also searches for _compute_alpha() as used by Alpha 191 operators.
     """
     source_lines = source.splitlines()
 
-    # Direct compute() on this class
-    for item in node.body:
-        if isinstance(item, ast.FunctionDef) and item.name == "compute":
-            start = item.lineno - 1  # 0-indexed
-            end = getattr(item, "end_lineno", None)
-            if end is None:
-                # Fallback: read until next def/class or end of class
-                end = start + 1
-                indent = len(source_lines[start]) - len(source_lines[start].lstrip())
-                for idx in range(start + 1, min(len(source_lines), node.end_lineno)):
-                    line = source_lines[idx]
-                    if line.strip() == "":
-                        continue
-                    line_indent = len(line) - len(line.lstrip())
-                    if line_indent <= indent and line.strip():
-                        break
-                    end = idx + 1
-            raw = source_lines[start:end]
-            return textwrap.dedent("\n".join(raw)).strip()
+    # Try compute() first, then _compute_alpha()
+    for method_name in ("compute", "_compute_alpha"):
+        for item in node.body:
+            if isinstance(item, ast.FunctionDef) and item.name == method_name:
+                start = item.lineno - 1  # 0-indexed
+                end = getattr(item, "end_lineno", None)
+                if end is None:
+                    # Fallback: read until next def/class or end of class
+                    end = start + 1
+                    indent = len(source_lines[start]) - len(source_lines[start].lstrip())
+                    for idx in range(start + 1, min(len(source_lines), node.end_lineno)):
+                        line = source_lines[idx]
+                        if line.strip() == "":
+                            continue
+                        line_indent = len(line) - len(line.lstrip())
+                        if line_indent <= indent and line.strip():
+                            break
+                        end = idx + 1
+                raw = source_lines[start:end]
+                return textwrap.dedent("\n".join(raw)).strip()
 
     return ""
 
@@ -515,11 +536,15 @@ def collect_all_operators() -> dict[str, list[OperatorInfo]]:
     """Walk the source tree and collect all operators, grouped by doc page."""
     pages: dict[str, list[OperatorInfo]] = {}
 
-    # 1. Trading operators
+    # 1. Trading operators (primary: clyptq-advanced)
     if TRADING_OPS.exists():
         _collect_trading_ops(pages)
 
-    # 2. Core operators (operator/)
+    # 2. Trading operators only in clypt-backend (e.g., alpha_191)
+    if TRADING_OPS_BACKEND.exists():
+        _collect_backend_only_ops(pages)
+
+    # 3. Core operators (operator/)
     if CORE_OPS.exists():
         _collect_core_ops(pages)
 
@@ -533,7 +558,25 @@ def _collect_trading_ops(pages: dict[str, list[OperatorInfo]]) -> None:
             continue
         if py_file.name == "__init__.py":
             continue
-        if py_file.name == "base.py" or py_file.name == "futures.py":
+        if py_file.name == "base.py" and py_file.parent == TRADING_OPS:
+            # Top-level base.py: extract CompositeFilter → universe/filters
+            operators = extract_operators_from_file(py_file)
+            operators = [op for op in operators if op.class_name == "CompositeFilter"]
+            for op in operators:
+                op.category = "universe/filters"
+                op.subcategory = "base"
+            pages.setdefault("universe/filters", []).extend(operators)
+            continue
+        if py_file.name == "base.py":
+            continue
+
+        if py_file.name == "futures.py":
+            # futures.py → balance page
+            operators = extract_operators_from_file(py_file)
+            for op in operators:
+                op.category = "balance"
+                op.subcategory = "futures"
+            pages.setdefault("balance", []).extend(operators)
             continue
 
         rel = py_file.relative_to(TRADING_OPS)
@@ -567,6 +610,58 @@ def _collect_trading_ops(pages: dict[str, list[OperatorInfo]]) -> None:
 
         # Extract operators
         operators = extract_operators_from_file(py_file)
+        for op in operators:
+            op.category = page_key
+            op.subcategory = file_stem
+
+        pages.setdefault(page_key, []).extend(operators)
+
+
+def _collect_backend_only_ops(pages: dict[str, list[OperatorInfo]]) -> None:
+    """Collect operators that only exist in clypt-backend (not in clyptq-advanced).
+
+    Walks the backend trading operators tree but only collects from directories
+    that don't exist in the primary (clyptq-advanced) source.
+    """
+    for py_file in sorted(TRADING_OPS_BACKEND.rglob("*.py")):
+        if py_file.name.startswith("_") and py_file.name != "__init__.py":
+            continue
+        if py_file.name == "__init__.py":
+            continue
+        if py_file.name == "base.py" or py_file.name == "futures.py" or py_file.name.endswith("_base.py"):
+            continue
+
+        rel = py_file.relative_to(TRADING_OPS_BACKEND)
+
+        # Skip if this file already exists in the primary source
+        if (TRADING_OPS / rel).exists():
+            continue
+
+        rel_parts = list(rel.parts)
+
+        category_key = _match_category(rel_parts)
+        if not category_key:
+            continue
+
+        cat_config = CATEGORY_MAP[category_key]
+        doc_dir = cat_config["doc_dir"]
+        subcats = cat_config["subcategories"]
+
+        file_stem = py_file.stem
+        if "_default" in subcats:
+            subcat = subcats["_default"]
+        elif file_stem in subcats:
+            subcat = subcats[file_stem]
+        else:
+            parent_stem = rel_parts[-2] if len(rel_parts) > 1 else ""
+            subcat = subcats.get(parent_stem, file_stem)
+
+        if doc_dir:
+            page_key = f"{doc_dir}/{subcat}"
+        else:
+            page_key = subcat
+
+        operators = extract_operators_from_file(py_file, base_path=CLYPTQ_BACKEND_BASE)
         for op in operators:
             op.category = page_key
             op.subcategory = file_stem
@@ -616,6 +711,7 @@ PAGE_META = {
     "signals/alphas": ("Alpha Signals", "21 alpha signals across momentum, mean reversion, volatility, volume, and liquidity categories"),
     "signals/factors": ("Cross-Sectional Factors", "8 risk factors for portfolio construction"),
     "signals/alpha-101": ("Alpha 101", "101 Formulaic Alphas (Kakushadze, 2016)"),
+    "signals/alpha-191": ("Alpha 191", "191 Formulaic Alphas (Guotai Junan, 2017)"),
     "transforms/scalers": ("Scalers", "ZScore, Rank, MinMaxScale, L1Norm, L2Norm, Softmax, Clip, Winsorize"),
     "transforms/neutralizers": ("Neutralizers", "Demean, Neutralize, GroupNeutralize, BetaNeutralize, FactorNeutralize, BarraNeutralizer"),
     "transforms/optimizers": ("Portfolio Optimizers", "MeanVarianceOptimizer, RiskParityOptimizer, EqualWeight, ClipWeights, MaxPositions"),
@@ -626,6 +722,8 @@ PAGE_META = {
     "utility": ("Utility Operators", "Identity, Resample, FieldMerge, SymbolSelect, SymbolDrop, Constant, IntervalGate"),
     "order": ("Order Operators", "TargetPositionIntention, FuturesTargetPositionIntention, DynamicUniverseIntention, ArbitrageIntention"),
     "semantic": ("Semantic Operators", "SentimentParser, WebSearchOperator, LLMScorer"),
+    "balance": ("Balance Operators", "Cash balance, equity calculation, margin monitoring, and position queries"),
+    "control": ("Control Operators", "Conditional gates for controlling execution flow"),
 }
 
 
@@ -785,7 +883,13 @@ def _extract_description(docstring: str) -> str:
 
 def _format_key_params(params: list[ParamInfo]) -> str:
     """Format key parameters for the quick reference table."""
-    user_params = [p for p in params if p.name not in ("self", "input", "inputs")]
+    # Skip common OHLCV base inputs (Alpha 101/191 pattern)
+    _SKIP_PARAMS = (
+        "self", "input", "inputs",
+        "close", "open_", "high", "low", "volume",  # Alpha 191
+        "close_input", "open_input", "high_input", "low_input", "volume_input",  # Alpha 101
+    )
+    user_params = [p for p in params if p.name not in _SKIP_PARAMS]
     if not user_params:
         return "—"
     parts = []
@@ -930,6 +1034,160 @@ def generate_alpha101_page(operators: list[OperatorInfo]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Alpha 191 special handling
+# ---------------------------------------------------------------------------
+
+def _extract_base_class_methods(base_path: Path) -> list[dict]:
+    """Extract method names, signatures, and docstrings from Alpha191Base."""
+    if not base_path.exists():
+        return []
+
+    source = base_path.read_text()
+    tree = ast.parse(source)
+
+    methods: list[dict] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef) or node.name != "Alpha191Base":
+            continue
+        for item in node.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            name = item.name
+            # Skip dunder, compute, __init__
+            if name.startswith("__") or name == "compute":
+                continue
+
+            # Extract docstring
+            docstring = ""
+            if (item.body and isinstance(item.body[0], ast.Expr)
+                    and isinstance(item.body[0].value, (ast.Constant, ast.Str))):
+                raw = getattr(item.body[0].value, "value",
+                              getattr(item.body[0].value, "s", ""))
+                docstring = raw.split("\n")[0].strip()
+
+            # Extract parameters (skip self)
+            params = []
+            for arg in item.args.args:
+                if arg.arg != "self":
+                    params.append(arg.arg)
+
+            methods.append({
+                "name": name,
+                "params": params,
+                "docstring": docstring,
+            })
+    return methods
+
+
+def generate_alpha191_page(operators: list[OperatorInfo]) -> str:
+    """Generate a compact table-format page for Alpha 191 operators.
+
+    Uses the same format as Alpha 101 for consistency.
+    """
+    lines: list[str] = []
+
+    lines.append("---")
+    lines.append('title: "Alpha 191"')
+    lines.append('description: "191 Formulaic Alphas — systematic alpha generation from Guotai Junan (2017)"')
+    lines.append("---")
+    lines.append("")
+    lines.append("{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}")
+    lines.append("")
+    lines.append("## Overview")
+    lines.append("")
+    lines.append("Implementation of 191 Formulaic Alphas (Guotai Junan Securities, 2017).")
+    lines.append(f"**{len(operators)} alphas** available, each as a standalone operator.")
+    lines.append("")
+    lines.append("All Alpha 191 operators share: **Role**: `ALPHA` | **Ephemeral**: No")
+    lines.append("")
+
+    # Base class DSL reference
+    base_path = TRADING_OPS_BACKEND / "signal" / "alpha" / "alpha_191" / "alpha_191_base.py"
+    base_methods = _extract_base_class_methods(base_path)
+    if base_methods:
+        lines.append("## Base Class DSL")
+        lines.append("")
+        lines.append("All Alpha 191 operators inherit from `Alpha191Base`, which provides DSL helper functions matching the original pseudo-code operators. VWAP is approximated as typical price `(H+L+C)/3`.")
+        lines.append("")
+        lines.append("| Method | Description |")
+        lines.append("|--------|-------------|")
+        for m in base_methods:
+            sig = f"`{m['name']}({', '.join(m['params'])})`"
+            desc = _escape_mdx(m["docstring"]) if m["docstring"] else "—"
+            lines.append(f"| {sig} | {desc} |")
+        lines.append("")
+
+    # Table format
+    lines.append("## Alpha Catalog")
+    lines.append("")
+    lines.append("| Alpha | Description | Key Parameters |")
+    lines.append("|-------|-------------|----------------|")
+
+    for op in sorted(operators, key=lambda o: o.class_name):
+        desc = op.docstring.split("\n")[0].strip() if op.docstring else ""
+        desc = _escape_mdx(desc)
+        key_params = _format_key_params(op.params)
+        lines.append(f"| **{op.class_name}** | {desc} | {key_params} |")
+
+    lines.append("")
+
+    # Usage pattern
+    lines.append("## Usage Pattern")
+    lines.append("")
+    lines.append("All Alpha 191 operators follow the same pattern:")
+    lines.append("")
+    lines.append("```python")
+    lines.append("from clyptq.apps.trading.operators.signal.alpha.alpha_191 import Alpha191_001")
+    lines.append("")
+    lines.append('graph.add_node("alpha_191_001", Alpha191_001(')
+    lines.append('    close=Input("FIELD:binance:futures:ohlcv:close", timeframe="1m", lookback=20),')
+    lines.append('    open_=Input("FIELD:binance:futures:ohlcv:open", timeframe="1m", lookback=20),')
+    lines.append('    high=Input("FIELD:binance:futures:ohlcv:high", timeframe="1m", lookback=20),')
+    lines.append('    low=Input("FIELD:binance:futures:ohlcv:low", timeframe="1m", lookback=20),')
+    lines.append('    volume=Input("FIELD:binance:futures:ohlcv:volume", timeframe="1m", lookback=20),')
+    lines.append("))")
+    lines.append("```")
+    lines.append("")
+
+    # Full source code for each alpha
+    alphas_with_source = [op for op in sorted(operators, key=lambda o: o.class_name) if op.compute_source]
+    if alphas_with_source:
+        lines.append("## Source Code")
+        lines.append("")
+        lines.append("Full `_compute_alpha()` implementations — no hidden logic.")
+        lines.append("")
+        lines.append("<AccordionGroup>")
+        for op in alphas_with_source:
+            desc = _extract_description(op.docstring).split("\n")[0] if op.docstring else ""
+            desc = _escape_mdx(desc)
+            lines.append(f'<Accordion title="{op.class_name}">')
+            if desc:
+                lines.append(f"")
+                lines.append(f"{desc}")
+                lines.append("")
+            lines.append("```python")
+            lines.append(op.compute_source)
+            lines.append("```")
+            lines.append("</Accordion>")
+        lines.append("</AccordionGroup>")
+        lines.append("")
+
+    lines.append("## Related Pages")
+    lines.append("")
+    lines.append('<CardGroup cols={2}>')
+    lines.append('  <Card title="Alpha 101" icon="chart-line" href="/operators/signals/alpha-101">')
+    lines.append("    101 Formulaic Alphas (Kakushadze, 2016)")
+    lines.append("  </Card>")
+    lines.append('  <Card title="Alpha Signals" icon="bolt" href="/operators/signals/alphas">')
+    lines.append("    Hand-crafted alpha signals")
+    lines.append("  </Card>")
+    lines.append("</CardGroup>")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Metrics special handling
 # ---------------------------------------------------------------------------
 
@@ -1060,9 +1318,11 @@ def main():
         if not operators:
             continue
 
-        # Special handling for Alpha 101
+        # Special handling for Alpha 101 and Alpha 191
         if page_key == "signals/alpha-101":
             content = generate_alpha101_page(operators)
+        elif page_key == "signals/alpha-191":
+            content = generate_alpha191_page(operators)
         elif page_key == "metrics":
             content = generate_metrics_page(operators)
         else:

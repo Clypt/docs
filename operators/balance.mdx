@@ -1,306 +1,785 @@
 ---
 title: "Balance Operators"
-description: "Query portfolio state — cash, equity, positions, and margin via the STATE protocol"
+description: "Cash balance, equity calculation, margin monitoring, and position queries"
 ---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
 
 ## Overview
 
-Balance operators query the **portfolio state** managed by the execution engine. They read from [STATE](/engine/field-state) inputs (cash, positions, margin) and combine them with [FIELD](/engine/field-state) inputs (current prices) to compute real-time portfolio metrics.
+This page documents **8 operators** (role: `BALANCE`).
 
-**Key principle:** Balance operators don't _compute_ state — the execution engine manages state. Balance operators _query_ it and make it available to the rest of the operator graph.
+## Quick Reference
 
-## Operators
+| Operator | Role | Key Parameters | Ephemeral |
+|----------|------|----------------|-----------|
+| **CashBalance** | `BALANCE` | — | No |
+| **EquityCalculator** | `BALANCE` | `cash`, `positions`, `prices` | No |
+| **TotalEquityCalculator** | `BALANCE` | `equity_inputs` | No |
+| **AvailableMargin** | `BALANCE` | — | No |
+| **PositionQuantity** | `BALANCE` | — | No |
+| **PositionValue** | `BALANCE` | `prices_key='prices'` | No |
+| **BookSize** | `BALANCE` | `multiplier=1.0`, `min_book_size=0.0`, `max_book_size=None` | No |
+| **MarginCalculator** | `BALANCE` | `cash`, `positions`, `prices` | No |
 
-### CashBalance
+---
 
-Query the current cash balance from STATE.
+## CashBalance
 
-**Role**: `BALANCE`
+Query cash balance from STATE.
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
 
 ```python
 cash = CashBalance(
-    cash=Input("STATE:binance:futures:cash", "1m", lookback=0),
+    input=Input("STATE:gateio:spot:cash", timeframe="1m", lookback=0),
 )
-
-graph.add_node("cash", cash, inputs=[
-    Input("STATE:binance:futures:cash", "1m", lookback=0),
-])
 ```
 
-**Output**: Scalar cash value as TaggedArray. Shape `(1,)` — single value, not per-symbol.
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    # STATE:cash returns scalar value
+    if hasattr(data, "tolist"):
+        value = float(data.tolist()) if data.tolist() else 0.0
+    elif isinstance(data, (int, float)):
+        value = float(data)
+    else:
+        value = 0.0
+
+    return TaggedArray(
+        value=np.array([value]),
+        exists=np.array([True]),
+        valid=np.array([value >= 0]),
+        updated=np.array([True]),
+    )
+```
+
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
 
 ---
 
-### EquityCalculator
+## EquityCalculator
 
-Compute total portfolio equity by combining cash, positions, and current prices.
+Calculate equity based on market type (auto-detected from Input source).
 
-**Role**: `BALANCE`
+Market type is automatically detected from the cash Input source:
+- "STATE:gateio:spot:cash" → market_type="spot"
+- "STATE:gateio:futures:cash" → market_type="futures"
 
-The formula depends on the market type, **auto-detected** from the STATE input source:
+SPOT:
+    equity = cash + sum(current_price * qty)
+    - Cash is reduced when positions are opened
+    - Position value is added to remaining cash
 
-**Spot**:
-```
-equity = cash + sum(current_price × quantity)
-```
+FUTURES:
+    equity = margin + sum((current_price - entry_price) * qty)
+    - Margin doesn't change when positions are opened
+    - Unrealized PnL is added to margin
 
-**Futures**:
-```
-equity = margin + sum((current_price - entry_price) × quantity)
-```
+Inputs (4 required):
+    1. cash: Cash/margin balance from STATE:venue:cash
+    2. positions: Position quantities from STATE:venue:pos_quantity
+    3. prices: Current prices from FIELD:close
+    4. entry_prices: Entry prices from STATE:venue:pos_entry_price
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `cash` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `entry_prices` | `'Input'` | Required |  |
+| `axis_keys` | `List[str]` | Required |  |
+| `market_type` | `Optional[str]` | `None` |  |
+
+### Usage
 
 ```python
+# With SymbolSourceMap
+symbol_source_map = SymbolSourceMap({"gateio:spot": ["BTC/USDT", "ETH/USDT"]})
+
 equity = EquityCalculator(
-    cash=Input("STATE:binance:futures:cash", "1m", lookback=0),
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    entry_prices=Input("STATE:binance:futures:pos_entry_price", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    cash=Input("STATE:gateio:spot:cash", timeframe="1m", lookback=0),
+    positions=Input("STATE:gateio:spot:pos_quantity", timeframe="1m", lookback=0),
+    prices=Input("FIELD:gateio:spot:ohlcv:close", timeframe="1m", lookback=0),
+    entry_prices=Input("STATE:gateio:spot:pos_entry_price", timeframe="1m", lookback=0),
+    axis_keys=symbol_source_map.axis_keys_for("gateio:spot"),
 )
-
-graph.add_node("equity", equity, inputs=[
-    Input("STATE:binance:futures:cash", "1m", lookback=0),
-    Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    Input("STATE:binance:futures:pos_entry_price", "1m", lookback=0),
-])
 ```
 
-**Auto-detection logic**: The STATE input source determines the market type:
-- `STATE:binance:spot:cash` → uses spot equity formula
-- `STATE:binance:futures:cash` → uses futures equity formula
+### Source Code
 
-**Output**: Scalar equity value as TaggedArray. Shape `(1,)`.
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_result()
+
+    cash_data, positions_data, prices_data, entry_prices_data = data[0], data[1], data[2], data[3]
+
+    # Extract cash (scalar)
+    cash = self._extract_scalar(cash_data)
+
+    # Get axis alignment info
+    all_axis_keys = self._get_axis_keys_from_context(context)
+    axis_indices = []
+    if self._axis_keys and all_axis_keys:
+        axis_indices = self._get_axis_indices(all_axis_keys, self._axis_keys)
+
+    # Extract arrays aligned to primary axis, then filter to our indices
+    positions = self._extract_aligned_values(positions_data, axis_indices, all_axis_keys)
+    prices = self._extract_aligned_values(prices_data, axis_indices, all_axis_keys)
+    entry_prices = self._extract_aligned_values(entry_prices_data, axis_indices, all_axis_keys)
+
+    # Calculate equity based on market type
+    # Track if any position has missing price data (invalid tick)
+    n_symbols = len(self._symbols)
+    has_missing_price = False
+
+    if self._market_type == "futures":
+        # FUTURES: equity = margin + unrealized_pnl
+        unrealized_pnl = 0.0
+        for i in range(n_symbols):
+            qty = positions[i] if i < len(positions) else 0.0
+            current_price = prices[i] if i < len(prices) else 0.0
+            entry_price = entry_prices[i] if i < len(entry_prices) else current_price
+
+            # Check for missing price on held position
+            if abs(qty) > 1e-10 and (np.isnan(current_price) or current_price <= 0):
+                has_missing_price = True
+                # Use entry_price as fallback to avoid equity crash
+                current_price = entry_price
+
+            if abs(qty) > 1e-10 and current_price > 0:
+                unrealized_pnl += (current_price - entry_price) * qty
+
+        equity = cash + unrealized_pnl
+    else:
+        # SPOT: equity = cash + position_value
+        position_value = 0.0
+        for i in range(n_symbols):
+            qty = positions[i] if i < len(positions) else 0.0
+            current_price = prices[i] if i < len(prices) else 0.0
+            entry_price = entry_prices[i] if i < len(entry_prices) else 0.0
+
+            # Check for missing price on held position
+            if abs(qty) > 1e-10 and (np.isnan(current_price) or current_price <= 0):
+                has_missing_price = True
+                # Use entry_price as fallback to avoid equity crash
+                if entry_price > 0:
+                    current_price = entry_price
+
+            if abs(qty) > 1e-10 and current_price > 0:
+                position_value += current_price * qty
+
+        equity = cash + position_value
+
+    # Mark as invalid if any position has missing price data
+    # Downstream (metrics) should handle invalid ticks appropriately
+    is_valid = (equity >= 0) and not has_missing_price
+
+    return TaggedArray(
+        value=[equity],
+        exists=[True],
+        valid=[is_valid],
+        updated=np.array([True]),
+    )
+```
+
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
 
 ---
 
-### TotalEquityCalculator
+## TotalEquityCalculator
 
-Aggregate equity from multiple `EquityCalculator` outputs for multi-venue portfolios.
+Calculate total equity across multiple venues.
 
-**Role**: `BALANCE`
+Aggregates equity from multiple EquityCalculator inputs to provide
+a unified portfolio-level equity value. Useful for:
+- Multi-venue strategies (spot + futures)
+- Cross-exchange arbitrage
+- Portfolio-level risk management
+
+Inputs:
+    Multiple EquityCalculator outputs, one per venue.
+
+Example:
+    # Calculate equity for each venue separately
+    spot_equity = EquityCalculator(
+        cash=Input("STATE:binance:spot:cash", ...),
+        positions=Input("STATE:binance:spot:pos_quantity", ...),
+        prices=Input("FIELD:binance:spot:close", ...),
+        entry_prices=Input("STATE:binance:spot:pos_entry_price", ...),
+        symbols=spot_symbols,
+    )
+    futures_equity = EquityCalculator(
+        cash=Input("STATE:binance:futures:cash", ...),
+        positions=Input("STATE:binance:futures:pos_quantity", ...),
+        prices=Input("FIELD:binance:futures:close", ...),
+        entry_prices=Input("STATE:binance:futures:pos_entry_price", ...),
+        symbols=futures_symbols,
+    )
+
+    # Aggregate into total equity
+    total_equity = TotalEquityCalculator(
+        equity_inputs=[
+            Input("spot_equity", timeframe="1m", lookback=1),
+            Input("futures_equity", timeframe="1m", lookback=1),
+        ]
+    )
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `equity_inputs` | `List['Input']` | Required |  |
+
+### Usage
 
 ```python
-# Individual venue equities
+# Calculate equity for each venue separately
 spot_equity = EquityCalculator(
     cash=Input("STATE:binance:spot:cash", ...),
     positions=Input("STATE:binance:spot:pos_quantity", ...),
-    prices=Input("FIELD:binance:spot:ohlcv:close", ...),
-    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
+    prices=Input("FIELD:binance:spot:close", ...),
+    entry_prices=Input("STATE:binance:spot:pos_entry_price", ...),
+    symbols=spot_symbols,
 )
-
 futures_equity = EquityCalculator(
     cash=Input("STATE:binance:futures:cash", ...),
     positions=Input("STATE:binance:futures:pos_quantity", ...),
-    prices=Input("FIELD:binance:futures:ohlcv:close", ...),
+    prices=Input("FIELD:binance:futures:close", ...),
     entry_prices=Input("STATE:binance:futures:pos_entry_price", ...),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
+    symbols=futures_symbols,
 )
 
-# Aggregate
+# Aggregate into total equity
 total_equity = TotalEquityCalculator(
     equity_inputs=[
-        Input("spot_equity", "1m", lookback=0),
-        Input("futures_equity", "1m", lookback=0),
+        Input("spot_equity", timeframe="1m", lookback=1),
+        Input("futures_equity", timeframe="1m", lookback=1),
     ]
 )
 ```
 
-**Use case**: Cross-exchange arbitrage, spot-futures basis trading, or any multi-venue strategy that needs a unified equity view.
+### Source Code
 
-**Output**: Scalar total equity as TaggedArray. Shape `(1,)`.
-
----
-
-### PositionQuantity
-
-Query current position quantities from STATE.
-
-**Role**: `BALANCE`
+Full `compute()` implementation — no hidden logic.
 
 ```python
-positions = PositionQuantity(
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-)
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list):
+        data = [data]
+
+    total_equity = 0.0
+    venue_equities = {}
+
+    for i, equity_data in enumerate(data):
+        equity = self._extract_equity(equity_data)
+        total_equity += equity
+        venue_equities[f"venue_{i}"] = equity
+
+    return TaggedArray(
+        value=[total_equity],
+        exists=[True],
+        valid=[total_equity >= 0],
+        updated=np.array([True]),
+    )
 ```
 
-**Output**: Per-symbol quantities as TaggedArray. Shape `(n_symbols,)`. Positive = long, negative = short.
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
 
 ---
 
-### PositionValue
+## AvailableMargin
 
-Query position notional values (quantity × current price) from STATE.
+Query available margin from STATE.
 
-**Role**: `BALANCE`
+**Role**: `BALANCE` | **Ephemeral**: No
 
-```python
-pos_value = PositionValue(
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-)
-```
+### Parameters
 
-**Output**: Per-symbol notional values as TaggedArray. Shape `(n_symbols,)`.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
 
----
-
-### AvailableMargin
-
-Query available margin from STATE (futures only).
-
-**Role**: `BALANCE`
+### Usage
 
 ```python
 margin = AvailableMargin(
-    margin=Input("STATE:binance:futures:available_margin", "1m", lookback=0),
+    input=Input("STATE:binance:futures:margin", timeframe="1m", lookback=0),
 )
 ```
 
-**Output**: Scalar available margin as TaggedArray. Shape `(1,)`.
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    if hasattr(data, "tolist"):
+        value = float(data.tolist()) if data.tolist() else 0.0
+    elif isinstance(data, (int, float)):
+        value = float(data)
+    else:
+        value = 0.0
+
+    return TaggedArray(
+        value=np.array([value]),
+        exists=np.array([True]),
+        valid=np.array([value >= 0]),
+        updated=np.array([True]),
+    )
+```
+
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
 
 ---
 
-### BookSize
+## PositionQuantity
 
-Compute the tradeable capital (book size) for position sizing.
+Query position quantities from STATE.
 
-**Role**: `BALANCE`
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+
+### Usage
 
 ```python
-book = BookSize(
-    equity=Input("equity", "1m", lookback=0),
-    multiplier=0.95,     # Use 95% of equity
-    min_book_size=1000,  # Minimum $1000
-    max_book_size=None,  # No maximum
+positions = PositionQuantity(
+    input=Input("STATE:gateio:spot:pos_quantity", timeframe="1m", lookback=0),
 )
 ```
 
-**Output**: Scalar book size as TaggedArray. Shape `(1,)`. Used by [Order operators](/operators/order) for position sizing.
+### Source Code
 
-## FIELD and STATE Pattern
-
-Balance operators are the bridge between **STATE** (execution engine) and **FIELD** (market data):
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e293b', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#94F1E8', 'lineColor': '#5bb8b0', 'clusterBkg': '#0f172a', 'clusterBorder': '#1e3a3a', 'titleColor': '#94F1E8', 'edgeLabelBackground': 'transparent' }}}%%
-flowchart TB
-    classDef source fill:#0d3b3b,stroke:#94F1E8,stroke-width:1.5px,color:#e0faf7
-    classDef action fill:#172554,stroke:#60a5fa,stroke-width:1.5px,color:#bfdbfe
-    subgraph FIELD["FIELD (market data)"]
-        F1["close prices"]
-        F2["open prices"]
-        F3["high prices"]
-        F4["low prices"]
-        F5["volume"]
-    end
-    subgraph STATE["STATE (portfolio state)"]
-        S1["cash balance"]
-        S2["position quantities"]
-        S3["entry prices"]
-        S4["available margin"]
-        S5["unrealized PnL"]
-    end
-    F1 --> EQ["EquityCalculator"]
-    S1 --> EQ
-    S2 --> EQ
-    S3 --> EQ
-    EQ --> BS["BookSize"]
-    BS --> OO["Order Operators"]
-    class F1,F2,F3,F4,F5 source
-    class S1,S2,S3,S4,S5 source
-    class OO action
-```
-
-### STATE Keys
-
-Available STATE keys per account:
-
-| STATE Key | Type | Description |
-|---|---|---|
-| `STATE:{exchange}:{market_type}:cash` | Scalar | Cash balance |
-| `STATE:{exchange}:{market_type}:pos_quantity` | Per-symbol | Position quantities |
-| `STATE:{exchange}:{market_type}:pos_entry_price` | Per-symbol | Average entry prices |
-| `STATE:{exchange}:{market_type}:available_margin` | Scalar | Available margin (futures) |
-
-### lookback=0
-
-Balance operators typically use `lookback=0` — they only need the current tick's state, not historical state:
+Full `compute()` implementation — no hidden logic.
 
 ```python
-Input("STATE:binance:futures:cash", "1m", lookback=0)  # Current cash only
-Input("STATE:binance:futures:pos_quantity", "1m", lookback=0)  # Current positions only
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    # STATE:pos_quantity returns Dict[str, float]
+    if hasattr(data, "tolist"):
+        positions = data.tolist()
+    elif isinstance(data, dict):
+        positions = data
+    else:
+        positions = {}
+
+    if not isinstance(positions, dict):
+        positions = {}
+
+    # Convert to arrays for Graph compatibility
+    symbols = list(positions.keys())
+    values = [float(positions[s]) for s in symbols]
+
+    if not symbols:
+        return TaggedArray(
+            value=[],
+            exists=[],
+            valid=[],
+            updated=np.array([]),
+            symbols=np.array([]),
+        )
+
+    return TaggedArray(
+        value=values,
+        exists=np.ones(len(values), dtype=bool),
+        valid=np.ones(len(values), dtype=bool),
+        updated=np.ones(len(values), dtype=bool),
+        symbols=np.array(symbols),
+    )
 ```
 
-### Warmup Behavior
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
 
-STATE inputs are **excluded from warmup calculation**. During warmup, STATE returns default values (0 cash, 0 positions). This is correct because there are no positions during warmup — the strategy hasn't started trading yet.
 
-## Common Patterns
+---
 
-### Single-Venue Equity Tracking
+## PositionValue
+
+Query position notional values from STATE.
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `prices_key` | `str` | `'prices'` |  |
+
+### Usage
 
 ```python
-# Minimal equity tracking for a single futures account
-graph.add_node("equity", EquityCalculator(
-    cash=Input("STATE:binance:futures:cash", "1m", lookback=0),
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-    prices=Input("FIELD:binance:futures:ohlcv:close", "1m", lookback=0),
-    entry_prices=Input("STATE:binance:futures:pos_entry_price", "1m", lookback=0),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-))
+pos_value = PositionValue(
+    input=Input("STATE:gateio:spot:pos_quantity", timeframe="1m", lookback=0),
+    prices_key="prices",
+)
+```
 
-graph.add_node("book_size", BookSize(
-    equity=Input("equity", "1m", lookback=0),
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    if hasattr(data, "tolist"):
+        positions = data.tolist()
+    elif isinstance(data, dict):
+        positions = data
+    else:
+        positions = {}
+
+    if not isinstance(positions, dict):
+        positions = {}
+
+    prices = context.get(self._prices_key, {}) if context else {}
+
+    symbols = list(positions.keys())
+    values = []
+    for s in symbols:
+        qty = float(positions[s])
+        # Extract symbol from venue:symbol key (e.g., "gateio:futures:BTC" -> "BTC")
+        symbol_only = s.split(":")[-1] if ":" in s else s
+        price = prices.get(symbol_only, prices.get(s, 0.0))
+        values.append(qty * price)
+
+    if not symbols:
+        return TaggedArray(
+            value=[],
+            exists=[],
+            valid=[],
+            updated=np.array([]),
+            symbols=np.array([]),
+        )
+
+    return TaggedArray(
+        value=values,
+        exists=np.ones(len(values), dtype=bool),
+        valid=np.ones(len(values), dtype=bool),
+        updated=np.ones(len(values), dtype=bool),
+        symbols=np.array(symbols),
+    )
+```
+
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
+
+---
+
+## BookSize
+
+Compute book size from balance inputs.
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required |  |
+| `multiplier` | `float` | `1.0` |  |
+| `min_book_size` | `float` | `0.0` |  |
+| `max_book_size` | `Optional[float]` | `None` |  |
+
+### Usage
+
+```python
+book = BookSize(
+    input=Input("STATE:gateio:spot:equity", timeframe="1m", lookback=0),
     multiplier=0.95,
-))
+    min_book_size=100.0,
+    max_book_size=1_000_000.0,
+)
 ```
 
-### Multi-Venue Arbitrage
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
 
 ```python
-# Spot + Futures equity → Total equity
-graph.add_node("spot_equity", EquityCalculator(
-    cash=Input("STATE:binance:spot:cash", ...),
-    positions=Input("STATE:binance:spot:pos_quantity", ...),
-    prices=Input("FIELD:binance:spot:ohlcv:close", ...),
-    axis_keys=symbol_source_map.axis_keys_for("binance:spot"),
-))
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
 
-graph.add_node("futures_equity", EquityCalculator(
-    cash=Input("STATE:binance:futures:cash", ...),
-    positions=Input("STATE:binance:futures:pos_quantity", ...),
-    prices=Input("FIELD:binance:futures:ohlcv:close", ...),
-    entry_prices=Input("STATE:binance:futures:pos_entry_price", ...),
-    axis_keys=symbol_source_map.axis_keys_for("binance:futures"),
-))
+    # Extract value from TaggedTensor or scalar
+    value = self._extract_value(data)
 
-graph.add_node("total_equity", TotalEquityCalculator(
-    equity_inputs=[
-        Input("spot_equity", "1m", lookback=0),
-        Input("futures_equity", "1m", lookback=0),
-    ]
-))
+    # Apply multiplier
+    book_size = value * self._multiplier
+
+    # Apply limits
+    book_size = max(book_size, self._min_book_size)
+    if self._max_book_size is not None:
+        book_size = min(book_size, self._max_book_size)
+
+    return TaggedArray(
+        value=[book_size],
+        exists=[True],
+        valid=[book_size > 0],
+        updated=np.array([True]),
+    )
 ```
 
-### Position-Aware Signal
+<sub>Source: `apps/trading/operators/balance/query.py`</sub>
+
+
+---
+
+## MarginCalculator
+
+Calculate margin status for futures positions.
+
+Uses exchange-specific margin configuration from venues.py for accurate
+margin ratio calculation and liquidation detection.
+
+Supports two MMR modes:
+1. Dynamic (default): Per-symbol MMR from CCXT fetch_leverage_tiers()
+2. Static (use_dynamic_tiers=False): Flat MMR from venues.py MarginConfig
+
+Dynamic mode (default) uses LeverageTierResolver which:
+- Fetches real-time tier data for supported exchanges (Gateio, Bybit, Kraken, Binance, Hyperliquid)
+- Falls back to static MarginConfig for unsupported exchanges (Coinbase, Gemini)
+- Caches tier data for 1 hour to minimize API calls
+
+Exchange-specific formulas:
+- Binance/OKX (inverted): margin_ratio = MMR / equity * 100 (liquidation &gt;= 100%)
+- Bybit/Gateio/Kraken (normal): margin_ratio = equity / MMR (liquidation &lt; threshold)
+
+The calculator also accounts for:
+- Exchange-specific default MMR (maintenance margin rate)
+- Liquidation fees (deducted from equity before ratio calculation)
+- Exchange-specific liquidation thresholds (1.0 or 1.5)
+
+Inputs (4 required):
+    1. cash: Cash balance from STATE:venue:cash
+    2. positions: Position quantities from STATE:venue:pos_quantity
+    3. prices: Current prices from FIELD:close
+    4. entry_prices: Entry prices from STATE:venue:pos_entry_price
+
+Output TaggedArray value contains margin_ratio:
+    - For inverted exchanges: 0-100+ (100 = liquidation threshold)
+    - For normal exchanges: 0-inf (threshold varies by exchange)
+
+**Role**: `BALANCE` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `cash` | `'Input'` | Required |  |
+| `positions` | `'Input'` | Required |  |
+| `prices` | `'Input'` | Required |  |
+| `entry_prices` | `'Input'` | Required |  |
+| `symbols` | `List[str]` | Required |  |
+| `exchange` | `str` | `'binance'` |  |
+| `maintenance_margin_rate` | `Optional[float]` | `None` |  |
+| `use_dynamic_tiers` | `bool` | `True` |  |
+| `api_key` | `Optional[str]` | `None` |  |
+| `api_secret` | `Optional[str]` | `None` |  |
+
+### Usage
 
 ```python
-# Only signal when not already positioned
-graph.add_node("positions", PositionQuantity(
-    positions=Input("STATE:binance:futures:pos_quantity", "1m", lookback=0),
-))
+# Default: dynamic per-symbol MMR (recommended)
+margin = MarginCalculator(
+    cash=Input("STATE:gateio:futures:cash", timeframe="1m", lookback=0),
+    positions=Input("STATE:gateio:futures:pos_quantity", timeframe="1m", lookback=0),
+    prices=Input("FIELD:gateio:futures:close", timeframe="1m", lookback=0),
+    entry_prices=Input("STATE:gateio:futures:pos_entry_price", timeframe="1m", lookback=0),
+    symbols=["BTC/USDT", "ETH/USDT"],
+    exchange="gateio",
+)
 
-graph.add_node("has_position", ConditionalGate(
-    condition_input=Input("positions", "1m", lookback=1),
-    threshold=0.0,
-    comparison="ne",  # Not equal to zero → has position
-))
+# Static flat MMR (opt-in override)
+margin = MarginCalculator(
+    ...,
+    exchange="gateio",
+    use_dynamic_tiers=False,  # Use flat rate from venues.py
+)
 ```
 
-## Relationship to Other Concepts
+### Source Code
 
-- **[STATE Principle](/engine/field-state)**: How STATE data flows through the system
-- **[FIELD Data Principle](/engine/field-state)**: Market data used by EquityCalculator
-- **[Order Operators](/operators/order)**: Use BookSize output for position sizing
-- **[TradingSpec](/engine/trading-spec)**: AccountSpec defines which STATE namespaces exist
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if not isinstance(data, list) or len(data) < 4:
+        return self._empty_result()
+
+    cash_data, positions_data, prices_data, entry_prices_data = data[0], data[1], data[2], data[3]
+
+    # Extract cash (scalar)
+    cash = self._extract_scalar(cash_data)
+
+    # Extract positions (dict: symbol -> qty)
+    positions = self._extract_dict(positions_data)
+
+    # Extract current prices (dict: symbol -> price)
+    prices = self._extract_dict(prices_data)
+
+    # Extract entry prices (dict: symbol -> entry_price)
+    entry_prices = self._extract_dict(entry_prices_data)
+
+    # Calculate equity and maintenance margin
+    unrealized_pnl = 0.0
+    total_notional = 0.0
+    total_maintenance_margin = 0.0
+
+    for symbol in self._symbols:
+        qty = positions.get(symbol, 0.0)
+        current_price = prices.get(symbol, 0.0)
+        entry_price = entry_prices.get(symbol, current_price)
+
+        if abs(qty) > 1e-10 and current_price > 0:
+            # Unrealized PnL: (current - entry) * qty
+            unrealized_pnl += (current_price - entry_price) * qty
+            # Position notional value
+            position_notional = abs(qty * current_price)
+            total_notional += position_notional
+
+            # Get MMR for this position (dynamic or static)
+            if self._use_dynamic_tiers and self._tier_resolver:
+                # Convert spot symbol to perpetual format for tier lookup
+                ccxt_symbol = self._to_ccxt_perpetual_symbol(symbol)
+                mmr = self._tier_resolver.get_mmr(
+                    self._exchange,
+                    ccxt_symbol,
+                    position_notional,
+                    self._api_key,
+                    self._api_secret,
+                )
+            else:
+                mmr = self._maintenance_margin_rate
+
+            total_maintenance_margin += position_notional * mmr
+
+    equity = cash + unrealized_pnl
+    maintenance_margin = total_maintenance_margin
+
+    # Apply liquidation fee to get effective equity (conservative estimate)
+    liquidation_fee = total_notional * self._config.liquidation_fee
+    effective_equity = equity - liquidation_fee
+
+    # Calculate margin ratio using exchange-specific formula
+    if maintenance_margin > 1e-10 and effective_equity > 1e-10:
+        if self._config.margin_ratio_inverted:
+            # Binance/OKX style: MMR / Equity * 100 (100% = liquidation)
+            margin_ratio = (maintenance_margin / effective_equity) * 100.0
+            is_liquidatable = 1.0 if margin_ratio >= 100.0 else 0.0
+        else:
+            # Bybit/Gateio/Kraken style: Equity / MMR (< threshold = liquidation)
+            margin_ratio = effective_equity / maintenance_margin
+            is_liquidatable = (
+                1.0 if margin_ratio < self._config.liquidation_threshold else 0.0
+            )
+    elif maintenance_margin <= 1e-10:
+        # No positions - safe
+        margin_ratio = float('inf') if not self._config.margin_ratio_inverted else 0.0
+        is_liquidatable = 0.0
+    else:
+        # No effective equity - liquidatable
+        margin_ratio = 0.0 if not self._config.margin_ratio_inverted else float('inf')
+        is_liquidatable = 1.0
+
+    return TaggedArray(
+        value=np.array([margin_ratio]),
+        exists=np.array([True]),
+        valid=np.array([equity >= 0]),
+        updated=np.array([True]),
+    )
+```
+
+<sub>Source: `apps/trading/operators/futures.py`</sub>
+
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Operator Protocol" icon="gear" href="/engine/operator-protocol">
+    How operators implement the compute() interface
+  </Card>
+  <Card title="StatefulGraph" icon="diagram-project" href="/engine/stateful-graph">
+    How operators compose into a DAG
+  </Card>
+</CardGroup>

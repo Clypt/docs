@@ -17,106 +17,106 @@ All Alpha 101 operators share: **Role**: `ALPHA` | **Ephemeral**: No
 | Alpha | Description | Key Parameters |
 |-------|-------------|----------------|
 | **Alpha101_001** | Alpha #001: Volatility-based ranking signal. | `std_window=20`, `argmax_window=5` |
-| **Alpha101_002** | Alpha #002: Volume-price correlation signal. | `close_input`, `open_input`, `volume_input` |
-| **Alpha101_003** | Alpha #003: Open-volume correlation signal. | `open_input`, `volume_input`, `corr_window=10` |
+| **Alpha101_002** | Alpha #002: Volume-price correlation signal. | `delta_window=2`, `corr_window=6` |
+| **Alpha101_003** | Alpha #003: Open-volume correlation signal. | `corr_window=10` |
 | **Alpha101_004** | Alpha #004: Low price time-series rank signal. | `ts_rank_window=9` |
-| **Alpha101_005** | Alpha #005: VWAP deviation signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_006** | Alpha #006: Open-volume correlation signal. | `open_input`, `volume_input`, `corr_window=10` |
-| **Alpha101_007** | Alpha #007: Volume-conditional price change signal. | `close_input`, `volume_input`, `amount_window=20` |
-| **Alpha101_008** | Alpha #008: Open-returns delayed comparison signal. | `open_input`, `close_input`, `sum_window=5` |
+| **Alpha101_005** | Alpha #005: VWAP deviation signal. | `vwap_window=10` |
+| **Alpha101_006** | Alpha #006: Open-volume correlation signal. | `corr_window=10` |
+| **Alpha101_007** | Alpha #007: Volume-conditional price change signal. | `amount_window=20`, `delta_window=7`, `rank_window=60` |
+| **Alpha101_008** | Alpha #008: Open-returns delayed comparison signal. | `sum_window=5`, `delay_window=10` |
 | **Alpha101_009** | Alpha #009: Price change direction consistency signal. | `delta_window=1`, `consistency_window=5` |
 | **Alpha101_010** | Alpha #010: Price change direction consistency ranking. | `delta_window=1`, `consistency_window=4` |
-| **Alpha101_011** | Alpha #011: VWAP-close deviation and volume change signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_012** | Alpha #012: Volume-price divergence signal. | `close_input`, `volume_input`, `delta_window=1` |
-| **Alpha101_013** | Alpha #013: Close-volume covariance signal. | `close_input`, `volume_input`, `cov_window=5` |
-| **Alpha101_014** | Alpha #014: Returns delta and open-volume correlation signal. | `open_input`, `close_input`, `volume_input` |
-| **Alpha101_015** | Alpha #015: High-volume correlation ranking signal. | `high_input`, `volume_input`, `corr_window=3` |
-| **Alpha101_016** | Alpha #016: High-volume covariance ranking signal. | `high_input`, `volume_input`, `cov_window=5` |
-| **Alpha101_017** | Alpha #017: Complex close-volume momentum signal. | `close_input`, `volume_input`, `ts_rank_window1=10` |
-| **Alpha101_018** | Alpha #018: Close-open volatility and correlation signal. | `close_input`, `open_input`, `std_window=5` |
+| **Alpha101_011** | Alpha #011: VWAP-close deviation and volume change signal. | `window=3` |
+| **Alpha101_012** | Alpha #012: Volume-price divergence signal. | `delta_window=1` |
+| **Alpha101_013** | Alpha #013: Close-volume covariance signal. | `cov_window=5` |
+| **Alpha101_014** | Alpha #014: Returns delta and open-volume correlation signal. | `delta_window=3`, `corr_window=10` |
+| **Alpha101_015** | Alpha #015: High-volume correlation ranking signal. | `corr_window=3`, `sum_window=3` |
+| **Alpha101_016** | Alpha #016: High-volume covariance ranking signal. | `cov_window=5` |
+| **Alpha101_017** | Alpha #017: Complex close-volume momentum signal. | `ts_rank_window1=10`, `ts_rank_window2=5`, `amount_mean_window=20` |
+| **Alpha101_018** | Alpha #018: Close-open volatility and correlation signal. | `std_window=5`, `corr_window=10` |
 | **Alpha101_019** | Alpha #019: Price direction and long-term returns signal. | `delay_window=7`, `delta_window=7`, `returns_sum_window=250` |
-| **Alpha101_020** | Alpha #020: Opening gap ranking signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_021** | Alpha #021: Close volatility and volume ratio signal. | `close_input`, `volume_input`, `short_window=2` |
-| **Alpha101_022** | Alpha #022: High-volume correlation change signal. | `high_input`, `close_input`, `volume_input` |
+| **Alpha101_020** | Alpha #020: Opening gap ranking signal. | `delay_window=1` |
+| **Alpha101_021** | Alpha #021: Close volatility and volume ratio signal. | `short_window=2`, `long_window=8`, `amount_window=20` |
+| **Alpha101_022** | Alpha #022: High-volume correlation change signal. | `corr_window=5`, `delta_window=5`, `std_window=20` |
 | **Alpha101_023** | Alpha #023: High price breakout signal. | `avg_window=20`, `delta_window=2` |
 | **Alpha101_024** | Alpha #024: Long-term average change rate signal. | `long_window=100`, `short_delta=3`, `threshold=0.05` |
-| **Alpha101_025** | Alpha #025: Returns-amount-VWAP composite signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_026** | Alpha #026: Volume-high time-series correlation signal. | `volume_input`, `high_input`, `ts_rank_window=5` |
-| **Alpha101_027** | Alpha #027: Volume-VWAP correlation ranking signal. | `volume_input`, `high_input`, `low_input` |
-| **Alpha101_028** | Alpha #028: Amount-low correlation with mid-price signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_029** | Alpha #029: Complex nested ranking signal. | `close_input`, `delta_window=5`, `delay_window=6` |
-| **Alpha101_030** | Alpha #030: Price direction pattern with volume ratio signal. | `close_input`, `volume_input`, `short_volume_window=5` |
-| **Alpha101_031** | Alpha #031: Multi-ranking decay + amount-low correlation. | `close_input`, `low_input`, `volume_input` |
-| **Alpha101_032** | Alpha #032: Mean reversion with VWAP correlation signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_033** | Alpha #033: Open-close ratio momentum signal. | `open_input`, `close_input` |
-| **Alpha101_034** | Alpha #034: Volatility ratio and price change signal. | `close_input`, `short_std=2`, `long_std=5` |
-| **Alpha101_035** | Alpha #035: Volume-price-returns time-series ranking signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_036** | Alpha #036: Weighted multi-factor composite signal. | `close_input`, `open_input`, `high_input` |
-| **Alpha101_037** | Alpha #037: Long-term open-close correlation signal. | `open_input`, `close_input`, `corr_window=200` |
-| **Alpha101_038** | Alpha #038: Close time-series rank with close/open ratio signal. | `close_input`, `open_input`, `ts_rank_window=10` |
-| **Alpha101_039** | Alpha #039: Price delta with decayed volume ratio signal. | `close_input`, `volume_input`, `delta_window=7` |
-| **Alpha101_040** | Alpha #040: High volatility with high-volume correlation signal. | `high_input`, `volume_input`, `std_window=10` |
-| **Alpha101_041** | Alpha #041: Geometric mean minus VWAP signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_042** | Alpha #042: VWAP-close difference to sum ratio signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_043** | Alpha #043: Volume ratio and price delta time-series ranking signal. | `close_input`, `volume_input`, `amount_window=20` |
-| **Alpha101_044** | Alpha #044: High-volume rank correlation signal. | `high_input`, `volume_input`, `corr_window=5` |
-| **Alpha101_045** | Alpha #045: Delayed close mean with correlations signal. | `close_input`, `volume_input`, `delay_window=5` |
-| **Alpha101_046** | Alpha #046: Multi-period slope comparison signal. | `close_input` |
-| **Alpha101_047** | Alpha #047: Complex price-volume-VWAP signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_048** | Alpha #048: Price change correlation with volatility signal. | `close_input`, `corr_window=250`, `vol_window=250` |
-| **Alpha101_049** | Alpha #049: Slope comparison with threshold signal. | `close_input`, `threshold=-0.1` |
-| **Alpha101_050** | Alpha #050: Volume-VWAP correlation max signal. | `volume_input`, `high_input`, `low_input` |
-| **Alpha101_051** | Alpha #051: Slope comparison with threshold signal. | `close_input`, `threshold=-0.05` |
-| **Alpha101_052** | Alpha #052: Low minimum change with returns and volume signal. | `low_input`, `close_input`, `volume_input` |
-| **Alpha101_053** | Alpha #053: Price position delta signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_054** | Alpha #054: Price ratio with power signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_055** | Alpha #055: Stochastic-volume correlation signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_056** | Alpha #056: Returns ratio and cap product signal. | `close_input`, `volume_input`, `returns_window1=10` |
-| **Alpha101_057** | Alpha #057: Close-VWAP with argmax decay signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_058** | Alpha #058: Demeaned VWAP-volume correlation decay rank signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_059** | Alpha #059: Weighted VWAP-volume correlation decay rank signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_060** | Alpha #060: Price position volume vs argmax signal. | `close_input`, `high_input`, `low_input` |
-| **Alpha101_061** | Alpha #061: VWAP range vs amount correlation rank signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_062** | Alpha #062: VWAP-amount correlation vs price rank signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_063** | Alpha #063: Demeaned close delta vs weighted price-amount correlation signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_064** | Alpha #064: Weighted open-low amount correlation vs mid-VWAP delta signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_065** | Alpha #065: Weighted open-VWAP amount correlation vs open range signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_066** | Alpha #066: VWAP delta decay rank plus low-VWAP ratio ts_rank signal. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_067** | Alpha #067: High range rank power by demeaned VWAP-amount correlation rank signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_068** | Alpha #068: High-amount correlation ts_rank vs weighted close-low delta signal. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_069** | Alpha #69: Demeaned VWAP delta max rank power by weighted price-amount correlation ts_rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_070** | Alpha #70: VWAP delta rank power by demeaned close-amount correlation ts_rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_071** | Alpha #71: Close-amount correlation decay rank vs price difference decay rank max. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_072** | Alpha #72: Mid price-amount correlation decay rank ratio. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_073** | Alpha #73: VWAP delta decay rank vs weighted price change rate decay rank max. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_074** | Alpha #74: Close-amount correlation rank vs weighted high-VWAP volume correlation rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_075** | Alpha #75: VWAP-volume correlation rank vs low-amount rank correlation rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_076** | Alpha #76: VWAP delta decay rank vs demeaned low-amount correlation decay rank max. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_077** | Alpha #77: Price difference decay rank vs mid-amount correlation decay rank min. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_078** | Alpha #78: Weighted low-VWAP amount correlation rank power by VWAP-volume rank correlation rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_079** | Alpha #79: Demeaned weighted close-open delta rank vs VWAP-amount ts_rank correlation rank. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_080** | Alpha #80: Demeaned weighted open-high delta sign rank power by high-amount correlation ts_rank. | `open_input`, `high_input`, `close_input` |
-| **Alpha101_081** | Alpha #81: VWAP-amount correlation product log rank vs VWAP-volume rank correlation rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_082** | Alpha #82: Open delta decay rank vs demeaned volume-open correlation decay rank min. | `open_input`, `volume_input`, `delta_window=1` |
-| **Alpha101_083** | Alpha #83: Delayed range ratio rank times double volume rank ratio. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_084** | Alpha #84: VWAP max difference ts_rank power by close delta. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_085** | Alpha #85: Weighted high-close amount correlation rank power by mid-volume ts_rank correlation rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_086** | Alpha #86: Close-amount correlation ts_rank vs price sum difference rank. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_087** | Alpha #87: Weighted close-VWAP delta decay rank vs demeaned amount-close correlation abs decay rank max. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_088** | Alpha #88: Price rank sum difference decay rank vs close-amount ts_rank correlation decay rank min. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_089** | Alpha #89: Weighted low-amount correlation decay rank minus demeaned VWAP delta decay rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_090** | Alpha #90: Close max difference rank power by demeaned amount-low correlation ts_rank. | `low_input`, `close_input`, `volume_input` |
-| **Alpha101_091** | Alpha #91: Double decayed close-volume correlation ts_rank minus VWAP-amount correlation decay rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_092** | Alpha #92: Mid-close vs low-open comparison decay rank min with low-amount rank correlation decay rank. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_093** | Alpha #93: Demeaned VWAP-amount correlation decay ts_rank divided by weighted close-VWAP delta decay rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_094** | Alpha #94: VWAP-min VWAP difference rank power by VWAP-amount ts_rank correlation ts_rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_095** | Alpha #95: Open-min open difference rank less than mid-amount correlation rank power ts_rank. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_096** | Alpha #96: VWAP-volume rank correlation decay ts_rank vs close-amount ts_rank correlation argmax decay ts_rank max. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_097** | Alpha #97: Demeaned weighted low-VWAP delta decay rank minus low-amount ts_rank correlation decay ts_rank. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_098** | Alpha #98: VWAP-amount correlation decay rank minus open-amount rank correlation argmin decay rank. | `open_input`, `high_input`, `low_input` |
-| **Alpha101_099** | Alpha #99: Mid-amount sum correlation rank less than low-volume correlation rank comparison. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_100** | Alpha #100: Complex multi-demeaned price position-volume and correlation factor. | `high_input`, `low_input`, `close_input` |
-| **Alpha101_101** | Alpha #101: Price change divided by price range. | `open_input`, `high_input`, `low_input` |
+| **Alpha101_025** | Alpha #025: Returns-amount-VWAP composite signal. | `amount_window=20` |
+| **Alpha101_026** | Alpha #026: Volume-high time-series correlation signal. | `ts_rank_window=5`, `corr_window=5`, `max_window=3` |
+| **Alpha101_027** | Alpha #027: Volume-VWAP correlation ranking signal. | `corr_window=6`, `sum_window=2` |
+| **Alpha101_028** | Alpha #028: Amount-low correlation with mid-price signal. | `amount_window=20`, `corr_window=5` |
+| **Alpha101_029** | Alpha #029: Complex nested ranking signal. | `delta_window=5`, `delay_window=6`, `ts_rank_window=5` |
+| **Alpha101_030** | Alpha #030: Price direction pattern with volume ratio signal. | `short_volume_window=5`, `long_volume_window=20` |
+| **Alpha101_031** | Alpha #031: Multi-ranking decay + amount-low correlation. | `long_delta=10`, `short_delta=3`, `decay_window=10` |
+| **Alpha101_032** | Alpha #032: Mean reversion with VWAP correlation signal. | `mean_window=7`, `delay_window=5`, `corr_window=230` |
+| **Alpha101_033** | Alpha #033: Open-close ratio momentum signal. | — |
+| **Alpha101_034** | Alpha #034: Volatility ratio and price change signal. | `short_std=2`, `long_std=5`, `delta_window=1` |
+| **Alpha101_035** | Alpha #035: Volume-price-returns time-series ranking signal. | `volume_window=32`, `price_window=16`, `returns_window=32` |
+| **Alpha101_036** | Alpha #036: Weighted multi-factor composite signal. | — |
+| **Alpha101_037** | Alpha #037: Long-term open-close correlation signal. | `corr_window=200`, `delay_window=1` |
+| **Alpha101_038** | Alpha #038: Close time-series rank with close/open ratio signal. | `ts_rank_window=10` |
+| **Alpha101_039** | Alpha #039: Price delta with decayed volume ratio signal. | `delta_window=7`, `amount_window=20`, `decay_window=9` |
+| **Alpha101_040** | Alpha #040: High volatility with high-volume correlation signal. | `std_window=10`, `corr_window=10` |
+| **Alpha101_041** | Alpha #041: Geometric mean minus VWAP signal. | — |
+| **Alpha101_042** | Alpha #042: VWAP-close difference to sum ratio signal. | — |
+| **Alpha101_043** | Alpha #043: Volume ratio and price delta time-series ranking signal. | `amount_window=20`, `volume_rank_window=20`, `delta_window=7` |
+| **Alpha101_044** | Alpha #044: High-volume rank correlation signal. | `corr_window=5` |
+| **Alpha101_045** | Alpha #045: Delayed close mean with correlations signal. | `delay_window=5`, `sum_window=20`, `short_sum=5` |
+| **Alpha101_046** | Alpha #046: Multi-period slope comparison signal. | — |
+| **Alpha101_047** | Alpha #047: Complex price-volume-VWAP signal. | `amount_window=20`, `high_window=5`, `vwap_delay=5` |
+| **Alpha101_048** | Alpha #048: Price change correlation with volatility signal. | `corr_window=250`, `vol_window=250` |
+| **Alpha101_049** | Alpha #049: Slope comparison with threshold signal. | `threshold=-0.1` |
+| **Alpha101_050** | Alpha #050: Volume-VWAP correlation max signal. | `corr_window=5`, `max_window=5` |
+| **Alpha101_051** | Alpha #051: Slope comparison with threshold signal. | `threshold=-0.05` |
+| **Alpha101_052** | Alpha #052: Low minimum change with returns and volume signal. | `low_window=5`, `returns_long=240`, `returns_short=20` |
+| **Alpha101_053** | Alpha #053: Price position delta signal. | `delta_window=9` |
+| **Alpha101_054** | Alpha #054: Price ratio with power signal. | `power=5` |
+| **Alpha101_055** | Alpha #055: Stochastic-volume correlation signal. | `stoch_window=12`, `corr_window=6` |
+| **Alpha101_056** | Alpha #056: Returns ratio and cap product signal. | `returns_window1=10`, `returns_window2=2`, `nested_window=3` |
+| **Alpha101_057** | Alpha #057: Close-VWAP with argmax decay signal. | `argmax_window=30`, `decay_window=2` |
+| **Alpha101_058** | Alpha #058: Demeaned VWAP-volume correlation decay rank signal. | `corr_window=4`, `decay_window=8`, `rank_window=6` |
+| **Alpha101_059** | Alpha #059: Weighted VWAP-volume correlation decay rank signal. | `corr_window=4`, `decay_window=16`, `rank_window=8` |
+| **Alpha101_060** | Alpha #060: Price position volume vs argmax signal. | `argmax_window=10` |
+| **Alpha101_061** | Alpha #061: VWAP range vs amount correlation rank signal. | `vwap_min_window=16`, `amount_window=180`, `corr_window=18` |
+| **Alpha101_062** | Alpha #062: VWAP-amount correlation vs price rank signal. | `amount_window=20`, `sum_window=22`, `corr_window=10` |
+| **Alpha101_063** | Alpha #063: Demeaned close delta vs weighted price-amount correlation signal. | `delta_window=2`, `decay_window1=8`, `vwap_weight=0.318108` |
+| **Alpha101_064** | Alpha #064: Weighted open-low amount correlation vs mid-VWAP delta signal. | `weight=0.178404`, `sum_window=13`, `amount_window=120` |
+| **Alpha101_065** | Alpha #065: Weighted open-VWAP amount correlation vs open range signal. | `weight=0.00817205`, `amount_window=60`, `sum_window=9` |
+| **Alpha101_066** | Alpha #066: VWAP delta decay rank plus low-VWAP ratio ts_rank signal. | `delta_window=4`, `decay_window1=7`, `decay_window2=11` |
+| **Alpha101_067** | Alpha #067: High range rank power by demeaned VWAP-amount correlation rank signal. | `high_min_window=2`, `amount_window=20`, `corr_window=6` |
+| **Alpha101_068** | Alpha #068: High-amount correlation ts_rank vs weighted close-low delta signal. | `amount_window=15`, `corr_window=9`, `rank_window=14` |
+| **Alpha101_069** | Alpha #69: Demeaned VWAP delta max rank power by weighted price-amount correlation ts_rank. | `delta_window=3`, `max_window=5`, `weight=0.490655` |
+| **Alpha101_070** | Alpha #70: VWAP delta rank power by demeaned close-amount correlation ts_rank. | `delta_window=1`, `amount_window=50`, `corr_window=18` |
+| **Alpha101_071** | Alpha #71: Close-amount correlation decay rank vs price difference decay rank max. | `close_rank_window=3`, `amount_window=180`, `amount_rank_window=12` |
+| **Alpha101_072** | Alpha #72: Mid price-amount correlation decay rank ratio. | `amount_window=40`, `corr_window1=9`, `decay_window1=10` |
+| **Alpha101_073** | Alpha #73: VWAP delta decay rank vs weighted price change rate decay rank max. | `vwap_delta_window=5`, `decay_window1=3`, `weight=0.147155` |
+| **Alpha101_074** | Alpha #74: Close-amount correlation rank vs weighted high-VWAP volume correlation rank. | `amount_window=30`, `sum_window=37`, `corr_window1=15` |
+| **Alpha101_075** | Alpha #75: VWAP-volume correlation rank vs low-amount rank correlation rank. | `corr_window1=4`, `amount_window=50`, `corr_window2=12` |
+| **Alpha101_076** | Alpha #76: VWAP delta decay rank vs demeaned low-amount correlation decay rank max. | `delta_window=1`, `decay_window1=12`, `amount_window=81` |
+| **Alpha101_077** | Alpha #77: Price difference decay rank vs mid-amount correlation decay rank min. | `decay_window1=20`, `amount_window=40`, `corr_window=3` |
+| **Alpha101_078** | Alpha #78: Weighted low-VWAP amount correlation rank power by VWAP-volume rank correlation rank. | `weight=0.352233`, `sum_window=20`, `amount_window=40` |
+| **Alpha101_079** | Alpha #79: Demeaned weighted close-open delta rank vs VWAP-amount ts_rank correlation rank. | `weight=0.60733`, `delta_window=1`, `vwap_rank_window=4` |
+| **Alpha101_080** | Alpha #80: Demeaned weighted open-high delta sign rank power by high-amount correlation ts_rank. | `weight=0.868128`, `delta_window=4`, `amount_window=10` |
+| **Alpha101_081** | Alpha #81: VWAP-amount correlation product log rank vs VWAP-volume rank correlation rank. | `amount_window=10`, `sum_window=50`, `corr_window1=8` |
+| **Alpha101_082** | Alpha #82: Open delta decay rank vs demeaned volume-open correlation decay rank min. | `delta_window=1`, `decay_window1=15`, `corr_window=17` |
+| **Alpha101_083** | Alpha #83: Delayed range ratio rank times double volume rank ratio. | `mean_window=5`, `delay_period=2` |
+| **Alpha101_084** | Alpha #84: VWAP max difference ts_rank power by close delta. | `max_window=15`, `rank_window=21`, `delta_window=5` |
+| **Alpha101_085** | Alpha #85: Weighted high-close amount correlation rank power by mid-volume ts_rank correlation rank. | `weight=0.876703`, `amount_window=30`, `corr_window1=10` |
+| **Alpha101_086** | Alpha #86: Close-amount correlation ts_rank vs price sum difference rank. | `amount_window=20`, `sum_window=15`, `corr_window=6` |
+| **Alpha101_087** | Alpha #87: Weighted close-VWAP delta decay rank vs demeaned amount-close correlation abs decay rank max. | `weight=0.369701`, `delta_window=2`, `decay_window1=3` |
+| **Alpha101_088** | Alpha #88: Price rank sum difference decay rank vs close-amount ts_rank correlation decay rank min. | `decay_window1=8`, `close_rank_window=8`, `amount_window=60` |
+| **Alpha101_089** | Alpha #89: Weighted low-amount correlation decay rank minus demeaned VWAP delta decay rank. | `amount_window=10`, `corr_window=7`, `decay_window1=6` |
+| **Alpha101_090** | Alpha #90: Close max difference rank power by demeaned amount-low correlation ts_rank. | `max_window=5`, `amount_window=40`, `corr_window=5` |
+| **Alpha101_091** | Alpha #91: Double decayed close-volume correlation ts_rank minus VWAP-amount correlation decay rank. | `corr_window1=10`, `decay_window1=16`, `decay_window2=4` |
+| **Alpha101_092** | Alpha #92: Mid-close vs low-open comparison decay rank min with low-amount rank correlation decay rank. | `decay_window1=15`, `rank_window1=19`, `amount_window=30` |
+| **Alpha101_093** | Alpha #93: Demeaned VWAP-amount correlation decay ts_rank divided by weighted close-VWAP delta decay rank. | `amount_window=81`, `corr_window=17`, `decay_window1=20` |
+| **Alpha101_094** | Alpha #94: VWAP-min VWAP difference rank power by VWAP-amount ts_rank correlation ts_rank. | `min_window=12`, `vwap_rank_window=20`, `amount_window=60` |
+| **Alpha101_095** | Alpha #95: Open-min open difference rank less than mid-amount correlation rank power ts_rank. | `min_window=12`, `sum_window=19`, `amount_window=40` |
+| **Alpha101_096** | Alpha #96: VWAP-volume rank correlation decay ts_rank vs close-amount ts_rank correlation argmax decay ts_rank max. | `corr_window1=4`, `decay_window1=4`, `rank_window1=8` |
+| **Alpha101_097** | Alpha #97: Demeaned weighted low-VWAP delta decay rank minus low-amount ts_rank correlation decay ts_rank. | `weight=0.721001`, `delta_window=3`, `decay_window1=20` |
+| **Alpha101_098** | Alpha #98: VWAP-amount correlation decay rank minus open-amount rank correlation argmin decay rank. | `amount_window1=5`, `sum_window=26`, `corr_window1=5` |
+| **Alpha101_099** | Alpha #99: Mid-amount sum correlation rank less than low-volume correlation rank comparison. | `sum_window=20`, `amount_window=60`, `corr_window1=9` |
+| **Alpha101_100** | Alpha #100: Complex multi-demeaned price position-volume and correlation factor. | `amount_window=20`, `corr_window=5`, `argmin_window=30` |
+| **Alpha101_101** | Alpha #101: Price change divided by price range. | `epsilon=0.001` |
 
 ## Usage Pattern
 
@@ -159,7 +159,8 @@ def compute(
 
     if len(values.shape) > 1 and len(values) >= 2:
         # Calculate returns
-        returns = np.diff(values, axis=0) / values[:-1]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(values, axis=0) / values[:-1]
 
         if len(returns) >= self._std_window:
             # Rolling std of returns
@@ -428,7 +429,8 @@ def compute(
         # Calculate VWAP: (high + low + close) / 3 * volume / sum(volume)
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # vwap_avg = ts_sum(vwap, window) / window
         vwap_window = vwap[-self._vwap_window:]
@@ -636,7 +638,8 @@ def compute(
     min_len = self._sum_window + self._delay_window
     if len(close.shape) > 1 and len(close) >= min_len:
         # returns = ts_returns(close)
-        returns = np.diff(close, axis=0) / close[:-1]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
 
         # open_sum = ts_sum(open, sum_window)
         # returns_sum = ts_sum(returns, sum_window)
@@ -860,7 +863,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # vwap_close_diff = vwap - close
         vwap_close_diff = vwap - close
@@ -1063,7 +1067,8 @@ def compute(
     min_len = max(self._delta_window, self._corr_window) + 1
     if len(close.shape) > 1 and len(close) >= min_len:
         # returns = ts_returns(close)
-        returns = np.diff(close, axis=0) / close[:-1]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
 
         # returns_delta = ts_delta(returns, delta_window)
         if len(returns) > self._delta_window:
@@ -1493,7 +1498,8 @@ def compute(
         neg_sign = -sign_changes
 
         # returns = ts_returns(close)
-        returns = np.diff(close, axis=0) / close[:-1]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
 
         # returns_sum = ts_sum(returns, returns_sum_window)
         window = min(self._returns_sum_window, len(returns))
@@ -1938,7 +1944,8 @@ def compute(
 
     if len(close.shape) > 1 and len(close) >= self._amount_window + 1:
         # returns = ts_returns(close)
-        returns = np.diff(close, axis=0) / close[:-1]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            returns = np.diff(close, axis=0) / close[:-1]
         current_returns = returns[-1]
 
         # neg_returns = -returns
@@ -1953,7 +1960,8 @@ def compute(
         # vwap = (high + low + close) / 3 * volume / sum(volume) (cumulative)
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
         current_vwap = vwap[-1]
 
         # high_close_diff = high - close
@@ -2104,7 +2112,8 @@ def compute(
         # Simplified: typical price = (high + low + close) / 3
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Cross-sectional rank of volume and vwap at each time
         def cross_rank(arr):
@@ -2640,7 +2649,8 @@ def compute(
         # Part 2: 20 * scale(ts_corr(vwap, delay(close, 5), 230))
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         corr = np.zeros(n_symbols)
         for i in range(n_symbols):
@@ -2943,7 +2953,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Part 1: 2.21 * rank(ts_corr(close-open, delay(volume,1), 15))
         close_open_diff = close - open_
@@ -3393,7 +3404,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # geometric_mean = sqrt(high * low)
         geometric_mean = np.sqrt(high[-1] * low[-1])
@@ -3446,7 +3458,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # vwap - close
         vwap_close_diff = vwap[-1] - close[-1]
@@ -3824,7 +3837,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # amount = volume * close
         amount = volume * close
@@ -4066,7 +4080,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Cross-sectional rank of volume and vwap at each time
         def cross_rank(arr):
@@ -4601,7 +4616,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Numerator: close - vwap
         close_vwap_diff = close[-1] - vwap[-1]
@@ -4683,7 +4699,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Demean VWAP cross-sectionally at each time
         vwap_demeaned = np.zeros_like(vwap)
@@ -4774,7 +4791,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Demean VWAP cross-sectionally at each time
         vwap_demeaned = np.zeros_like(vwap)
@@ -4970,7 +4988,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5058,7 +5077,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5189,7 +5209,8 @@ def compute(
         # Part 2: Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5266,7 +5287,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5363,7 +5385,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5452,7 +5475,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Part 1: VWAP delta decay rank
         vwap_delta = vwap[-1] - vwap[-(self._delta_window + 1)]
@@ -5542,7 +5566,8 @@ def compute(
         # Part 2: Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5722,7 +5747,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5824,7 +5850,8 @@ def compute(
         # Calculate VWAP
         typical_price = (high + low + close) / 3
         with np.errstate(divide='ignore', invalid='ignore'):
-            vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+            cum_vol = np.cumsum(volume, axis=0)
+            vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
         # Calculate amount
         amount = volume * close
@@ -5891,6 +5918,9 @@ Alpha #71: Close-amount correlation decay rank vs price difference decay rank ma
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_071."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -5901,7 +5931,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6001,6 +6033,9 @@ Alpha #72: Mid price-amount correlation decay rank ratio.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_072."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6010,7 +6045,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6108,6 +6145,9 @@ Alpha #73: VWAP delta decay rank vs weighted price change rate decay rank max.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_073."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -6118,7 +6158,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     weight = self._weight
 
@@ -6206,6 +6248,9 @@ Alpha #74: Close-amount correlation rank vs weighted high-VWAP volume correlatio
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_074."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6215,7 +6260,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6300,6 +6347,9 @@ Alpha #75: VWAP-volume correlation rank vs low-amount rank correlation rank.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_075."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6309,7 +6359,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6383,6 +6435,9 @@ Alpha #76: VWAP delta decay rank vs demeaned low-amount correlation decay rank m
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_076."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6392,7 +6447,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6505,6 +6562,9 @@ Alpha #77: Price difference decay rank vs mid-amount correlation decay rank min.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_077."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6514,7 +6574,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6600,6 +6662,9 @@ Alpha #78: Weighted low-VWAP amount correlation rank power by VWAP-volume rank c
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_078."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6609,7 +6674,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6695,6 +6762,9 @@ Alpha #79: Demeaned weighted close-open delta rank vs VWAP-amount ts_rank correl
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_079."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -6705,7 +6775,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -6808,6 +6880,9 @@ Alpha #80: Demeaned weighted open-high delta sign rank power by high-amount corr
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_080."""
+    if isinstance(data, list) and len(data) >= 4:
+        _open_d, _high_d, _low_d, _close_d = data[:4]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     close = np.array(data["close"])
@@ -6919,6 +6994,9 @@ Alpha #81: VWAP-amount correlation product log rank vs VWAP-volume rank correlat
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_081."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -6928,7 +7006,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -7022,6 +7102,9 @@ Alpha #82: Open delta decay rank vs demeaned volume-open correlation decay rank 
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_082."""
+    if isinstance(data, list) and len(data) >= 2:
+        _open_d, _volume_d = data[:2]
+        data = {"open": _open_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     volume = np.array(data["volume"])
 
@@ -7129,6 +7212,9 @@ Alpha #83: Delayed range ratio rank times double volume rank ratio.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_083."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7138,7 +7224,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Helper functions
     def ts_sum(arr, window):
@@ -7211,6 +7299,9 @@ Alpha #84: VWAP max difference ts_rank power by close delta.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_084."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7220,13 +7311,19 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Helper functions
     def ts_max(arr, window):
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
-            result[t] = np.nanmax(arr[t - window + 1 : t + 1], axis=0)
+            window_data = arr[t - window + 1 : t + 1]
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if not np.all(np.isnan(col)):
+                    result[t, s] = np.nanmax(col)
         return result
 
     def ts_rank(arr, window):
@@ -7283,6 +7380,9 @@ Alpha #85: Weighted high-close amount correlation rank power by mid-volume ts_ra
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_085."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7378,6 +7478,9 @@ Alpha #86: Close-amount correlation ts_rank vs price sum difference rank.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_086."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -7388,7 +7491,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -7481,6 +7586,9 @@ Alpha #87: Weighted close-VWAP delta decay rank vs demeaned amount-close correla
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_087."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7490,7 +7598,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -7606,6 +7716,9 @@ Alpha #88: Price rank sum difference decay rank vs close-amount ts_rank correlat
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_088."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -7714,6 +7827,9 @@ Alpha #89: Weighted low-amount correlation decay rank minus demeaned VWAP delta 
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_089."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7723,7 +7839,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -7824,6 +7942,9 @@ Alpha #90: Close max difference rank power by demeaned amount-low correlation ts
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_090."""
+    if isinstance(data, list) and len(data) >= 3:
+        _low_d, _close_d, _volume_d = data[:3]
+        data = {"low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     low = np.array(data["low"])
     close = np.array(data["close"])
     volume = np.array(data["volume"])
@@ -7837,7 +7958,11 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     def ts_max(arr, window):
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
-            result[t] = np.nanmax(arr[t - window + 1 : t + 1], axis=0)
+            window_data = arr[t - window + 1 : t + 1]
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if not np.all(np.isnan(col)):
+                    result[t, s] = np.nanmax(col)
         return result
 
     def ts_mean(arr, window):
@@ -7932,6 +8057,9 @@ Alpha #91: Double decayed close-volume correlation ts_rank minus VWAP-amount cor
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_091."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -7941,7 +8069,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8047,6 +8177,9 @@ Alpha #92: Mid-close vs low-open comparison decay rank min with low-amount rank 
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_092."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -8152,6 +8285,9 @@ Alpha #93: Demeaned VWAP-amount correlation decay ts_rank divided by weighted cl
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_093."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8161,7 +8297,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8274,6 +8412,9 @@ Alpha #94: VWAP-min VWAP difference rank power by VWAP-amount ts_rank correlatio
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_094."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8283,7 +8424,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8292,7 +8435,11 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     def ts_min(arr, window):
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
-            result[t] = np.nanmin(arr[t - window + 1 : t + 1], axis=0)
+            window_data = arr[t - window + 1 : t + 1]
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if not np.all(np.isnan(col)):
+                    result[t, s] = np.nanmin(col)
         return result
 
     def ts_mean(arr, window):
@@ -8377,6 +8524,9 @@ Alpha #95: Open-min open difference rank less than mid-amount correlation rank p
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_095."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -8392,7 +8542,11 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     def ts_min(arr, window):
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
-            result[t] = np.nanmin(arr[t - window + 1 : t + 1], axis=0)
+            window_data = arr[t - window + 1 : t + 1]
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if not np.all(np.isnan(col)):
+                    result[t, s] = np.nanmin(col)
         return result
 
     def ts_sum(arr, window):
@@ -8452,7 +8606,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     amount_sum = ts_sum(amount_mean, self._sum_window)
     corr_result = ts_corr(mid_sum, amount_sum, self._corr_window)
     corr_rank = cross_rank(corr_result)
-    corr_powered = np.power(corr_rank, self._power_exp)
+    with np.errstate(over="ignore", invalid="ignore"):
+            corr_powered = np.power(corr_rank, self._power_exp)
+            corr_powered = np.nan_to_num(corr_powered, nan=0.0, posinf=0.0, neginf=0.0)
     second_part = ts_rank(corr_powered, self._final_rank_window)
 
     # lt(first_part, second_part)
@@ -8484,6 +8640,9 @@ Alpha #96: VWAP-volume rank correlation decay ts_rank vs close-amount ts_rank co
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_096."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8493,7 +8652,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8532,7 +8693,12 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
             window_data = arr[t - window + 1 : t + 1]
-            result[t] = np.nanargmax(window_data, axis=0)
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if np.all(np.isnan(col)):
+                    result[t, s] = np.nan
+                else:
+                    result[t, s] = np.nanargmax(col)
         return result
 
     def ts_decayed_linear(arr, window):
@@ -8600,6 +8766,9 @@ Alpha #97: Demeaned weighted low-VWAP delta decay rank minus low-amount ts_rank 
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_097."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8609,7 +8778,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8725,6 +8896,9 @@ Alpha #98: VWAP-amount correlation decay rank minus open-amount rank correlation
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_098."""
+    if isinstance(data, list) and len(data) >= 5:
+        _open_d, _high_d, _low_d, _close_d, _volume_d = data[:5]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])
@@ -8735,7 +8909,9 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
 
     # Calculate VWAP
     typical_price = (high + low + close) / 3
-    vwap = np.cumsum(typical_price * volume, axis=0) / np.cumsum(volume, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cum_vol = np.cumsum(volume, axis=0)
+        vwap = np.where(cum_vol > 0, np.cumsum(typical_price * volume, axis=0) / cum_vol, 0.0)
 
     # Calculate amount
     amount = volume * close
@@ -8780,7 +8956,12 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
             window_data = arr[t - window + 1 : t + 1]
-            result[t] = np.nanargmin(window_data, axis=0)
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if np.all(np.isnan(col)):
+                    result[t, s] = np.nan
+                else:
+                    result[t, s] = np.nanargmin(col)
         return result
 
     def ts_decayed_linear(arr, window):
@@ -8848,6 +9029,9 @@ Alpha #99: Mid-amount sum correlation rank less than low-volume correlation rank
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_099."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8935,6 +9119,9 @@ Alpha #100: Complex multi-demeaned price position-volume and correlation factor.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_100."""
+    if isinstance(data, list) and len(data) >= 4:
+        _high_d, _low_d, _close_d, _volume_d = data[:4]
+        data = {"high": _high_d.value, "low": _low_d.value, "close": _close_d.value, "volume": _volume_d.value}
     high = np.array(data["high"])
     low = np.array(data["low"])
     close = np.array(data["close"])
@@ -8968,7 +9155,12 @@ def compute(self, data, timestamp=None, context=None) -> TaggedArray:
         result = np.full_like(arr, np.nan)
         for t in range(window - 1, n_timepoints):
             window_data = arr[t - window + 1 : t + 1]
-            result[t] = np.nanargmin(window_data, axis=0)
+            for s in range(n_symbols):
+                col = window_data[:, s]
+                if np.all(np.isnan(col)):
+                    result[t, s] = np.nan
+                else:
+                    result[t, s] = np.nanargmin(col)
         return result
 
     def cross_rank(arr):
@@ -9072,6 +9264,9 @@ Alpha #101: Price change divided by price range.
 ```python
 def compute(self, data, timestamp=None, context=None) -> TaggedArray:
     """Calculate Alpha 101_101."""
+    if isinstance(data, list) and len(data) >= 4:
+        _open_d, _high_d, _low_d, _close_d = data[:4]
+        data = {"open": _open_d.value, "high": _high_d.value, "low": _low_d.value, "close": _close_d.value}
     open_ = np.array(data["open"])
     high = np.array(data["high"])
     low = np.array(data["low"])

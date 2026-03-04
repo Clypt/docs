@@ -135,7 +135,8 @@
           "pages": [
             "operators/signals/alphas",
             "operators/signals/factors",
-            "operators/signals/alpha-101"
+            "operators/signals/alpha-101",
+            "operators/signals/alpha-191"
           ]
         },
         {

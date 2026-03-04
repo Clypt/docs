@@ -7,7 +7,7 @@ description: "MeanVarianceOptimizer, RiskParityOptimizer, EqualWeight, ClipWeigh
 
 ## Overview
 
-This page documents **5 operators** (role: various).
+This page documents **6 operators** (role: various).
 
 ## Quick Reference
 
@@ -18,6 +18,7 @@ This page documents **5 operators** (role: various).
 | **ClipWeights** | `UNKNOWN` | `lower=-1.0`, `upper=1.0`, `renormalize=True` | No |
 | **MaxPositions** | `UNKNOWN` | `n=20`, `renormalize=True` | No |
 | **EqualWeight** | `UNKNOWN` | `long_only=False` | No |
+| **TailSelector** | `UNKNOWN` | `long_pct=0.2`, `short_pct=0.2` | No |
 
 ---
 
@@ -440,6 +441,88 @@ def compute(
             result[compute_mask & ~work_mask] = 0.0
 
     result_valid = compute_mask & ~np.isnan(result)
+
+    return TaggedArray(
+        value=result,
+        exists=exists,
+        valid=result_valid,
+        updated=np.ones(n_symbols, dtype=bool),
+    )
+```
+
+<sub>Source: `apps/trading/operators/transform/optimizers.py`</sub>
+
+
+---
+
+## TailSelector
+
+Quintile-spread portfolio: long top percentile, short bottom percentile.
+
+Ranks the input signal cross-sectionally, assigns +1 to symbols in the
+top quantile and -1 to symbols in the bottom quantile, and zeros out
+the middle. This produces a dollar-neutral long-short portfolio
+concentrated on the strongest and weakest signals.
+
+With 30 symbols and long_pct=short_pct=0.2, the top 6 symbols get +1
+(long) and the bottom 6 get -1 (short). The remaining 18 are zeroed out.
+Feed the output through L1Norm for proper weight normalization.
+
+**Role**: `UNKNOWN` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input` | `'Input'` | Required | Input signal (e.g. neutralized alpha). timeframe specifies data frequency. |
+| `long_pct` | `float` | `0.2` | Fraction of symbols to go long (top quantile). Default 0.2 (top 20%). |
+| `short_pct` | `float` | `0.2` | Fraction of symbols to go short (bottom quantile). Default 0.2 (bottom 20%). |
+
+### Usage
+
+```python
+transform = TailSelector(
+    Input("neutralized", timeframe="1h", lookback=1),
+    long_pct=0.2, short_pct=0.2,
+)
+graph.add_node("tails", transform)
+```
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    if isinstance(data, list):
+        data = data[0]
+
+    last = data[-1] if len(data) > 0 else data
+    values = last.value
+    exists = last.exists
+    valid = last.valid
+
+    compute_mask = exists & valid
+    n_symbols = len(exists)
+    result = np.zeros(n_symbols)
+
+    valid_indices = np.where(compute_mask)[0]
+    n_valid = len(valid_indices)
+
+    if n_valid > 0:
+        valid_values = values[valid_indices]
+        ranked = np.argsort(np.argsort(valid_values))
+        n_long = max(1, int(n_valid * self._long_pct))
+        n_short = max(1, int(n_valid * self._short_pct))
+        result[valid_indices[ranked >= n_valid - n_long]] = 1.0
+        result[valid_indices[ranked < n_short]] = -1.0
+
+    result_valid = compute_mask.copy()
 
     return TaggedArray(
         value=result,

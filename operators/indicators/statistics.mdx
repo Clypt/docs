@@ -24,13 +24,13 @@ This page documents **26 operators** (role: `INDICATOR`).
 | **MIN** | `INDICATOR` | `period=30` | No |
 | **MININDEX** | `INDICATOR` | `period=30` | No |
 | **MIDPOINT** | `INDICATOR` | `period=14` | No |
-| **MIDPRICE** | `INDICATOR` | `high`, `low`, `period=14` | No |
+| **MIDPRICE** | `INDICATOR` | `period=14` | No |
 | **MINMAX** | `INDICATOR` | `period=30`, `output='min'` | No |
 | **MINMAXINDEX** | `INDICATOR` | `period=30`, `output='minidx'` | No |
-| **AVGPRICE** | `INDICATOR` | `open_`, `high`, `low` | No |
-| **MEDPRICE** | `INDICATOR` | `high`, `low` | No |
-| **TYPPRICE** | `INDICATOR` | `high`, `low`, `close` | No |
-| **WCLPRICE** | `INDICATOR` | `high`, `low`, `close` | No |
+| **AVGPRICE** | `INDICATOR` | — | No |
+| **MEDPRICE** | `INDICATOR` | — | No |
+| **TYPPRICE** | `INDICATOR` | — | No |
+| **WCLPRICE** | `INDICATOR` | — | No |
 | **LINEARREG** | `INDICATOR` | `period=14` | No |
 | **LINEARREG_SLOPE** | `INDICATOR` | `period=14` | No |
 | **LINEARREG_INTERCEPT** | `INDICATOR` | `period=14` | No |
@@ -1386,10 +1386,12 @@ def compute(
         if exists[i] and valid[i]:
             window = all_values[-period:, i]
             if not np.any(np.isnan(window)) and len(window) == period:
-                # Linear regression
                 x = np.arange(period)
-                slope, intercept = np.polyfit(x, window, 1)
-                result[i] = intercept + slope * (period - 1)
+                try:
+                    slope, intercept = np.polyfit(x, window, 1)
+                    result[i] = intercept + slope * (period - 1)
+                except np.linalg.LinAlgError:
+                    pass
 
     result_valid = exists & valid & ~np.isnan(result)
 
@@ -1460,8 +1462,11 @@ def compute(
             window = all_values[-period:, i]
             if not np.any(np.isnan(window)) and len(window) == period:
                 x = np.arange(period)
-                slope, _ = np.polyfit(x, window, 1)
-                result[i] = slope
+                try:
+                    slope, _ = np.polyfit(x, window, 1)
+                    result[i] = slope
+                except np.linalg.LinAlgError:
+                    pass
 
     result_valid = exists & valid & ~np.isnan(result)
     return TaggedArray(
@@ -1531,8 +1536,11 @@ def compute(
             window = all_values[-period:, i]
             if not np.any(np.isnan(window)) and len(window) == period:
                 x = np.arange(period)
-                _, intercept = np.polyfit(x, window, 1)
-                result[i] = intercept
+                try:
+                    _, intercept = np.polyfit(x, window, 1)
+                    result[i] = intercept
+                except np.linalg.LinAlgError:
+                    pass
 
     result_valid = exists & valid & ~np.isnan(result)
     return TaggedArray(
@@ -1602,8 +1610,11 @@ def compute(
             window = all_values[-period:, i]
             if not np.any(np.isnan(window)) and len(window) == period:
                 x = np.arange(period)
-                slope, _ = np.polyfit(x, window, 1)
-                result[i] = np.degrees(np.arctan(slope))
+                try:
+                    slope, _ = np.polyfit(x, window, 1)
+                    result[i] = np.degrees(np.arctan(slope))
+                except np.linalg.LinAlgError:
+                    pass
 
     result_valid = exists & valid & ~np.isnan(result)
     return TaggedArray(
@@ -1672,9 +1683,11 @@ def compute(
             window = all_values[-period:, i]
             if not np.any(np.isnan(window)) and len(window) == period:
                 x = np.arange(period)
-                slope, intercept = np.polyfit(x, window, 1)
-                # TSF = forecast for next period
-                result[i] = intercept + slope * period
+                try:
+                    slope, intercept = np.polyfit(x, window, 1)
+                    result[i] = intercept + slope * period
+                except np.linalg.LinAlgError:
+                    pass
 
     result_valid = exists & valid & ~np.isnan(result)
     return TaggedArray(

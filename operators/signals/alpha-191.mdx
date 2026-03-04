@@ -1,0 +1,2781 @@
+---
+title: "Alpha 191"
+description: "191 Formulaic Alphas — systematic alpha generation from Guotai Junan (2017)"
+---
+
+{/* AUTO-GENERATED — do not edit manually. Run generate_operator_docs.py */}
+
+## Overview
+
+Implementation of 191 Formulaic Alphas (Guotai Junan Securities, 2017).
+**191 alphas** available, each as a standalone operator.
+
+All Alpha 191 operators share: **Role**: `ALPHA` | **Ephemeral**: No
+
+## Base Class DSL
+
+All Alpha 191 operators inherit from `Alpha191Base`, which provides DSL helper functions matching the original pseudo-code operators. VWAP is approximated as typical price `(H+L+C)/3`.
+
+| Method | Description |
+|--------|-------------|
+| `_compute_alpha(c, o, h, l_, v)` | Override in subclass. Returns 1D (n_symbols,) or 2D (T, n_symbols). |
+| `_vwap(h, l_, c)` | — |
+| `_amount(c, v)` | — |
+| `_ret(c)` | — |
+| `_delay(x, d)` | DELAY(X, d): shift back by d periods. Returns 2D. |
+| `_delta(x, d)` | DELTA(X, d) = X_t - X_&#123;t-d&#125;. Returns 2D. |
+| `_sum(x, n)` | SUM(X, n): rolling sum over n periods. Returns 2D. |
+| `_mean(x, n)` | MEAN(X, n): rolling simple average. Returns 2D. |
+| `_std(x, n)` | STD(X, n): rolling standard deviation. Returns 2D. |
+| `_sma(x, n, m)` | SMA(X, n, m): EWM with alpha=m/n. |
+| `_wma(x, n)` | WMA: linearly-weighted moving average. Returns 2D. |
+| `_decaylinear(x, n)` | DECAYLINEAR(X, n): same as WMA. |
+| `_tsmax(x, n)` | TSMAX(X, n): rolling max. Returns 2D. |
+| `_tsmin(x, n)` | TSMIN(X, n): rolling min. Returns 2D. |
+| `_tsrank(x, n)` | TSRANK(X, n): percentile of current value within rolling window. Returns 2D. |
+| `_highday(x, n)` | HIGHDAY(X, n): periods since highest value. Returns 2D. |
+| `_lowday(x, n)` | LOWDAY(X, n): periods since lowest value. Returns 2D. |
+| `_rank(x)` | RANK(X): cross-sectional percentile rank per row. Returns 2D or 1D. |
+| `_corr(x, y, n)` | CORR(X, Y, n): rolling Pearson correlation. Returns 2D. |
+| `_cov(x, y, n)` | COVIANCE(X, Y, n): rolling covariance. Returns 2D. |
+| `_regbeta(y, n)` | REGBETA(Y, SEQUENCE, n): slope of OLS(y ~ t). Returns 2D. |
+| `_count(cond, n)` | COUNT(cond, n): count True values in rolling window. Returns 2D. |
+| `_sign(x)` | — |
+| `_log(x)` | — |
+| `_abs(x)` | — |
+| `_last(x)` | Extract last row from 2D array. |
+| `_bm(x)` | Extract benchmark column (index 0) broadcast to all symbols. |
+| `_bm_col(x)` | Extract benchmark column (index 0) as 1D per row. |
+| `_sumac(x)` | SUMAC: cumulative sum along time axis. |
+| `_sumif(x, n, cond)` | SUMIF(X, n, cond): rolling sum of X where cond is True. |
+| `_regresid(y, x_factor, n)` | Regression residual of y vs x_factor over rolling window n. |
+
+## Alpha Catalog
+
+| Alpha | Description | Key Parameters |
+|-------|-------------|----------------|
+| **Alpha191_001** | Alpha #001: Volume-price correlation. | `corr_window=6`, `delta_window=1` |
+| **Alpha191_002** | Alpha #002: Close-range delta. | `delta_window=1` |
+| **Alpha191_003** | Alpha #003: Adaptive price change. | `delay_window=1`, `sum_window=6` |
+| **Alpha191_004** | Alpha #004: Volume-price conditional. | `mean_window_1=8`, `mean_window_2=2`, `mean_window_3=20` |
+| **Alpha191_005** | Alpha #005: Volume-high rank correlation. | `corr_window=5`, `tsmax_window=3`, `tsrank_window_1=5` |
+| **Alpha191_006** | Alpha #006: Open-weighted delta. | `delta_window=4` |
+| **Alpha191_007** | Alpha #007: VWAP-close range. | `delta_window=3`, `tsmax_window=3`, `tsmin_window=3` |
+| **Alpha191_008** | Alpha #008: VWAP-weighted delta. | `delta_window=4` |
+| **Alpha191_009** | Alpha #009: Mid-price volume SMA. | `delay_window_1=1`, `delay_window_2=1`, `sma_m=2` |
+| **Alpha191_010** | Alpha #010: Conditional volatility rank. | `std_window=20`, `tsmax_window=5` |
+| **Alpha191_011** | Alpha #011: Close-location-volume. | `sum_window=6` |
+| **Alpha191_012** | Alpha #012: Open-VWAP rank. | `mean_window=10` |
+| **Alpha191_013** | Alpha #013: Geometric mid vs VWAP. | — |
+| **Alpha191_014** | Alpha #014: Close momentum 5. | `delay_window=5` |
+| **Alpha191_015** | Alpha #015: Open-close return. | `delay_window=1` |
+| **Alpha191_016** | Alpha #016: VWAP-volume rank corr. | `corr_window=5`, `tsmax_window=5` |
+| **Alpha191_017** | Alpha #017: VWAP max delta. | `delta_window=5`, `tsmax_window=15` |
+| **Alpha191_018** | Alpha #018: Close ratio 5d. | `delay_window=5` |
+| **Alpha191_019** | Alpha #019: Adaptive close return. | `delay_window=5` |
+| **Alpha191_020** | Alpha #020: Close return pct 6d. | `delay_window=6` |
+| **Alpha191_021** | Alpha #021: Close regression slope. | `mean_window=6`, `regbeta_window=6` |
+| **Alpha191_022** | Alpha #022: Deviation momentum SMA. | `delay_window=3`, `mean_window=6`, `sma_m=1` |
+| **Alpha191_023** | Alpha #023: Conditional volatility RSI. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_024** | Alpha #024: Close momentum SMA 5. | `delay_window=5`, `sma_m=1`, `sma_window=5` |
+| **Alpha191_025** | Alpha #025: Volume-decay momentum. | `decay_window=9`, `delta_window=7`, `mean_window=20` |
+| **Alpha191_026** | Alpha #026: MA deviation + VWAP-close corr. | `corr_window=230`, `delay_window=5`, `mean_window=7` |
+| **Alpha191_027** | Alpha #027: Weighted return momentum. | `delay_window_1=3`, `delay_window_2=3`, `delay_window_3=6` |
+| **Alpha191_028** | Alpha #028: Stochastic oscillator smoothed. | `sma_m_1=1`, `sma_m_2=1`, `sma_window_1=3` |
+| **Alpha191_029** | Alpha #029: Volume-weighted return. | `delay_window=6` |
+| **Alpha191_030** | Alpha #030: Regression residual volatility. | `regresid_window=60`, `wma_window=20` |
+| **Alpha191_031** | Alpha #031: MA deviation pct. | `mean_window=12` |
+| **Alpha191_032** | Alpha #032: High-volume rank correlation. | `corr_window=3`, `sum_window=3` |
+| **Alpha191_033** | Alpha #033: Low momentum volume. | `delay_window=5`, `sum_window_1=240`, `sum_window_2=20` |
+| **Alpha191_034** | Alpha #034: MA-price ratio. | `mean_window=12` |
+| **Alpha191_035** | Alpha #035: Open-volume decay correlation. | `corr_window=17`, `decay_window_1=15`, `decay_window_2=7` |
+| **Alpha191_036** | Alpha #036: VWAP-volume rank corr sum. | `corr_window=6`, `sum_window=2` |
+| **Alpha191_037** | Alpha #037: Open-return momentum. | `delay_window=10`, `sum_window_1=5`, `sum_window_2=5` |
+| **Alpha191_038** | Alpha #038: High breakout delta. | `delta_window=2`, `mean_window=20` |
+| **Alpha191_039** | Alpha #039: VWAP-volume decay correlation. | `corr_window=14`, `decay_window_1=8`, `decay_window_2=12` |
+| **Alpha191_040** | Alpha #040: Up-volume ratio. | `delay_window=1`, `sum_window_1=26`, `sum_window_2=26` |
+| **Alpha191_041** | Alpha #041: VWAP delta rank. | `delta_window=3`, `tsmax_window=5` |
+| **Alpha191_042** | Alpha #042: High volatility-volume correlation. | `corr_window=10`, `std_window=10` |
+| **Alpha191_043** | Alpha #043: Close direction volume. | `delay_window=1`, `sum_window=6` |
+| **Alpha191_044** | Alpha #044: Low-volume-VWAP decay. | `corr_window=7`, `decay_window_1=6`, `decay_window_2=10` |
+| **Alpha191_045** | Alpha #045: Close-open weighted delta. | `corr_window=15`, `delta_window=1`, `mean_window=150` |
+| **Alpha191_046** | Alpha #046: Multi-MA ratio. | `mean_window_1=3`, `mean_window_2=6`, `mean_window_3=12` |
+| **Alpha191_047** | Alpha #047: Stochastic high. | `sma_m=1`, `sma_window=9`, `tsmax_window=6` |
+| **Alpha191_048** | Alpha #048: Triple sign volume. | `delay_window_1=1`, `delay_window_2=2`, `delay_window_3=3` |
+| **Alpha191_049** | Alpha #049: Directional movement up. | `delay_window_1=1`, `delay_window_2=1`, `sum_window_1=12` |
+| **Alpha191_050** | Alpha #050: Directional balance. | `delay_window_1=1`, `delay_window_2=1`, `sum_window_1=12` |
+| **Alpha191_051** | Alpha #051: Directional movement ratio. | `delay_window_1=1`, `delay_window_2=1`, `sum_window_1=12` |
+| **Alpha191_052** | Alpha #052: Typical price momentum. | `delay_window=1`, `sum_window_1=26`, `sum_window_2=26` |
+| **Alpha191_053** | Alpha #053: Up-count ratio. | `count_window=12`, `delay_window=1` |
+| **Alpha191_054** | Alpha #054: Open-close volatility correlation. | `corr_window=10`, `std_window=10` |
+| **Alpha191_055** | Alpha #055: Adaptive true range. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=1` |
+| **Alpha191_056** | Alpha #056: Open-VWAP volume rank. | `corr_window=13`, `mean_window=40`, `sum_window_1=19` |
+| **Alpha191_057** | Alpha #057: Fast stochastic. | `sma_m=1`, `sma_window=3`, `tsmax_window=9` |
+| **Alpha191_058** | Alpha #058: Up-count ratio 20. | `count_window=20`, `delay_window=1` |
+| **Alpha191_059** | Alpha #059: Adaptive close sum 20. | `delay_window=1`, `sum_window=20` |
+| **Alpha191_060** | Alpha #060: CLV volume 20. | `sum_window=20` |
+| **Alpha191_061** | Alpha #061: VWAP-volume decay. | `corr_window=8`, `decay_window_1=12`, `decay_window_2=17` |
+| **Alpha191_062** | Alpha #062: High-volume correlation. | `corr_window=5` |
+| **Alpha191_063** | Alpha #063: RSI-like 6. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_064** | Alpha #064: VWAP-volume decay corr. | `corr_window_1=4`, `corr_window_2=4`, `decay_window_1=4` |
+| **Alpha191_065** | Alpha #065: MA-price ratio 6. | `mean_window=6` |
+| **Alpha191_066** | Alpha #066: MA deviation pct 6. | `mean_window=6` |
+| **Alpha191_067** | Alpha #067: RSI-like 24. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_068** | Alpha #068: Mid-price volume SMA 15. | `delay_window_1=1`, `delay_window_2=1`, `sma_m=2` |
+| **Alpha191_069** | Alpha #069: DTM-DBM direction. | `delay_window=1`, `sum_window_1=20`, `sum_window_2=20` |
+| **Alpha191_070** | Alpha #070: Dollar volume std 6. | `std_window=6` |
+| **Alpha191_071** | Alpha #071: MA deviation 24. | `mean_window=24` |
+| **Alpha191_072** | Alpha #072: Stochastic high 15. | `sma_m=1`, `sma_window=15`, `tsmax_window=6` |
+| **Alpha191_073** | Alpha #073: Close-volume-VWAP decay corr. | `corr_window_1=10`, `corr_window_2=4`, `decay_window_1=4` |
+| **Alpha191_074** | Alpha #074: Low-VWAP volume correlation. | `corr_window_1=7`, `corr_window_2=6`, `mean_window=40` |
+| **Alpha191_075** | Alpha #075: Contrarian benchmark divergence. | `sum_window_1=50`, `sum_window_2=50` |
+| **Alpha191_076** | Alpha #076: Price impact CV. | `mean_window=20`, `std_window=20` |
+| **Alpha191_077** | Alpha #077: HL-VWAP decay. | `corr_window=3`, `decay_window_1=20`, `decay_window_2=6` |
+| **Alpha191_078** | Alpha #078: CCI. | `mean_window_1=12`, `mean_window_2=12` |
+| **Alpha191_079** | Alpha #079: RSI-like 12. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_080** | Alpha #080: Volume momentum 5. | `delay_window=5` |
+| **Alpha191_081** | Alpha #081: Volume SMA 21. | `sma_m=2`, `sma_window=21` |
+| **Alpha191_082** | Alpha #082: Stochastic high 20. | `sma_m=1`, `sma_window=20`, `tsmax_window=6` |
+| **Alpha191_083** | Alpha #083: High-volume rank covariance. | `cov_window=5` |
+| **Alpha191_084** | Alpha #084: Signed volume sum 20. | `delay_window=1`, `sum_window=20` |
+| **Alpha191_085** | Alpha #085: Volume rank × close delta rank. | `delta_window=7`, `mean_window=20`, `tsrank_window_1=20` |
+| **Alpha191_086** | Alpha #086: Acceleration conditional. | `delay_window_1=20`, `delay_window_2=10`, `delay_window_3=1` |
+| **Alpha191_087** | Alpha #087: VWAP-delta-low decay. | `decay_window_1=7`, `decay_window_2=11`, `delta_window=4` |
+| **Alpha191_088** | Alpha #088: Close return 20d pct. | `delay_window=20` |
+| **Alpha191_089** | Alpha #089: MACD-like. | `sma_m_1=2`, `sma_m_2=2`, `sma_m_3=2` |
+| **Alpha191_090** | Alpha #090: VWAP-volume rank corr neg. | `corr_window=5` |
+| **Alpha191_091** | Alpha #091: Close-low-volume composite. | `corr_window=5`, `mean_window=40`, `tsmax_window=5` |
+| **Alpha191_092** | Alpha #092: Close-VWAP volume decay. | `corr_window=13`, `decay_window_1=3`, `decay_window_2=5` |
+| **Alpha191_093** | Alpha #093: Open-low upside. | `delay_window=1`, `sum_window=20` |
+| **Alpha191_094** | Alpha #094: Signed volume 30. | `delay_window=1`, `sum_window=30` |
+| **Alpha191_095** | Alpha #095: Dollar volume std 20. | `std_window=20` |
+| **Alpha191_096** | Alpha #096: Double-smoothed stochastic. | `sma_m_1=1`, `sma_m_2=1`, `sma_window_1=3` |
+| **Alpha191_097** | Alpha #097: Volume std 10. | `std_window=10` |
+| **Alpha191_098** | Alpha #098: Long MA conditional. | `delay_window=100`, `delta_window_1=100`, `delta_window_2=3` |
+| **Alpha191_099** | Alpha #099: Close-volume rank covariance. | `cov_window=5` |
+| **Alpha191_100** | Alpha #100: Volume std 20. | `std_window=20` |
+| **Alpha191_101** | Alpha #101: VWAP-volume close corr. | `corr_window_1=15`, `corr_window_2=11`, `mean_window=30` |
+| **Alpha191_102** | Alpha #102: Volume RSI. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_103** | Alpha #103: Low-day ratio 20. | `lowday_window=20` |
+| **Alpha191_104** | Alpha #104: High-volume delta corr. | `corr_window=5`, `delta_window=5`, `std_window=20` |
+| **Alpha191_105** | Alpha #105: Open-volume rank corr. | `corr_window=10` |
+| **Alpha191_106** | Alpha #106: Close change 20. | `delay_window=20` |
+| **Alpha191_107** | Alpha #107: Open-delay triple rank. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=1` |
+| **Alpha191_108** | Alpha #108: High-VWAP volume corr. | `corr_window=6`, `mean_window=120`, `tsmin_window=2` |
+| **Alpha191_109** | Alpha #109: HL range SMA ratio. | `sma_m_1=2`, `sma_m_2=2`, `sma_window_1=10` |
+| **Alpha191_110** | Alpha #110: Upside-downside ratio. | `delay_window=1`, `sum_window_1=20`, `sum_window_2=20` |
+| **Alpha191_111** | Alpha #111: CLV volume SMA diff. | `sma_m_1=2`, `sma_m_2=2`, `sma_window_1=11` |
+| **Alpha191_112** | Alpha #112: RSI balance. | `delay_window=1`, `sum_window_1=12`, `sum_window_2=12` |
+| **Alpha191_113** | Alpha #113: Rank-volume-close correlation. | `corr_window_1=2`, `corr_window_2=2`, `delay_window=5` |
+| **Alpha191_114** | Alpha #114: HL range volume rank. | `delay_window=2`, `mean_window=5` |
+| **Alpha191_115** | Alpha #115: VWAP-volume MA corr rank. | `corr_window_1=10`, `corr_window_2=7`, `mean_window=30` |
+| **Alpha191_116** | Alpha #116: Regression slope 20. | `regbeta_window=20` |
+| **Alpha191_117** | Alpha #117: Volume-close rank composite. | `tsrank_window_1=32`, `tsrank_window_2=16`, `tsrank_window_3=32` |
+| **Alpha191_118** | Alpha #118: High-open vs open-low ratio. | `sum_window_1=20`, `sum_window_2=20` |
+| **Alpha191_119** | Alpha #119: VWAP-volume decay rank. | `corr_window_1=21`, `corr_window_2=5`, `decay_window_1=7` |
+| **Alpha191_120** | Alpha #120: VWAP-close ratio. | — |
+| **Alpha191_121** | Alpha #121: VWAP min-volume corr. | `corr_window=18`, `mean_window=60`, `tsmin_window=12` |
+| **Alpha191_122** | Alpha #122: Triple SMA log. | `delay_window=1`, `sma_m_1=2`, `sma_m_2=2` |
+| **Alpha191_123** | Alpha #123: VWAP-volume low corr. | `corr_window_1=9`, `corr_window_2=6`, `mean_window=60` |
+| **Alpha191_124** | Alpha #124: Close-VWAP decay rank. | `decay_window=2`, `tsmax_window=30` |
+| **Alpha191_125** | Alpha #125: VWAP-volume decay rank ratio. | `corr_window=17`, `decay_window_1=20`, `decay_window_2=16` |
+| **Alpha191_126** | Alpha #126: Typical price. | — |
+| **Alpha191_127** | Alpha #127: Close max deviation. | `mean_window=12`, `tsmax_window=12` |
+| **Alpha191_128** | Alpha #128: Money flow index. | `delay_window=1`, `sum_window_1=14`, `sum_window_2=14` |
+| **Alpha191_129** | Alpha #129: Down move sum 12. | `delay_window=1`, `sum_window=12` |
+| **Alpha191_130** | Alpha #130: VWAP-volume HL decay corr. | `corr_window_1=9`, `corr_window_2=7`, `decay_window_1=10` |
+| **Alpha191_131** | Alpha #131: VWAP delta-close corr. | `corr_window=18`, `delta_window=1`, `mean_window=50` |
+| **Alpha191_132** | Alpha #132: Dollar volume MA 20. | `mean_window=20` |
+| **Alpha191_133** | Alpha #133: Highday-lowday diff. | `highday_window=20`, `lowday_window=20` |
+| **Alpha191_134** | Alpha #134: Volume-weighted return 12. | `delay_window=12` |
+| **Alpha191_135** | Alpha #135: Return ratio SMA. | `delay_window_1=1`, `delay_window_2=20`, `sma_m=1` |
+| **Alpha191_136** | Alpha #136: Return delta volume corr. | `corr_window=10`, `delta_window=3` |
+| **Alpha191_137** | Alpha #137: Adaptive true range scalar. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=1` |
+| **Alpha191_138** | Alpha #138: VWAP-low decay rank. | `corr_window=5`, `decay_window_1=20`, `decay_window_2=16` |
+| **Alpha191_139** | Alpha #139: Open-volume correlation. | `corr_window=10` |
+| **Alpha191_140** | Alpha #140: Open-close rank decay. | `corr_window=8`, `decay_window_1=8`, `decay_window_2=7` |
+| **Alpha191_141** | Alpha #141: High-volume rank corr. | `corr_window=9`, `mean_window=15` |
+| **Alpha191_142** | Alpha #142: Close-volume triple rank. | `delta_window_1=1`, `delta_window_2=1`, `mean_window=20` |
+| **Alpha191_143** | Alpha #143: Cumulative directional return. | `delay_window=1` |
+| **Alpha191_144** | Alpha #144: Conditional impact sum. | `count_window=20`, `delay_window=1`, `sum_window=20` |
+| **Alpha191_145** | Alpha #145: Volume MA divergence. | `mean_window_1=9`, `mean_window_2=26`, `mean_window_3=12` |
+| **Alpha191_146** | Alpha #146: Return deviation regression. | `mean_window=20`, `sma_m_1=2`, `sma_m_2=1` |
+| **Alpha191_147** | Alpha #147: Regression slope 12. | `mean_window=12`, `regbeta_window=12` |
+| **Alpha191_148** | Alpha #148: Open-VWAP volume rank. | `corr_window=6`, `mean_window=60`, `sum_window=9` |
+| **Alpha191_149** | Alpha #149: Down-market beta. | — |
+| **Alpha191_150** | Alpha #150: Typical price volume. | — |
+| **Alpha191_151** | Alpha #151: Close momentum SMA 20. | `delay_window=20`, `sma_m=1`, `sma_window=20` |
+| **Alpha191_152** | Alpha #152: Nested SMA momentum. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=9` |
+| **Alpha191_153** | Alpha #153: Multi-MA average. | `mean_window_1=24`, `mean_window_2=12`, `mean_window_3=3` |
+| **Alpha191_154** | Alpha #154: VWAP-min-volume corr. | `corr_window=18`, `mean_window=180`, `tsmin_window=16` |
+| **Alpha191_155** | Alpha #155: Volume MACD. | `sma_m_1=2`, `sma_m_2=2`, `sma_m_3=2` |
+| **Alpha191_156** | Alpha #156: VWAP delta decay rank. | `decay_window_1=3`, `decay_window_2=3`, `delta_window_1=5` |
+| **Alpha191_157** | Alpha #157: Nested rank log sum. | `delay_window=6`, `delta_window=5`, `sum_window=1` |
+| **Alpha191_158** | Alpha #158: High-low SMA normalized. | `sma_m=2`, `sma_window=15` |
+| **Alpha191_159** | Alpha #159: Multi-timeframe stochastic. | `delay_window=1`, `sum_window_1=6`, `sum_window_2=6` |
+| **Alpha191_160** | Alpha #160: Downside volatility SMA. | `delay_window=1`, `sma_m=1`, `sma_window=20` |
+| **Alpha191_161** | Alpha #161: Average True Range 12. | `delay_window=1`, `mean_window=12` |
+| **Alpha191_162** | Alpha #162: RSI range normalized. | `delay_window=1`, `sma_m_1=1`, `sma_m_2=1` |
+| **Alpha191_163** | Alpha #163: Rank composite volume. | `mean_window=20` |
+| **Alpha191_164** | Alpha #164: Conditional momentum SMA. | `delay_window=1`, `sma_m=2`, `sma_window=13` |
+| **Alpha191_165** | Alpha #165: Cumulative deviation range. | `mean_window=48`, `std_window=48`, `tsmax_window=48` |
+| **Alpha191_166** | Alpha #166: Return skewness. | `mean_window=20` |
+| **Alpha191_167** | Alpha #167: Upward close sum 12. | `delay_window=1`, `sum_window=12` |
+| **Alpha191_168** | Alpha #168: Negative volume ratio. | `mean_window=20` |
+| **Alpha191_169** | Alpha #169: Nested SMA return momentum. | `delay_window_1=1`, `delay_window_2=1`, `mean_window_1=12` |
+| **Alpha191_170** | Alpha #170: Rank composite price-volume. | `delay_window=5`, `mean_window_1=20`, `mean_window_2=5` |
+| **Alpha191_171** | Alpha #171: Open-close-high power ratio. | — |
+| **Alpha191_172** | Alpha #172: ADX-like. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=1` |
+| **Alpha191_173** | Alpha #173: Triple SMA DEMA. | `sma_m_1=2`, `sma_m_2=2`, `sma_m_3=2` |
+| **Alpha191_174** | Alpha #174: Upside volatility SMA. | `delay_window=1`, `sma_m=1`, `sma_window=20` |
+| **Alpha191_175** | Alpha #175: ATR 6. | `delay_window=1`, `mean_window=6` |
+| **Alpha191_176** | Alpha #176: Stochastic-volume correlation. | `corr_window=6`, `tsmax_window=12`, `tsmin_window=12` |
+| **Alpha191_177** | Alpha #177: Highday ratio 20. | `highday_window=20` |
+| **Alpha191_178** | Alpha #178: Volume-weighted return 1d. | `delay_window=1` |
+| **Alpha191_179** | Alpha #179: VWAP-low-volume correlation. | `corr_window_1=4`, `corr_window_2=12`, `mean_window=50` |
+| **Alpha191_180** | Alpha #180: Volume-momentum conditional. | `delta_window=7`, `mean_window=20`, `tsrank_window=60` |
+| **Alpha191_181** | Alpha #181: Tracking error vs benchmark. | `mean_window_1=20`, `mean_window_2=20`, `sum_window_1=20` |
+| **Alpha191_182** | Alpha #182: Co-movement with benchmark. | `sum_window=20` |
+| **Alpha191_183** | Alpha #183: Cumulative deviation range (24-period). | `mean_window=24`, `std_window=24`, `tsmax_window=24` |
+| **Alpha191_184** | Alpha #184: Open-close-delay correlation. | `corr_window=200`, `delay_window=1` |
+| **Alpha191_185** | Alpha #185: Open-close ratio squared. | — |
+| **Alpha191_186** | Alpha #186: ADX smoothed. | `delay_window_1=1`, `delay_window_2=1`, `delay_window_3=1` |
+| **Alpha191_187** | Alpha #187: Open-low upside 20. | `delay_window=1`, `sum_window=20` |
+| **Alpha191_188** | Alpha #188: HL range SMA deviation. | `sma_m=2`, `sma_window=11` |
+| **Alpha191_189** | Alpha #189: Mean absolute deviation 6. | `mean_window_1=6`, `mean_window_2=6` |
+| **Alpha191_190** | Alpha #190: Geometric mean relative performance. | `delay_window=19`, `sum_window_1=20`, `sum_window_2=20` |
+| **Alpha191_191** | Alpha #191: Volume-low-close composite. | `corr_window=5`, `mean_window=20` |
+
+## Usage Pattern
+
+All Alpha 191 operators follow the same pattern:
+
+```python
+from clyptq.apps.trading.operators.signal.alpha.alpha_191 import Alpha191_001
+
+graph.add_node("alpha_191_001", Alpha191_001(
+    close=Input("FIELD:binance:futures:ohlcv:close", timeframe="1m", lookback=20),
+    open_=Input("FIELD:binance:futures:ohlcv:open", timeframe="1m", lookback=20),
+    high=Input("FIELD:binance:futures:ohlcv:high", timeframe="1m", lookback=20),
+    low=Input("FIELD:binance:futures:ohlcv:low", timeframe="1m", lookback=20),
+    volume=Input("FIELD:binance:futures:ohlcv:volume", timeframe="1m", lookback=20),
+))
+```
+
+## Source Code
+
+Full `_compute_alpha()` implementations — no hidden logic.
+
+<AccordionGroup>
+<Accordion title="Alpha191_001">
+
+Alpha #001: Volume-price correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    log_v = self._log(v)
+    delta_log_v = self._delta(log_v, self._delta_window)
+    price_change = (c - o) / np.maximum(o, 1e-10)
+    rank_dv = self._rank(delta_log_v)
+    rank_pc = self._rank(price_change)
+    return -1 * self._corr(rank_dv, rank_pc, self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_002">
+
+Alpha #002: Close-range delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl_range = h - l_
+    cl_ratio = np.where(hl_range > 1e-10, ((c - l_) - (h - c)) / hl_range, 0.0)
+    return -1 * self._delta(cl_ratio, self._delta_window)
+```
+</Accordion>
+<Accordion title="Alpha191_003">
+
+Alpha #003: Adaptive price change.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    cond_eq = np.isclose(c, delay_c1)
+    cond_gt = c > delay_c1
+    ref = np.where(cond_gt, np.minimum(l_, delay_c1), np.maximum(h, delay_c1))
+    raw = np.where(cond_eq, 0.0, c - ref)
+    return self._sum(raw, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_004">
+
+Alpha #004: Volume-price conditional.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma8 = self._mean(c, self._mean_window_1)
+    std8 = self._std(c, self._std_window)
+    ma2 = self._mean(c, self._mean_window_2)
+    vol_ratio = v / np.maximum(self._mean(v, self._mean_window_3), 1e-10)
+    cond1 = (ma8 + std8) < ma2
+    cond2 = ma2 < (ma8 - std8)
+    cond3 = vol_ratio >= 1.0
+    return np.where(cond1, -1.0, np.where(cond2, 1.0, np.where(cond3, 1.0, -1.0)))
+```
+</Accordion>
+<Accordion title="Alpha191_005">
+
+Alpha #005: Volume-high rank correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_v = self._tsrank(v, self._tsrank_window_1)
+    rank_h = self._tsrank(h, self._tsrank_window_2)
+    corr_val = self._corr(rank_v, rank_h, self._corr_window)
+    return -1 * self._tsmax(corr_val, self._tsmax_window)
+```
+</Accordion>
+<Accordion title="Alpha191_006">
+
+Alpha #006: Open-weighted delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    weighted = o * 0.85 + h * 0.15
+    return -1 * self._rank(self._sign(self._delta(weighted, self._delta_window)))
+```
+</Accordion>
+<Accordion title="Alpha191_007">
+
+Alpha #007: VWAP-close range.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    max_vc = self._tsmax(vwap - c, self._tsmax_window)
+    min_vc = self._tsmin(vwap - c, self._tsmin_window)
+    return (self._rank(max_vc) + self._rank(min_vc)) * self._rank(self._delta(v, self._delta_window))
+```
+</Accordion>
+<Accordion title="Alpha191_008">
+
+Alpha #008: VWAP-weighted delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mid = ((h + l_) / 2.0) * 0.2 + vwap * 0.8
+    return -1 * self._rank(self._delta(mid, self._delta_window))
+```
+</Accordion>
+<Accordion title="Alpha191_009">
+
+Alpha #009: Mid-price volume SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mid = (h + l_) / 2.0
+    delay_mid = (self._delay(h, self._delay_window_1) + self._delay(l_, self._delay_window_2)) / 2.0
+    hl_range = h - l_
+    raw = (mid - delay_mid) * hl_range / np.maximum(v, 1e-10)
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_010">
+
+Alpha #010: Conditional volatility rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    std20 = self._std(ret, self._std_window)
+    cond = ret < 0
+    conditional = np.where(cond, std20, c)
+    powered = conditional ** 2
+    return self._rank(self._tsmax(powered, self._tsmax_window))
+```
+</Accordion>
+<Accordion title="Alpha191_011">
+
+Alpha #011: Close-location-volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl_range = h - l_
+    clv = np.where(hl_range > 1e-10, ((c - l_) - (h - c)) / hl_range, 0.0)
+    return self._sum(clv * v, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_012">
+
+Alpha #012: Open-VWAP rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    ma_vwap = self._mean(vwap, self._mean_window)
+    return self._rank(o - ma_vwap) * (-1 * self._rank(self._abs(c - vwap)))
+```
+</Accordion>
+<Accordion title="Alpha191_013">
+
+Alpha #013: Geometric mid vs VWAP.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    return np.sqrt(np.maximum(h * l_, 1e-10)) - vwap
+```
+</Accordion>
+<Accordion title="Alpha191_014">
+
+Alpha #014: Close momentum 5.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return c - self._delay(c, self._delay_window)
+```
+</Accordion>
+<Accordion title="Alpha191_015">
+
+Alpha #015: Open-close return.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return o / np.maximum(self._delay(c, self._delay_window), 1e-10) - 1.0
+```
+</Accordion>
+<Accordion title="Alpha191_016">
+
+Alpha #016: VWAP-volume rank corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank_v = self._rank(v)
+    rank_vwap = self._rank(vwap)
+    return -1 * self._tsmax(self._rank(self._corr(rank_v, rank_vwap, self._corr_window)), self._tsmax_window)
+```
+</Accordion>
+<Accordion title="Alpha191_017">
+
+Alpha #017: VWAP max delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    max_vwap = self._tsmax(vwap, self._tsmax_window)
+    delta_c5 = self._delta(c, self._delta_window)
+    return self._rank(vwap - max_vwap) ** np.clip(delta_c5, -5, 5)
+```
+</Accordion>
+<Accordion title="Alpha191_018">
+
+Alpha #018: Close ratio 5d.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return c / np.maximum(self._delay(c, self._delay_window), 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_019">
+
+Alpha #019: Adaptive close return.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c5 = self._delay(c, self._delay_window)
+    diff = c - delay_c5
+    cond_lt = c < delay_c5
+    cond_eq = np.isclose(c, delay_c5)
+    return np.where(cond_lt, diff / np.maximum(delay_c5, 1e-10),
+                    np.where(cond_eq, 0.0, diff / np.maximum(c, 1e-10)))
+```
+</Accordion>
+<Accordion title="Alpha191_020">
+
+Alpha #020: Close return pct 6d.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c6 = self._delay(c, self._delay_window)
+    return (c - delay_c6) / np.maximum(delay_c6, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_021">
+
+Alpha #021: Close regression slope.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._regbeta(self._mean(c, self._mean_window), self._regbeta_window)
+```
+</Accordion>
+<Accordion title="Alpha191_022">
+
+Alpha #022: Deviation momentum SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma6 = self._mean(c, self._mean_window)
+    dev = (c - ma6) / np.maximum(ma6, 1e-10)
+    delay_dev = self._delay(dev, self._delay_window)
+    return self._sma(dev - delay_dev, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_023">
+
+Alpha #023: Conditional volatility RSI.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    cond_up = c > delay_c1
+    std20 = self._std(c, self._std_window)
+    up = np.where(cond_up, std20, 0.0)
+    dn = np.where(~cond_up, std20, 0.0)
+    sma_up = self._sma(up, self._sma_window_1, self._sma_m_1)
+    sma_dn = self._sma(dn, self._sma_window_2, self._sma_m_2)
+    return sma_up / np.maximum(sma_up + sma_dn, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_024">
+
+Alpha #024: Close momentum SMA 5.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._sma(c - self._delay(c, self._delay_window), self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_025">
+
+Alpha #025: Volume-decay momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    vol_ratio = v / np.maximum(self._mean(v, self._mean_window), 1e-10)
+    decay_vol = self._decaylinear(vol_ratio, self._decay_window)
+    rank_decay = self._rank(decay_vol)
+    delta_c7 = self._delta(c, self._delta_window)
+    rank1 = self._rank(delta_c7 * (1 - rank_decay))
+    rank2 = self._rank(self._sum(ret, self._sum_window))
+    return -1 * rank1 * (1 + rank2)
+```
+</Accordion>
+<Accordion title="Alpha191_026">
+
+Alpha #026: MA deviation + VWAP-close corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    ma7 = self._mean(c, self._mean_window)
+    return (ma7 - c) + self._corr(vwap, self._delay(c, self._delay_window), self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_027">
+
+Alpha #027: Weighted return momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret3 = (c - self._delay(c, self._delay_window_1)) / np.maximum(self._delay(c, self._delay_window_2), 1e-10) * 100
+    ret6 = (c - self._delay(c, self._delay_window_3)) / np.maximum(self._delay(c, self._delay_window_4), 1e-10) * 100
+    return self._wma(ret3 + ret6, self._wma_window)
+```
+</Accordion>
+<Accordion title="Alpha191_028">
+
+Alpha #028: Stochastic oscillator smoothed.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmin9 = self._tsmin(l_, self._tsmin_window)
+    tsmax9 = self._tsmax(h, self._tsmax_window)
+    rng = np.maximum(tsmax9 - tsmin9, 1e-10)
+    raw = (c - tsmin9) / rng * 100
+    sma1 = self._sma(raw, self._sma_window_1, self._sma_m_1)
+    sma2 = self._sma(sma1, self._sma_window_2, self._sma_m_2)
+    return 3 * sma1 - 2 * sma2
+```
+</Accordion>
+<Accordion title="Alpha191_029">
+
+Alpha #029: Volume-weighted return.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c6 = self._delay(c, self._delay_window)
+    return (c - delay_c6) / np.maximum(delay_c6, 1e-10) * v
+```
+</Accordion>
+<Accordion title="Alpha191_030">
+
+Alpha #030: Regression residual volatility.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    bm_ret = self._bm(ret)  # BTC return broadcast
+    resid = self._regresid(ret, bm_ret, self._regresid_window)
+    return self._wma(resid ** 2, self._wma_window)
+```
+</Accordion>
+<Accordion title="Alpha191_031">
+
+Alpha #031: MA deviation pct.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma12 = self._mean(c, self._mean_window)
+    return (c - ma12) / np.maximum(ma12, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_032">
+
+Alpha #032: High-volume rank correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_h = self._rank(h)
+    rank_v = self._rank(v)
+    return -1 * self._sum(self._rank(self._corr(rank_h, rank_v, self._corr_window)), self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_033">
+
+Alpha #033: Low momentum volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    min5 = self._tsmin(l_, self._tsmin_window)
+    delay_min5 = self._delay(min5, self._delay_window)
+    ret = self._ret(c)
+    sum_ret = self._sum(ret, self._sum_window_1) - self._sum(ret, self._sum_window_2)
+    rank_ret = self._rank(sum_ret / 220.0)
+    return ((-1 * min5 + delay_min5) * rank_ret) * self._tsrank(v, self._tsrank_window)
+```
+</Accordion>
+<Accordion title="Alpha191_034">
+
+Alpha #034: MA-price ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._mean(c, self._mean_window) / np.maximum(c, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_035">
+
+Alpha #035: Open-volume decay correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    weighted_o = o * 0.65 + o * 0.35
+    rank_decay_o = self._rank(self._decaylinear(self._delta(o, self._delta_window), self._decay_window_1))
+    corr_vol = self._corr(v, weighted_o, self._corr_window)
+    rank_decay_corr = self._rank(self._decaylinear(corr_vol, self._decay_window_2))
+    return np.minimum(rank_decay_o, rank_decay_corr) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_036">
+
+Alpha #036: VWAP-volume rank corr sum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank_v = self._rank(v)
+    rank_vwap = self._rank(vwap)
+    return self._rank(self._sum(self._corr(rank_v, rank_vwap, self._corr_window), self._sum_window))
+```
+</Accordion>
+<Accordion title="Alpha191_037">
+
+Alpha #037: Open-return momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    sum_o5 = self._sum(o, self._sum_window_1)
+    sum_r5 = self._sum(ret, self._sum_window_2)
+    delay_val = self._delay(sum_o5 * sum_r5, self._delay_window)
+    return -1 * self._rank(sum_o5 * sum_r5 - delay_val)
+```
+</Accordion>
+<Accordion title="Alpha191_038">
+
+Alpha #038: High breakout delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma_h20 = self._mean(h, self._mean_window)
+    cond = ma_h20 < h
+    return np.where(cond, -1 * self._delta(h, self._delta_window), 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_039">
+
+Alpha #039: VWAP-volume decay correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(self._decaylinear(self._delta(c, self._delta_window), self._decay_window_1))
+    weighted = vwap * 0.3 + o * 0.7
+    mean_v = self._mean(v, self._mean_window)
+    sum_mean_v = self._sum(mean_v, self._sum_window)
+    rank2 = self._rank(self._decaylinear(self._corr(weighted, sum_mean_v, self._corr_window), self._decay_window_2))
+    return (rank1 - rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_040">
+
+Alpha #040: Up-volume ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up_vol = np.where(c > delay_c1, v, 0.0)
+    dn_vol = np.where(c <= delay_c1, v, 0.0)
+    sum_up = self._sum(up_vol, self._sum_window_1)
+    sum_dn = np.maximum(self._sum(dn_vol, self._sum_window_2), 1e-10)
+    return sum_up / sum_dn * 100
+```
+</Accordion>
+<Accordion title="Alpha191_041">
+
+Alpha #041: VWAP delta rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    return -1 * self._rank(self._tsmax(self._delta(vwap, self._delta_window), self._tsmax_window))
+```
+</Accordion>
+<Accordion title="Alpha191_042">
+
+Alpha #042: High volatility-volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    std_h = self._std(h, self._std_window)
+    corr_hv = self._corr(h, v, self._corr_window)
+    return -1 * self._rank(std_h) * corr_hv
+```
+</Accordion>
+<Accordion title="Alpha191_043">
+
+Alpha #043: Close direction volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    signed_vol = np.where(c > delay_c1, v, np.where(c < delay_c1, -v, 0.0))
+    return self._sum(signed_vol, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_044">
+
+Alpha #044: Low-volume-VWAP decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v10 = self._mean(v, self._mean_window)
+    corr_lv = self._corr(l_, mean_v10, self._corr_window)
+    rank1 = self._tsrank(self._decaylinear(corr_lv, self._decay_window_1), self._tsrank_window_1)
+    rank2 = self._tsrank(self._decaylinear(self._delta(vwap, self._delta_window), self._decay_window_2), self._tsrank_window_2)
+    return rank1 + rank2
+```
+</Accordion>
+<Accordion title="Alpha191_045">
+
+Alpha #045: Close-open weighted delta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    weighted = c * 0.6 + o * 0.4
+    rank_delta = self._rank(self._delta(weighted, self._delta_window))
+    mean_v150 = self._mean(v, self._mean_window)
+    rank_corr = self._rank(self._corr(vwap, mean_v150, self._corr_window))
+    return rank_delta * rank_corr
+```
+</Accordion>
+<Accordion title="Alpha191_046">
+
+Alpha #046: Multi-MA ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma3 = self._mean(c, self._mean_window_1)
+    ma6 = self._mean(c, self._mean_window_2)
+    ma12 = self._mean(c, self._mean_window_3)
+    ma24 = self._mean(c, self._mean_window_4)
+    return (ma3 + ma6 + ma12 + ma24) / (4 * np.maximum(c, 1e-10))
+```
+</Accordion>
+<Accordion title="Alpha191_047">
+
+Alpha #047: Stochastic high.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmax6 = self._tsmax(h, self._tsmax_window)
+    tsmin6 = self._tsmin(l_, self._tsmin_window)
+    rng = np.maximum(tsmax6 - tsmin6, 1e-10)
+    raw = (tsmax6 - c) / rng * 100
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_048">
+
+Alpha #048: Triple sign volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window_1)
+    delay_c2 = self._delay(c, self._delay_window_2)
+    delay_c3 = self._delay(c, self._delay_window_3)
+    sign1 = self._sign(c - delay_c1)
+    sign2 = self._sign(delay_c1 - delay_c2)
+    sign3 = self._sign(delay_c2 - delay_c3)
+    triple_sign = self._rank(sign1 + sign2 + sign3)
+    sum_v5 = self._sum(v, self._sum_window_1)
+    sum_v20 = np.maximum(self._sum(v, self._sum_window_2), 1e-10)
+    return -1 * triple_sign * sum_v5 / sum_v20
+```
+</Accordion>
+<Accordion title="Alpha191_049">
+
+Alpha #049: Directional movement up.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_h1 = self._delay(h, self._delay_window_1)
+    delay_l1 = self._delay(l_, self._delay_window_2)
+    hl_sum = h + l_
+    delay_hl_sum = delay_h1 + delay_l1
+    cond = hl_sum >= delay_hl_sum
+    move = np.maximum(self._abs(h - delay_h1), self._abs(l_ - delay_l1))
+    up = np.where(cond, 0.0, move)
+    dn = np.where(~cond, 0.0, move)
+    sum_up = self._sum(up, self._sum_window_1)
+    sum_dn = np.maximum(self._sum(dn, self._sum_window_2), 1e-10)
+    return sum_up / (sum_up + sum_dn)
+```
+</Accordion>
+<Accordion title="Alpha191_050">
+
+Alpha #050: Directional balance.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_h1 = self._delay(h, self._delay_window_1)
+    delay_l1 = self._delay(l_, self._delay_window_2)
+    hl_sum = h + l_
+    delay_hl_sum = delay_h1 + delay_l1
+    cond_dn = hl_sum <= delay_hl_sum
+    cond_up = hl_sum >= delay_hl_sum
+    move = np.maximum(self._abs(h - delay_h1), self._abs(l_ - delay_l1))
+    up = np.where(cond_up, 0.0, move)
+    dn = np.where(cond_dn, 0.0, move)
+    sum_up = self._sum(up, self._sum_window_1)
+    sum_dn = self._sum(dn, self._sum_window_2)
+    denom_a = np.maximum(sum_dn + sum_up, 1e-10)
+    return sum_dn / denom_a - sum_up / denom_a
+```
+</Accordion>
+<Accordion title="Alpha191_051">
+
+Alpha #051: Directional movement ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_h1 = self._delay(h, self._delay_window_1)
+    delay_l1 = self._delay(l_, self._delay_window_2)
+    cond = (h + l_) <= (delay_h1 + delay_l1)
+    move = np.maximum(self._abs(h - delay_h1), self._abs(l_ - delay_l1))
+    dn = np.where(cond, 0.0, move)
+    up = np.where(~cond, 0.0, move)
+    return self._sum(dn, self._sum_window_1) / np.maximum(self._sum(dn, self._sum_window_2) + self._sum(up, self._sum_window_3), 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_052">
+
+Alpha #052: Typical price momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tp = (h + l_ + c) / 3.0
+    delay_tp = self._delay(tp, self._delay_window)
+    raw = np.maximum(0.0, h - delay_tp)
+    raw_dn = np.maximum(0.0, delay_tp - l_)
+    return self._sum(raw, self._sum_window_1) / np.maximum(self._sum(raw_dn, self._sum_window_2), 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_053">
+
+Alpha #053: Up-count ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    cond = (c > delay_c1).astype(float)
+    return self._count(c > delay_c1, self._count_window) / 12.0 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_054">
+
+Alpha #054: Open-close volatility correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    std_oc = self._std(self._abs(c - o), self._std_window)
+    diff_co = c - o
+    corr_co = self._corr(c, o, self._corr_window)
+    return -1 * self._rank(std_oc + diff_co + corr_co)
+```
+</Accordion>
+<Accordion title="Alpha191_055">
+
+Alpha #055: Adaptive true range.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window_1)
+    delay_o1 = self._delay(o, self._delay_window_2)
+    body = c - delay_c1 + (c - o) / 2.0 + delay_c1 - delay_o1
+    atr_h = self._abs(h - delay_c1)
+    atr_l = self._abs(l_ - delay_c1)
+    atr_hl = self._abs(h - self._delay(l_, self._delay_window_3))
+    adj_co = self._abs(delay_c1 - delay_o1) / 4.0
+    denom = np.where(
+        (atr_h > atr_l) & (atr_h > atr_hl),
+        atr_h + atr_l / 2.0 + adj_co,
+        np.where(
+            (atr_l > atr_hl) & (atr_l > atr_h),
+            atr_l + atr_h / 2.0 + adj_co,
+            atr_hl + adj_co
+        )
+    )
+    tr_max = np.maximum(atr_h, atr_l)
+    raw = 16 * body / np.maximum(denom, 1e-10) * tr_max
+    return self._sum(raw, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_056">
+
+Alpha #056: Open-VWAP volume rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mid = (h + l_) / 2.0
+    sum_mid = self._sum(mid, self._sum_window_1)
+    mean_v40 = self._mean(v, self._mean_window)
+    sum_mv = self._sum(mean_v40, self._sum_window_2)
+    rank1 = self._rank(o - self._tsmin(o, self._tsmin_window))
+    rank2 = self._rank(self._corr(sum_mid, sum_mv, self._corr_window) ** 5)
+    return np.where(rank1 < rank2, 1.0, 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_057">
+
+Alpha #057: Fast stochastic.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmin9 = self._tsmin(l_, self._tsmin_window)
+    tsmax9 = self._tsmax(h, self._tsmax_window)
+    rng = np.maximum(tsmax9 - tsmin9, 1e-10)
+    return self._sma((c - tsmin9) / rng * 100, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_058">
+
+Alpha #058: Up-count ratio 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    return self._count(c > delay_c1, self._count_window) / 20.0 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_059">
+
+Alpha #059: Adaptive close sum 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    cond_eq = np.isclose(c, delay_c1)
+    cond_gt = c > delay_c1
+    ref = np.where(cond_gt, np.minimum(l_, delay_c1), np.maximum(h, delay_c1))
+    raw = np.where(cond_eq, 0.0, c - ref)
+    return self._sum(raw, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_060">
+
+Alpha #060: CLV volume 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl_range = h - l_
+    clv = np.where(hl_range > 1e-10, ((c - l_) - (h - c)) / hl_range, 0.0)
+    return self._sum(clv * v, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_061">
+
+Alpha #061: VWAP-volume decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(self._decaylinear(self._delta(vwap, self._delta_window), self._decay_window_1))
+    mean_v80 = self._mean(v, self._mean_window)
+    corr_lv = self._corr(l_, mean_v80, self._corr_window)
+    rank2 = self._rank(self._decaylinear(self._rank(corr_lv), self._decay_window_2))
+    return np.maximum(rank1, rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_062">
+
+Alpha #062: High-volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_v = self._rank(v)
+    return -1 * self._corr(h, rank_v, self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_063">
+
+Alpha #063: RSI-like 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.maximum(c - delay_c1, 0.0)
+    total = self._abs(c - delay_c1)
+    sma_up = self._sma(up, self._sma_window_1, self._sma_m_1)
+    sma_total = np.maximum(self._sma(total, self._sma_window_2, self._sma_m_2), 1e-10)
+    return sma_up / sma_total * 100
+```
+</Accordion>
+<Accordion title="Alpha191_064">
+
+Alpha #064: VWAP-volume decay corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank_vwap = self._rank(vwap)
+    rank_v = self._rank(v)
+    mean_v60 = self._mean(v, self._mean_window)
+    rank_c = self._rank(c)
+    rank_mv = self._rank(mean_v60)
+    corr1 = self._corr(rank_vwap, rank_v, self._corr_window_1)
+    corr2 = self._corr(rank_c, rank_mv, self._corr_window_2)
+    max_corr2 = self._tsmax(corr2, self._tsmax_window)
+    rank1 = self._rank(self._decaylinear(corr1, self._decay_window_1))
+    rank2 = self._rank(self._decaylinear(max_corr2, self._decay_window_2))
+    return np.maximum(rank1, rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_065">
+
+Alpha #065: MA-price ratio 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._mean(c, self._mean_window) / np.maximum(c, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_066">
+
+Alpha #066: MA deviation pct 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma6 = self._mean(c, self._mean_window)
+    return (c - ma6) / np.maximum(ma6, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_067">
+
+Alpha #067: RSI-like 24.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.maximum(c - delay_c1, 0.0)
+    total = self._abs(c - delay_c1)
+    sma_up = self._sma(up, self._sma_window_1, self._sma_m_1)
+    sma_total = np.maximum(self._sma(total, self._sma_window_2, self._sma_m_2), 1e-10)
+    return sma_up / sma_total * 100
+```
+</Accordion>
+<Accordion title="Alpha191_068">
+
+Alpha #068: Mid-price volume SMA 15.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mid = (h + l_) / 2.0
+    delay_mid = (self._delay(h, self._delay_window_1) + self._delay(l_, self._delay_window_2)) / 2.0
+    hl_range = h - l_
+    raw = (mid - delay_mid) * hl_range / np.maximum(v, 1e-10)
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_069">
+
+Alpha #069: DTM-DBM direction.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_o1 = self._delay(o, self._delay_window)
+    cond_up = o > delay_o1
+    cond_dn = o < delay_o1
+    dtm = np.where(cond_up, np.maximum(h - o, o - delay_o1), 0.0)
+    dbm = np.where(cond_dn, np.maximum(o - l_, delay_o1 - o), 0.0)
+    sum_dtm = self._sum(dtm, self._sum_window_1)
+    sum_dbm = self._sum(dbm, self._sum_window_2)
+    cond_gt = sum_dtm > sum_dbm
+    cond_eq = np.isclose(sum_dtm, sum_dbm)
+    return np.where(cond_gt, (sum_dtm - sum_dbm) / np.maximum(sum_dtm, 1e-10),
+                    np.where(cond_eq, 0.0, (sum_dtm - sum_dbm) / np.maximum(sum_dbm, 1e-10)))
+```
+</Accordion>
+<Accordion title="Alpha191_070">
+
+Alpha #070: Dollar volume std 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    amt = self._amount(c, v)
+    return self._std(amt, self._std_window)
+```
+</Accordion>
+<Accordion title="Alpha191_071">
+
+Alpha #071: MA deviation 24.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma24 = self._mean(c, self._mean_window)
+    return (c - ma24) / np.maximum(ma24, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_072">
+
+Alpha #072: Stochastic high 15.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmax6 = self._tsmax(h, self._tsmax_window)
+    tsmin6 = self._tsmin(l_, self._tsmin_window)
+    rng = np.maximum(tsmax6 - tsmin6, 1e-10)
+    return self._sma((tsmax6 - c) / rng * 100, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_073">
+
+Alpha #073: Close-volume-VWAP decay corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v30 = self._mean(v, self._mean_window)
+    corr_cv = self._corr(c, v, self._corr_window_1)
+    decay1 = self._decaylinear(self._decaylinear(corr_cv, self._decay_window_2), self._decay_window_1)
+    rank1 = self._tsrank(decay1, self._tsrank_window)
+    corr_vwap = self._corr(vwap, mean_v30, self._corr_window_2)
+    rank2 = self._rank(self._decaylinear(corr_vwap, self._decay_window_3))
+    return (rank1 - rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_074">
+
+Alpha #074: Low-VWAP volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    low_w = l_ * 0.35 + vwap * 0.65
+    sum_lw = self._sum(low_w, self._sum_window_1)
+    mean_v40 = self._mean(v, self._mean_window)
+    sum_mv = self._sum(mean_v40, self._sum_window_2)
+    rank1 = self._rank(self._corr(sum_lw, sum_mv, self._corr_window_1))
+    rank_vwap = self._rank(vwap)
+    rank_v = self._rank(v)
+    rank2 = self._rank(self._corr(rank_vwap, rank_v, self._corr_window_2))
+    return rank1 + rank2
+```
+</Accordion>
+<Accordion title="Alpha191_075">
+
+Alpha #075: Contrarian benchmark divergence.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    bm_c = self._bm(c)
+    bm_o = self._bm(o)
+    coin_up = (c > o).astype(float)
+    bm_down = (bm_c < bm_o).astype(float)
+    both = coin_up * bm_down
+    count_both = self._sum(both, self._sum_window_1)
+    count_bm_down = self._sum(bm_down, self._sum_window_2)
+    return count_both / np.maximum(count_bm_down, 1.0)
+```
+</Accordion>
+<Accordion title="Alpha191_076">
+
+Alpha #076: Price impact CV.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._abs(self._ret(c))
+    impact = ret / np.maximum(v, 1e-10)
+    std_imp = self._std(impact, self._std_window)
+    mean_imp = np.maximum(self._mean(impact, self._mean_window), 1e-10)
+    return std_imp / mean_imp
+```
+</Accordion>
+<Accordion title="Alpha191_077">
+
+Alpha #077: HL-VWAP decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mid = (h + l_) / 2.0
+    val = mid + h - vwap - h  # = mid - vwap
+    rank1 = self._rank(self._decaylinear(val, self._decay_window_1))
+    mean_v40 = self._mean(v, self._mean_window)
+    corr_mid = self._corr(mid, mean_v40, self._corr_window)
+    rank2 = self._rank(self._decaylinear(corr_mid, self._decay_window_2))
+    return np.minimum(rank1, rank2)
+```
+</Accordion>
+<Accordion title="Alpha191_078">
+
+Alpha #078: CCI.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tp = (h + l_ + c) / 3.0
+    ma_tp = self._mean(tp, self._mean_window_1)
+    mad = self._mean(self._abs(c - ma_tp), self._mean_window_2)
+    return (tp - ma_tp) / np.maximum(0.015 * mad, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_079">
+
+Alpha #079: RSI-like 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.maximum(c - delay_c1, 0.0)
+    total = self._abs(c - delay_c1)
+    sma_up = self._sma(up, self._sma_window_1, self._sma_m_1)
+    sma_total = np.maximum(self._sma(total, self._sma_window_2, self._sma_m_2), 1e-10)
+    return sma_up / sma_total * 100
+```
+</Accordion>
+<Accordion title="Alpha191_080">
+
+Alpha #080: Volume momentum 5.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_v5 = self._delay(v, self._delay_window)
+    return (v - delay_v5) / np.maximum(delay_v5, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_081">
+
+Alpha #081: Volume SMA 21.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._sma(v, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_082">
+
+Alpha #082: Stochastic high 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmax6 = self._tsmax(h, self._tsmax_window)
+    tsmin6 = self._tsmin(l_, self._tsmin_window)
+    rng = np.maximum(tsmax6 - tsmin6, 1e-10)
+    return self._sma((tsmax6 - c) / rng * 100, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_083">
+
+Alpha #083: High-volume rank covariance.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_h = self._rank(h)
+    rank_v = self._rank(v)
+    return -1 * self._rank(self._cov(rank_h, rank_v, self._cov_window))
+```
+</Accordion>
+<Accordion title="Alpha191_084">
+
+Alpha #084: Signed volume sum 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    signed_vol = np.where(c > delay_c1, v, np.where(c < delay_c1, -v, 0.0))
+    return self._sum(signed_vol, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_085">
+
+Alpha #085: Volume rank × close delta rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vol_ratio = v / np.maximum(self._mean(v, self._mean_window), 1e-10)
+    rank_vr = self._tsrank(vol_ratio, self._tsrank_window_1)
+    rank_delta = self._tsrank(-1 * self._delta(c, self._delta_window), self._tsrank_window_2)
+    return rank_vr * rank_delta
+```
+</Accordion>
+<Accordion title="Alpha191_086">
+
+Alpha #086: Acceleration conditional.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c20 = self._delay(c, self._delay_window_1)
+    delay_c10 = self._delay(c, self._delay_window_2)
+    accel1 = (delay_c20 - delay_c10) / 10.0
+    accel2 = (delay_c10 - c) / 10.0
+    speed = accel1 - accel2
+    cond1 = speed > 0.25
+    cond2 = speed < 0
+    return np.where(cond1, -1.0, np.where(cond2, 1.0, -1 * (c - self._delay(c, self._delay_window_3))))
+```
+</Accordion>
+<Accordion title="Alpha191_087">
+
+Alpha #087: VWAP-delta-low decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(self._decaylinear(self._delta(vwap, self._delta_window), self._decay_window_1))
+    low_adj = l_ * 0.9 + l_ * 0.1
+    mid = (h + l_) / 2.0
+    inner = (low_adj - vwap) / np.maximum(o - mid, 1e-10)
+    rank2 = self._tsrank(self._decaylinear(inner, self._decay_window_2), self._tsrank_window)
+    return (rank1 + rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_088">
+
+Alpha #088: Close return 20d pct.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c20 = self._delay(c, self._delay_window)
+    return (c - delay_c20) / np.maximum(delay_c20, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_089">
+
+Alpha #089: MACD-like.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sma13 = self._sma(c, self._sma_window_1, self._sma_m_1)
+    sma27 = self._sma(c, self._sma_window_2, self._sma_m_2)
+    diff = sma13 - sma27
+    signal = self._sma(diff, self._sma_window_3, self._sma_m_3)
+    return 2 * (diff - signal)
+```
+</Accordion>
+<Accordion title="Alpha191_090">
+
+Alpha #090: VWAP-volume rank corr neg.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank_vwap = self._rank(vwap)
+    rank_v = self._rank(v)
+    return -1 * self._rank(self._corr(rank_vwap, rank_v, self._corr_window))
+```
+</Accordion>
+<Accordion title="Alpha191_091">
+
+Alpha #091: Close-low-volume composite.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mean_v40 = self._mean(v, self._mean_window)
+    rank1 = self._rank(c - self._tsmax(c, self._tsmax_window))
+    rank2 = self._rank(self._corr(mean_v40, l_, self._corr_window))
+    return (rank1 * rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_092">
+
+Alpha #092: Close-VWAP volume decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    weighted = c * 0.35 + vwap * 0.65
+    delta_w = self._delta(weighted, self._delta_window)
+    ratio = delta_w / np.maximum(weighted, 1e-10) * -1
+    rank1 = self._rank(self._decaylinear(ratio, self._decay_window_1))
+    mean_v180 = self._mean(v, self._mean_window)
+    corr_val = self._corr(mean_v180, c, self._corr_window)
+    abs_corr = self._abs(corr_val)
+    rank2 = self._tsrank(self._decaylinear(abs_corr, self._decay_window_2), self._tsrank_window)
+    return np.maximum(rank1, rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_093">
+
+Alpha #093: Open-low upside.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_o1 = self._delay(o, self._delay_window)
+    cond = o >= delay_o1
+    raw = np.where(cond, 0.0, np.maximum(o - l_, o - delay_o1))
+    return self._sum(raw, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_094">
+
+Alpha #094: Signed volume 30.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    signed_vol = np.where(c > delay_c1, v, np.where(c < delay_c1, -v, 0.0))
+    return self._sum(signed_vol, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_095">
+
+Alpha #095: Dollar volume std 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    amt = self._amount(c, v)
+    return self._std(amt, self._std_window)
+```
+</Accordion>
+<Accordion title="Alpha191_096">
+
+Alpha #096: Double-smoothed stochastic.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmin9 = self._tsmin(l_, self._tsmin_window)
+    tsmax9 = self._tsmax(h, self._tsmax_window)
+    rng = np.maximum(tsmax9 - tsmin9, 1e-10)
+    raw = (c - tsmin9) / rng * 100
+    sma1 = self._sma(raw, self._sma_window_1, self._sma_m_1)
+    return self._sma(sma1, self._sma_window_2, self._sma_m_2)
+```
+</Accordion>
+<Accordion title="Alpha191_097">
+
+Alpha #097: Volume std 10.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._std(v, self._std_window)
+```
+</Accordion>
+<Accordion title="Alpha191_098">
+
+Alpha #098: Long MA conditional.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma100 = self._mean(c, self._mean_window)
+    delta_ma = self._delta(ma100, self._delta_window_1)
+    delay_c100 = self._delay(c, self._delay_window)
+    cond = (delta_ma / np.maximum(delay_c100, 1e-10)) <= 0.05
+    return np.where(cond, -1 * (c - self._tsmin(c, self._tsmin_window)), -1 * self._delta(c, self._delta_window_2))
+```
+</Accordion>
+<Accordion title="Alpha191_099">
+
+Alpha #099: Close-volume rank covariance.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_c = self._rank(c)
+    rank_v = self._rank(v)
+    return -1 * self._rank(self._cov(rank_c, rank_v, self._cov_window))
+```
+</Accordion>
+<Accordion title="Alpha191_100">
+
+Alpha #100: Volume std 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._std(v, self._std_window)
+```
+</Accordion>
+<Accordion title="Alpha191_101">
+
+Alpha #101: VWAP-volume close corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v30 = self._mean(v, self._mean_window)
+    sum_mv = self._sum(mean_v30, self._sum_window)
+    rank1 = self._rank(self._corr(c, sum_mv, self._corr_window_1))
+    weighted = h * 0.1 + vwap * 0.9
+    rank_w = self._rank(weighted)
+    rank_v = self._rank(v)
+    rank2 = self._rank(self._corr(rank_w, rank_v, self._corr_window_2))
+    return np.where(rank1 < rank2, -1.0, 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_102">
+
+Alpha #102: Volume RSI.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_v1 = self._delay(v, self._delay_window)
+    up = np.maximum(v - delay_v1, 0.0)
+    total = self._abs(v - delay_v1)
+    sma_up = self._sma(up, self._sma_window_1, self._sma_m_1)
+    sma_total = np.maximum(self._sma(total, self._sma_window_2, self._sma_m_2), 1e-10)
+    return sma_up / sma_total * 100
+```
+</Accordion>
+<Accordion title="Alpha191_103">
+
+Alpha #103: Low-day ratio 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    lowday = self._lowday(l_, self._lowday_window)
+    return (20 - lowday) / 20.0 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_104">
+
+Alpha #104: High-volume delta corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    corr_hv = self._corr(h, v, self._corr_window)
+    std_c = self._std(c, self._std_window)
+    return -1 * self._delta(corr_hv, self._delta_window) * self._rank(std_c)
+```
+</Accordion>
+<Accordion title="Alpha191_105">
+
+Alpha #105: Open-volume rank corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_o = self._rank(o)
+    rank_v = self._rank(v)
+    return -1 * self._corr(rank_o, rank_v, self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_106">
+
+Alpha #106: Close change 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return c - self._delay(c, self._delay_window)
+```
+</Accordion>
+<Accordion title="Alpha191_107">
+
+Alpha #107: Open-delay triple rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank1 = self._rank(o - self._delay(h, self._delay_window_1))
+    rank2 = self._rank(o - self._delay(c, self._delay_window_2))
+    rank3 = self._rank(o - self._delay(l_, self._delay_window_3))
+    return -1 * rank1 * rank2 * rank3
+```
+</Accordion>
+<Accordion title="Alpha191_108">
+
+Alpha #108: High-VWAP volume corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    min_h2 = self._tsmin(h, self._tsmin_window)
+    rank1 = self._rank(h - min_h2)
+    mean_v120 = self._mean(v, self._mean_window)
+    corr_vwap_mv = self._corr(vwap, mean_v120, self._corr_window)
+    rank2 = self._rank(corr_vwap_mv)
+    return (rank1 ** rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_109">
+
+Alpha #109: HL range SMA ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl = h - l_
+    sma1 = self._sma(hl, self._sma_window_1, self._sma_m_1)
+    sma2 = self._sma(sma1, self._sma_window_2, self._sma_m_2)
+    return sma1 / np.maximum(sma2, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_110">
+
+Alpha #110: Upside-downside ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.maximum(0.0, h - delay_c1)
+    dn = np.maximum(0.0, delay_c1 - l_)
+    return self._sum(up, self._sum_window_1) / np.maximum(self._sum(dn, self._sum_window_2), 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_111">
+
+Alpha #111: CLV volume SMA diff.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl_range = h - l_
+    clv = np.where(hl_range > 1e-10, ((c - l_) - (h - c)) / hl_range, 0.0)
+    return self._sma(v * clv, self._sma_window_1, self._sma_m_1) - self._sma(v * clv, self._sma_window_2, self._sma_m_2)
+```
+</Accordion>
+<Accordion title="Alpha191_112">
+
+Alpha #112: RSI balance.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    diff = c - delay_c1
+    up = np.where(diff > 0, diff, 0.0)
+    dn = np.where(diff < 0, self._abs(diff), 0.0)
+    sum_up = self._sum(up, self._sum_window_1)
+    sum_dn = self._sum(dn, self._sum_window_2)
+    return (sum_up - sum_dn) / np.maximum(sum_up + sum_dn, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_113">
+
+Alpha #113: Rank-volume-close correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c5 = self._delay(c, self._delay_window)
+    sum_delay = self._sum(delay_c5, self._sum_window_1)
+    rank1 = self._rank(sum_delay / 20.0)
+    corr_cv = self._corr(c, v, self._corr_window_1)
+    sum_c5 = self._sum(c, self._sum_window_2)
+    sum_c20 = self._sum(c, self._sum_window_3)
+    rank2 = self._rank(self._corr(sum_c5, sum_c20, self._corr_window_2))
+    return -1 * rank1 * corr_cv * rank2
+```
+</Accordion>
+<Accordion title="Alpha191_114">
+
+Alpha #114: HL range volume rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma5 = self._mean(c, self._mean_window)
+    hl_range = (h - l_) / np.maximum(ma5, 1e-10)
+    delay_hl = self._delay(hl_range, self._delay_window)
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(delay_hl)
+    rank2 = self._rank(self._rank(v))
+    denom = hl_range / np.maximum(vwap - c, 1e-10)
+    return rank1 * rank2 / np.where(self._abs(denom) > 1e-10, denom, 1.0)
+```
+</Accordion>
+<Accordion title="Alpha191_115">
+
+Alpha #115: VWAP-volume MA corr rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    weighted = h * 0.9 + c * 0.1
+    mean_v30 = self._mean(v, self._mean_window)
+    mid = (h + l_) / 2.0
+    rank1 = self._rank(self._corr(weighted, mean_v30, self._corr_window_1))
+    rank2 = self._rank(self._corr(self._tsrank(mid, self._tsrank_window_1), self._tsrank(v, self._tsrank_window_2), self._corr_window_2))
+    return rank1 ** rank2
+```
+</Accordion>
+<Accordion title="Alpha191_116">
+
+Alpha #116: Regression slope 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._regbeta(c, self._regbeta_window)
+```
+</Accordion>
+<Accordion title="Alpha191_117">
+
+Alpha #117: Volume-close rank composite.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    tsrank_v = self._tsrank(v, self._tsrank_window_1)
+    mid = (c + h) - l_
+    tsrank_mid = self._tsrank(mid, self._tsrank_window_2)
+    tsrank_ret = self._tsrank(ret, self._tsrank_window_3)
+    return tsrank_v * (1 - tsrank_mid) * (1 - tsrank_ret)
+```
+</Accordion>
+<Accordion title="Alpha191_118">
+
+Alpha #118: High-open vs open-low ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sum_ho = self._sum(h - o, self._sum_window_1)
+    sum_ol = np.maximum(self._sum(o - l_, self._sum_window_2), 1e-10)
+    return sum_ho / sum_ol * 100
+```
+</Accordion>
+<Accordion title="Alpha191_119">
+
+Alpha #119: VWAP-volume decay rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v5 = self._mean(v, self._mean_window_1)
+    sum_mv = self._sum(mean_v5, self._sum_window)
+    rank1 = self._rank(self._decaylinear(self._corr(vwap, sum_mv, self._corr_window_2), self._decay_window_1))
+    rank_o = self._rank(o)
+    mean_v15 = self._mean(v, self._mean_window_2)
+    rank_mv = self._rank(mean_v15)
+    min_corr = self._tsmin(self._corr(rank_o, rank_mv, self._corr_window_1), self._tsmin_window)
+    rank2 = self._rank(self._decaylinear(min_corr, self._decay_window_2))
+    return rank1 - rank2
+```
+</Accordion>
+<Accordion title="Alpha191_120">
+
+Alpha #120: VWAP-close ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    return self._rank(vwap - c) / np.maximum(self._rank(vwap + c), 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_121">
+
+Alpha #121: VWAP min-volume corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(vwap - self._tsmin(vwap, self._tsmin_window))
+    mean_v60 = self._mean(v, self._mean_window)
+    tsrank_vwap = self._tsrank(vwap, self._tsrank_window_1)
+    tsrank_mv = self._tsrank(mean_v60, self._tsrank_window_2)
+    corr_val = self._corr(tsrank_vwap, tsrank_mv, self._corr_window)
+    rank2 = self._tsrank(corr_val, self._tsrank_window_3)
+    return (rank1 ** rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_122">
+
+Alpha #122: Triple SMA log.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sma1 = self._sma(self._log(c), self._sma_window_1, self._sma_m_1)
+    sma2 = self._sma(sma1, self._sma_window_2, self._sma_m_2)
+    sma3 = self._sma(sma2, self._sma_window_3, self._sma_m_3)
+    delay_sma3 = self._delay(sma3, self._delay_window)
+    return (sma3 - delay_sma3) / np.maximum(self._abs(delay_sma3), 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_123">
+
+Alpha #123: VWAP-volume low corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mid = (h + l_) / 2.0
+    sum_mid = self._sum(mid, self._sum_window_1)
+    mean_v60 = self._mean(v, self._mean_window)
+    sum_mv = self._sum(mean_v60, self._sum_window_2)
+    rank1 = self._rank(self._corr(sum_mid, sum_mv, self._corr_window_1))
+    rank2 = self._rank(self._corr(l_, v, self._corr_window_2))
+    return np.where(rank1 < rank2, -1.0, 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_124">
+
+Alpha #124: Close-VWAP decay rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    max_c30 = self._tsmax(c, self._tsmax_window)
+    decay_rank = self._decaylinear(self._rank(max_c30), self._decay_window)
+    return (c - vwap) / np.maximum(decay_rank, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_125">
+
+Alpha #125: VWAP-volume decay rank ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v80 = self._mean(v, self._mean_window)
+    rank1 = self._rank(self._decaylinear(self._corr(vwap, mean_v80, self._corr_window), self._decay_window_1))
+    weighted = c * 0.5 + vwap * 0.5
+    rank2 = self._rank(self._decaylinear(self._delta(weighted, self._delta_window), self._decay_window_2))
+    return rank1 / np.maximum(rank2, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_126">
+
+Alpha #126: Typical price.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return (c + h + l_) / 3.0
+```
+</Accordion>
+<Accordion title="Alpha191_127">
+
+Alpha #127: Close max deviation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    max_c12 = self._tsmax(c, self._tsmax_window)
+    pct_dev = (c - max_c12) / np.maximum(max_c12, 1e-10)
+    return np.sqrt(np.maximum(self._mean(pct_dev ** 2, self._mean_window), 1e-10))
+```
+</Accordion>
+<Accordion title="Alpha191_128">
+
+Alpha #128: Money flow index.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tp = (h + l_ + c) / 3.0
+    delay_tp = self._delay(tp, self._delay_window)
+    up_flow = np.where(tp > delay_tp, tp * v, 0.0)
+    dn_flow = np.where(tp < delay_tp, tp * v, 0.0)
+    sum_up = self._sum(up_flow, self._sum_window_1)
+    sum_dn = np.maximum(self._sum(dn_flow, self._sum_window_2), 1e-10)
+    return 100 - 100 / (1 + sum_up / sum_dn)
+```
+</Accordion>
+<Accordion title="Alpha191_129">
+
+Alpha #129: Down move sum 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    down = np.where(c < delay_c1, self._abs(c - delay_c1), 0.0)
+    return self._sum(down, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_130">
+
+Alpha #130: VWAP-volume HL decay corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mid = (h + l_) / 2.0
+    mean_v40 = self._mean(v, self._mean_window)
+    rank_vwap = self._rank(vwap)
+    rank_v = self._rank(v)
+    rank1 = self._rank(self._decaylinear(self._corr(mid, mean_v40, self._corr_window_1), self._decay_window_1))
+    rank2 = self._rank(self._decaylinear(self._corr(rank_vwap, rank_v, self._corr_window_2), self._decay_window_2))
+    return rank1 / np.maximum(rank2, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_131">
+
+Alpha #131: VWAP delta-close corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    delta_vwap = self._delta(vwap, self._delta_window)
+    rank1 = self._rank(delta_vwap)
+    mean_v50 = self._mean(v, self._mean_window)
+    corr_cv = self._corr(c, mean_v50, self._corr_window)
+    rank2 = self._tsrank(corr_cv, self._tsrank_window)
+    return rank1 ** rank2
+```
+</Accordion>
+<Accordion title="Alpha191_132">
+
+Alpha #132: Dollar volume MA 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._mean(self._amount(c, v), self._mean_window)
+```
+</Accordion>
+<Accordion title="Alpha191_133">
+
+Alpha #133: Highday-lowday diff.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hd = self._highday(h, self._highday_window)
+    ld = self._lowday(l_, self._lowday_window)
+    return (20 - hd) / 20.0 * 100 - (20 - ld) / 20.0 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_134">
+
+Alpha #134: Volume-weighted return 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c12 = self._delay(c, self._delay_window)
+    return (c - delay_c12) / np.maximum(delay_c12, 1e-10) * v
+```
+</Accordion>
+<Accordion title="Alpha191_135">
+
+Alpha #135: Return ratio SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ratio = c / np.maximum(self._delay(c, self._delay_window_2), 1e-10)
+    delay_ratio = self._delay(ratio, self._delay_window_1)
+    return self._sma(delay_ratio, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_136">
+
+Alpha #136: Return delta volume corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    delta_ret = self._delta(ret, self._delta_window)
+    corr_ov = self._corr(o, v, self._corr_window)
+    return -1 * self._rank(delta_ret) * corr_ov
+```
+</Accordion>
+<Accordion title="Alpha191_137">
+
+Alpha #137: Adaptive true range scalar.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window_1)
+    delay_o1 = self._delay(o, self._delay_window_2)
+    body = c - delay_c1 + (c - o) / 2.0 + delay_c1 - delay_o1
+    atr_h = self._abs(h - delay_c1)
+    atr_l = self._abs(l_ - delay_c1)
+    atr_hl = self._abs(h - self._delay(l_, self._delay_window_3))
+    adj_co = self._abs(delay_c1 - delay_o1) / 4.0
+    denom = np.where(
+        (atr_h > atr_l) & (atr_h > atr_hl),
+        atr_h + atr_l / 2.0 + adj_co,
+        np.where(
+            (atr_l > atr_hl) & (atr_l > atr_h),
+            atr_l + atr_h / 2.0 + adj_co,
+            atr_hl + adj_co
+        )
+    )
+    tr_max = np.maximum(atr_h, atr_l)
+    return 16 * body / np.maximum(denom, 1e-10) * tr_max
+```
+</Accordion>
+<Accordion title="Alpha191_138">
+
+Alpha #138: VWAP-low decay rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    low_w = l_ * 0.7 + vwap * 0.3
+    rank1 = self._rank(self._decaylinear(self._delta(low_w, self._delta_window), self._decay_window_1))
+    mean_v60 = self._mean(v, self._mean_window)
+    tsrank_low = self._tsrank(l_, self._tsrank_window_1)
+    tsrank_mv = self._tsrank(mean_v60, self._tsrank_window_2)
+    corr_val = self._corr(tsrank_low, tsrank_mv, self._corr_window)
+    rank2 = self._tsrank(self._decaylinear(self._tsrank(corr_val, self._tsrank_window_4), self._decay_window_2), self._tsrank_window_3)
+    return (rank1 - rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_139">
+
+Alpha #139: Open-volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return -1 * self._corr(o, v, self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_140">
+
+Alpha #140: Open-close rank decay.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_o = self._rank(o)
+    rank_l = self._rank(l_)
+    rank_h = self._rank(h)
+    rank_c = self._rank(c)
+    val = rank_o + rank_l - rank_h - rank_c
+    rank1 = self._rank(self._decaylinear(val, self._decay_window_1))
+    mean_v60 = self._mean(v, self._mean_window)
+    corr_val = self._corr(self._tsrank(c, self._tsrank_window_2), self._tsrank(mean_v60, self._tsrank_window_3), self._corr_window)
+    rank2 = self._tsrank(self._decaylinear(corr_val, self._decay_window_2), self._tsrank_window_1)
+    return np.minimum(rank1, rank2)
+```
+</Accordion>
+<Accordion title="Alpha191_141">
+
+Alpha #141: High-volume rank corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    rank_h = self._rank(h)
+    mean_v15 = self._mean(v, self._mean_window)
+    rank_mv = self._rank(mean_v15)
+    return -1 * self._rank(self._corr(rank_h, rank_mv, self._corr_window))
+```
+</Accordion>
+<Accordion title="Alpha191_142">
+
+Alpha #142: Close-volume triple rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsrank_c = self._tsrank(c, self._tsrank_window_1)
+    delta2_c = self._delta(self._delta(c, self._delta_window_2), self._delta_window_1)
+    rank_d2 = self._rank(delta2_c)
+    vol_ratio = v / np.maximum(self._mean(v, self._mean_window), 1e-10)
+    tsrank_vr = self._tsrank(vol_ratio, self._tsrank_window_2)
+    return -1 * self._rank(tsrank_c) * rank_d2 * self._rank(tsrank_vr)
+```
+</Accordion>
+<Accordion title="Alpha191_143">
+
+Alpha #143: Cumulative directional return.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c = self._delay(c, self._delay_window)
+    ret = (c - delay_c) / np.maximum(delay_c, 1e-10)
+    # Iterative: SELF starts at 1, multiplied by (1+ret) on up days
+    T = len(c)
+    result = np.ones_like(c, dtype=float)
+    for t in range(1, T):
+        up = c[t] > c[t - 1] if t > 0 else np.zeros(c.shape[1], dtype=bool)
+        result[t] = np.where(up, result[t - 1] * (1 + ret[t]), result[t - 1])
+    return result
+```
+</Accordion>
+<Accordion title="Alpha191_144">
+
+Alpha #144: Conditional impact sum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._abs(self._ret(c))
+    amt = self._amount(c, v)
+    impact = ret / np.maximum(amt, 1e-10)
+    delay_c1 = self._delay(c, self._delay_window)
+    cond = c < delay_c1
+    raw = np.where(cond, impact, 0.0)
+    cnt = np.maximum(self._count(cond, self._count_window), 1e-10)
+    return self._sum(raw, self._sum_window) / cnt
+```
+</Accordion>
+<Accordion title="Alpha191_145">
+
+Alpha #145: Volume MA divergence.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma9 = self._mean(v, self._mean_window_1)
+    ma26 = self._mean(v, self._mean_window_2)
+    ma12 = np.maximum(self._mean(v, self._mean_window_3), 1e-10)
+    return (ma9 - ma26) / ma12 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_146">
+
+Alpha #146: Return deviation regression.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    sma_ret = self._sma(ret, self._sma_window_1, self._sma_m_1)
+    dev = ret - sma_ret
+    mean_dev = self._mean(dev, self._mean_window)
+    var_dev = np.maximum(self._sma(dev ** 2, self._sma_window_2, self._sma_m_2), 1e-10)
+    return mean_dev * dev / var_dev
+```
+</Accordion>
+<Accordion title="Alpha191_147">
+
+Alpha #147: Regression slope 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._regbeta(self._mean(c, self._mean_window), self._regbeta_window)
+```
+</Accordion>
+<Accordion title="Alpha191_148">
+
+Alpha #148: Open-VWAP volume rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    mean_v60 = self._mean(v, self._mean_window)
+    sum_mv = self._sum(mean_v60, self._sum_window)
+    rank1 = self._rank(self._corr(o, sum_mv, self._corr_window))
+    rank2 = self._rank(o - self._tsmin(o, self._tsmin_window))
+    return np.where(rank1 < rank2, -1.0, 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_149">
+
+Alpha #149: Down-market beta.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    bm_c_col = self._bm_col(c)  # 1D BTC close
+    bm_down = np.zeros_like(c, dtype=bool)
+    bm_down[1:] = (bm_c_col[1:] < bm_c_col[:-1])[:, None]
+
+    # Filter: keep only down-market returns, else NaN
+    ret_filtered = np.where(bm_down, ret, np.nan)
+    bm_ret = self._bm(ret)
+    bm_ret_filtered = np.where(bm_down, bm_ret, np.nan)
+
+    # Rolling beta on filtered data
+    return self._regbeta_xy(ret_filtered, bm_ret_filtered, 168)
+```
+</Accordion>
+<Accordion title="Alpha191_150">
+
+Alpha #150: Typical price volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return (c + h + l_) / 3.0 * v
+```
+</Accordion>
+<Accordion title="Alpha191_151">
+
+Alpha #151: Close momentum SMA 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return self._sma(c - self._delay(c, self._delay_window), self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_152">
+
+Alpha #152: Nested SMA momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    inner = self._sma(self._delay(c / np.maximum(self._delay(c, self._delay_window_3), 1e-10), self._delay_window_2), self._sma_window_1, self._sma_m_1)
+    delay_inner = self._delay(inner, self._delay_window_1)
+    sma_short = self._mean(delay_inner, self._mean_window_1)
+    sma_long = self._mean(delay_inner, self._mean_window_2)
+    return self._sma(sma_short - sma_long, self._sma_window_2, self._sma_m_2)
+```
+</Accordion>
+<Accordion title="Alpha191_153">
+
+Alpha #153: Multi-MA average.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return (self._mean(c, self._mean_window_3) + self._mean(c, self._mean_window_4) + self._mean(c, self._mean_window_2) + self._mean(c, self._mean_window_1)) / 4.0
+```
+</Accordion>
+<Accordion title="Alpha191_154">
+
+Alpha #154: VWAP-min-volume corr.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    min_vwap = self._tsmin(vwap, self._tsmin_window)
+    mean_v180 = self._mean(v, self._mean_window)
+    corr_val = self._corr(vwap, mean_v180, self._corr_window)
+    return np.where((vwap - min_vwap) < corr_val, 1.0, 0.0)
+```
+</Accordion>
+<Accordion title="Alpha191_155">
+
+Alpha #155: Volume MACD.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sma13 = self._sma(v, self._sma_window_1, self._sma_m_1)
+    sma27 = self._sma(v, self._sma_window_2, self._sma_m_2)
+    diff = sma13 - sma27
+    signal = self._sma(diff, self._sma_window_3, self._sma_m_3)
+    return diff - signal
+```
+</Accordion>
+<Accordion title="Alpha191_156">
+
+Alpha #156: VWAP delta decay rank.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(self._decaylinear(self._delta(vwap, self._delta_window_1), self._decay_window_1))
+    weighted = o * 0.15 + l_ * 0.85
+    delta_w = self._delta(weighted, self._delta_window_2) / np.maximum(weighted, 1e-10) * -1
+    rank2 = self._rank(self._decaylinear(delta_w, self._decay_window_2))
+    return np.maximum(rank1, rank2) * -1
+```
+</Accordion>
+<Accordion title="Alpha191_157">
+
+Alpha #157: Nested rank log sum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delta_c5 = self._delta(c - 1, self._delta_window)
+    rank_delta = self._rank(-1 * delta_c5)
+    min_rank = self._tsmin(self._rank(rank_delta), self._tsmin_window)
+    log_sum = self._log(self._sum(min_rank, self._sum_window) + 1e-10)
+    rank1 = self._rank(self._rank(log_sum))
+    ret = self._ret(c)
+    delay_ret = self._delay(-1 * ret, self._delay_window)
+    rank2 = self._tsrank(delay_ret, self._tsrank_window_1)
+    return np.minimum(self._tsrank(rank1, self._tsrank_window_2), rank2)
+```
+</Accordion>
+<Accordion title="Alpha191_158">
+
+Alpha #158: High-low SMA normalized.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sma_c = self._sma(c, self._sma_window, self._sma_m)
+    return ((h - sma_c) - (l_ - sma_c)) / np.maximum(c, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_159">
+
+Alpha #159: Multi-timeframe stochastic.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    min_lc = np.minimum(l_, delay_c1)
+    max_hc = np.maximum(h, delay_c1)
+    rng = np.maximum(max_hc - min_lc, 1e-10)
+    a = (c - self._sum(min_lc, self._sum_window_1)) / np.maximum(self._sum(rng, self._sum_window_2), 1e-10)
+    b = (c - self._sum(min_lc, self._sum_window_3)) / np.maximum(self._sum(rng, self._sum_window_4), 1e-10)
+    d = (c - self._sum(min_lc, self._sum_window_5)) / np.maximum(self._sum(rng, self._sum_window_6), 1e-10)
+    return (a * 12 * 24 + b * 6 * 24 + d * 6 * 12) * 100 / (6*12 + 6*24 + 12*24)
+```
+</Accordion>
+<Accordion title="Alpha191_160">
+
+Alpha #160: Downside volatility SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    std20 = self._std(c, self._std_window)
+    cond = c <= delay_c1
+    raw = np.where(cond, std20, 0.0)
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_161">
+
+Alpha #161: Average True Range 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    tr = np.maximum(np.maximum(h - l_, self._abs(delay_c1 - h)), self._abs(delay_c1 - l_))
+    return self._mean(tr, self._mean_window)
+```
+</Accordion>
+<Accordion title="Alpha191_162">
+
+Alpha #162: RSI range normalized.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.maximum(c - delay_c1, 0.0)
+    total = self._abs(c - delay_c1)
+    rsi = self._sma(up, self._sma_window_1, self._sma_m_1) / np.maximum(self._sma(total, self._sma_window_2, self._sma_m_2), 1e-10) * 100
+    min_rsi = self._tsmin(rsi, self._tsmin_window)
+    max_rsi = np.maximum(self._tsmax(rsi, self._tsmax_window) - min_rsi, 1e-10)
+    return (rsi - min_rsi) / max_rsi
+```
+</Accordion>
+<Accordion title="Alpha191_163">
+
+Alpha #163: Rank composite volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    vwap = self._vwap(h, l_, c)
+    mean_v20 = self._mean(v, self._mean_window)
+    return self._rank(-1 * ret * mean_v20 * vwap * (h - c))
+```
+</Accordion>
+<Accordion title="Alpha191_164">
+
+Alpha #164: Conditional momentum SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    cond = c > delay_c1
+    inv_change = np.where(cond, 1.0 / np.maximum(c - delay_c1, 1e-10), 1.0)
+    hl_range = h - l_
+    min_inv = self._tsmin(inv_change, self._tsmin_window)
+    raw = (inv_change - min_inv) / np.maximum(hl_range, 1e-10) * 100
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_165">
+
+Alpha #165: Cumulative deviation range.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mean48 = self._mean(c, self._mean_window)
+    dev = c - mean48
+    cumdev = self._sumac(np.where(np.isnan(dev), 0.0, dev))
+    std48 = self._std(c, self._std_window)
+    mx = self._tsmax(cumdev, self._tsmax_window)
+    mn = self._tsmin(cumdev, self._tsmin_window)
+    return (mx - mn) / np.maximum(std48, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_166">
+
+Alpha #166: Return skewness.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    mean_ret = self._mean(ret, self._mean_window)
+    dev = ret - mean_ret
+    n = 20
+    sum_dev3 = self._sum(dev ** 3, n)
+    sum_dev2 = self._sum(dev ** 2, n)
+    denom = np.maximum(sum_dev2, 1e-10) ** 1.5
+    # Skewness formula: n/((n-1)(n-2)) * sum(dev^3) / (sum(dev^2)/n)^1.5
+    skew = -n * (n - 1) ** 1.5 / ((n - 1) * (n - 2)) * sum_dev3 / denom
+    return skew
+```
+</Accordion>
+<Accordion title="Alpha191_167">
+
+Alpha #167: Upward close sum 12.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    up = np.where(c > delay_c1, c - delay_c1, 0.0)
+    return self._sum(up, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_168">
+
+Alpha #168: Negative volume ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    return -1 * v / np.maximum(self._mean(v, self._mean_window), 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_169">
+
+Alpha #169: Nested SMA return momentum.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    diff = c - self._delay(c, self._delay_window_2)
+    inner = self._sma(diff, self._sma_window_1, self._sma_m_1)
+    delay_inner = self._delay(inner, self._delay_window_1)
+    sma_short = self._mean(delay_inner, self._mean_window_1)
+    sma_long = self._mean(delay_inner, self._mean_window_2)
+    return self._sma(sma_short - sma_long, self._sma_window_2, self._sma_m_2)
+```
+</Accordion>
+<Accordion title="Alpha191_170">
+
+Alpha #170: Rank composite price-volume.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    inv_c = 1.0 / np.maximum(c, 1e-10)
+    rank_inv = self._rank(inv_c)
+    mean_v20 = self._mean(v, self._mean_window_1)
+    vol_factor = v / np.maximum(mean_v20, 1e-10)
+    rank_gap = self._rank(h - c)
+    ma5 = self._mean(h, self._mean_window_2)
+    vwap = self._vwap(h, l_, c)
+    rank_vwap_delta = self._rank(vwap - self._delay(vwap, self._delay_window))
+    return rank_inv * vol_factor * (h * rank_gap / np.maximum(ma5, 1e-10)) - rank_vwap_delta
+```
+</Accordion>
+<Accordion title="Alpha191_171">
+
+Alpha #171: Open-close-high power ratio.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    oc_diff = l_ - c
+    open_pow = np.power(np.maximum(self._abs(o), 1e-10), 5)
+    ch_diff = c - h
+    close_pow = np.power(np.maximum(self._abs(c), 1e-10), 5)
+    return -1 * oc_diff * open_pow / np.maximum(ch_diff * close_pow, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_172">
+
+Alpha #172: ADX-like.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_h1 = self._delay(h, self._delay_window_1)
+    delay_l1 = self._delay(l_, self._delay_window_2)
+    delay_c1 = self._delay(c, self._delay_window_3)
+    hd = h - delay_h1
+    ld = delay_l1 - l_
+    tr = np.maximum(np.maximum(h - l_, self._abs(h - delay_c1)), self._abs(l_ - delay_c1))
+    sum_tr = np.maximum(self._sum(tr, self._sum_window_1), 1e-10)
+    plus_di = self._sum(np.where((ld > 0) & (ld > hd), ld, 0.0), self._sum_window_2) * 100 / sum_tr
+    minus_di = self._sum(np.where((hd > 0) & (hd > ld), hd, 0.0), self._sum_window_3) * 100 / sum_tr
+    dx = self._abs(plus_di - minus_di) / np.maximum(plus_di + minus_di, 1e-10) * 100
+    return self._mean(dx, self._mean_window)
+```
+</Accordion>
+<Accordion title="Alpha191_173">
+
+Alpha #173: Triple SMA DEMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    sma1 = self._sma(c, self._sma_window_1, self._sma_m_1)
+    sma2 = self._sma(sma1, self._sma_window_2, self._sma_m_2)
+    sma3 = self._sma(sma2, self._sma_window_3, self._sma_m_3)
+    return 3 * sma1 - 2 * sma2 + sma3
+```
+</Accordion>
+<Accordion title="Alpha191_174">
+
+Alpha #174: Upside volatility SMA.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    std20 = self._std(c, self._std_window)
+    cond = c > delay_c1
+    raw = np.where(cond, std20, 0.0)
+    return self._sma(raw, self._sma_window, self._sma_m)
+```
+</Accordion>
+<Accordion title="Alpha191_175">
+
+Alpha #175: ATR 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    tr = np.maximum(np.maximum(h - l_, self._abs(delay_c1 - h)), self._abs(delay_c1 - l_))
+    return self._mean(tr, self._mean_window)
+```
+</Accordion>
+<Accordion title="Alpha191_176">
+
+Alpha #176: Stochastic-volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    tsmin12 = self._tsmin(l_, self._tsmin_window)
+    tsmax12 = self._tsmax(h, self._tsmax_window)
+    rng = np.maximum(tsmax12 - tsmin12, 1e-10)
+    stoch = (c - tsmin12) / rng
+    rank_stoch = self._rank(stoch)
+    rank_v = self._rank(v)
+    return self._corr(rank_stoch, rank_v, self._corr_window)
+```
+</Accordion>
+<Accordion title="Alpha191_177">
+
+Alpha #177: Highday ratio 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hd = self._highday(h, self._highday_window)
+    return (20 - hd) / 20.0 * 100
+```
+</Accordion>
+<Accordion title="Alpha191_178">
+
+Alpha #178: Volume-weighted return 1d.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_c1 = self._delay(c, self._delay_window)
+    return (c - delay_c1) / np.maximum(delay_c1, 1e-10) * v
+```
+</Accordion>
+<Accordion title="Alpha191_179">
+
+Alpha #179: VWAP-low-volume correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    vwap = self._vwap(h, l_, c)
+    rank1 = self._rank(self._corr(vwap, v, self._corr_window_1))
+    rank_l = self._rank(l_)
+    mean_v50 = self._mean(v, self._mean_window)
+    rank_mv = self._rank(mean_v50)
+    rank2 = self._rank(self._corr(rank_l, rank_mv, self._corr_window_2))
+    return rank1 * rank2
+```
+</Accordion>
+<Accordion title="Alpha191_180">
+
+Alpha #180: Volume-momentum conditional.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mean_v20 = self._mean(v, self._mean_window)
+    cond = mean_v20 < v
+    delta_c7 = self._delta(c, self._delta_window)
+    abs_delta = self._abs(delta_c7)
+    sign_delta = self._sign(delta_c7)
+    rank_abs = self._tsrank(abs_delta, self._tsrank_window)
+    return np.where(cond, -1 * rank_abs * sign_delta, -1 * v)
+```
+</Accordion>
+<Accordion title="Alpha191_181">
+
+Alpha #181: Tracking error vs benchmark.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    bm_ret = self._bm(ret)
+    mean_ret = self._mean(ret, self._mean_window_1)
+    mean_bm = self._mean(bm_ret, self._mean_window_2)
+    dev_ret = ret - mean_ret
+    dev_bm = bm_ret - mean_bm
+    te_sq = self._sum((dev_ret - dev_bm) ** 2, self._sum_window_1)
+    bm_cube = self._sum(dev_bm ** 3, self._sum_window_2)
+    return te_sq / np.where(np.abs(bm_cube) > 1e-10, bm_cube, np.nan)
+```
+</Accordion>
+<Accordion title="Alpha191_182">
+
+Alpha #182: Co-movement with benchmark.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    bm_c = self._bm(c)
+    bm_o = self._bm(o)
+    coin_up = c > o
+    coin_down = c < o
+    bm_up = bm_c > bm_o
+    bm_down = bm_c < bm_o
+    co_move = ((coin_up & bm_up) | (coin_down & bm_down)).astype(float)
+    return self._sum(co_move, self._sum_window) / 20.0
+```
+</Accordion>
+<Accordion title="Alpha191_183">
+
+Alpha #183: Cumulative deviation range (24-period).
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mean24 = self._mean(c, self._mean_window)
+    dev = c - mean24
+    cumdev = self._sumac(np.where(np.isnan(dev), 0.0, dev))
+    std24 = self._std(c, self._std_window)
+    mx = self._tsmax(cumdev, self._tsmax_window)
+    mn = self._tsmin(cumdev, self._tsmin_window)
+    return (mx - mn) / np.maximum(std24, 1e-10)
+```
+</Accordion>
+<Accordion title="Alpha191_184">
+
+Alpha #184: Open-close-delay correlation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_oc = self._delay(o - c, self._delay_window)
+    rank1 = self._rank(self._corr(delay_oc, c, self._corr_window))
+    rank2 = self._rank(o - c)
+    return rank1 + rank2
+```
+</Accordion>
+<Accordion title="Alpha191_185">
+
+Alpha #185: Open-close ratio squared.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ratio = 1 - (o / np.maximum(c, 1e-10))
+    return self._rank(-1 * ratio ** 2)
+```
+</Accordion>
+<Accordion title="Alpha191_186">
+
+Alpha #186: ADX smoothed.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_h1 = self._delay(h, self._delay_window_1)
+    delay_l1 = self._delay(l_, self._delay_window_2)
+    delay_c1 = self._delay(c, self._delay_window_3)
+    hd = h - delay_h1
+    ld = delay_l1 - l_
+    tr = np.maximum(np.maximum(h - l_, self._abs(h - delay_c1)), self._abs(l_ - delay_c1))
+    sum_tr = np.maximum(self._sum(tr, self._sum_window_1), 1e-10)
+    plus_di = self._sum(np.where((ld > 0) & (ld > hd), ld, 0.0), self._sum_window_2) * 100 / sum_tr
+    minus_di = self._sum(np.where((hd > 0) & (hd > ld), hd, 0.0), self._sum_window_3) * 100 / sum_tr
+    dx = self._abs(plus_di - minus_di) / np.maximum(plus_di + minus_di, 1e-10) * 100
+    adx = self._mean(dx, self._mean_window)
+    delay_adx = self._delay(adx, self._delay_window_4)
+    return (adx + delay_adx) / 2.0
+```
+</Accordion>
+<Accordion title="Alpha191_187">
+
+Alpha #187: Open-low upside 20.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    delay_o1 = self._delay(o, self._delay_window)
+    cond = o <= delay_o1
+    raw = np.where(cond, 0.0, np.maximum(h - o, o - delay_o1))
+    return self._sum(raw, self._sum_window)
+```
+</Accordion>
+<Accordion title="Alpha191_188">
+
+Alpha #188: HL range SMA deviation.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    hl = h - l_
+    sma_hl = self._sma(hl, self._sma_window, self._sma_m)
+    return (hl - sma_hl) / np.maximum(sma_hl, 1e-10) * 100
+```
+</Accordion>
+<Accordion title="Alpha191_189">
+
+Alpha #189: Mean absolute deviation 6.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ma6 = self._mean(c, self._mean_window_1)
+    return self._mean(self._abs(c - ma6), self._mean_window_2)
+```
+</Accordion>
+<Accordion title="Alpha191_190">
+
+Alpha #190: Geometric mean relative performance.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    ret = self._ret(c)
+    # Geometric mean return over 19 periods
+    delay_c19 = self._delay(c, self._delay_window)
+    geo_mean = (c / np.maximum(delay_c19, 1e-10)) ** (1.0 / 20.0) - 1.0
+
+    # Count days where return > geometric mean threshold
+    above = (ret > geo_mean).astype(float)
+    below = (ret <= geo_mean).astype(float)
+    count_above = self._sum(above, self._sum_window_1)
+    count_below = self._sum(below, self._sum_window_2)
+
+    # Squared deviations conditional on direction
+    dev_sq = (ret - geo_mean) ** 2
+    sum_above_sq = self._sumif(dev_sq, self._sumif_window_1, ret > geo_mean)
+    sum_below_sq = self._sumif(dev_sq, self._sumif_window_2, ret <= geo_mean)
+
+    # Log ratio
+    numer = (count_above - 1) * sum_below_sq
+    denom = count_below * sum_above_sq
+    ratio = numer / np.maximum(np.abs(denom), 1e-10)
+    return self._log(np.maximum(ratio, 1e-10))
+```
+</Accordion>
+<Accordion title="Alpha191_191">
+
+Alpha #191: Volume-low-close composite.
+
+```python
+def _compute_alpha(self, c, o, h, l_, v):
+    mean_v20 = self._mean(v, self._mean_window)
+    corr_val = self._corr(mean_v20, l_, self._corr_window)
+    mid = (h + l_) / 2.0
+    return corr_val + mid - c
+```
+</Accordion>
+</AccordionGroup>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Alpha 101" icon="chart-line" href="/operators/signals/alpha-101">
+    101 Formulaic Alphas (Kakushadze, 2016)
+  </Card>
+  <Card title="Alpha Signals" icon="bolt" href="/operators/signals/alphas">
+    Hand-crafted alpha signals
+  </Card>
+</CardGroup>

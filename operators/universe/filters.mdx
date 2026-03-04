@@ -7,18 +7,85 @@ description: "VolumeFilter, VolatilityFilter, PriceFilter, LiquidityFilter, Data
 
 ## Overview
 
-This page documents **6 operators** (role: `FILTER`).
+This page documents **7 operators** (role: `FILTER`).
 
 ## Quick Reference
 
 | Operator | Role | Key Parameters | Ephemeral |
 |----------|------|----------------|-----------|
+| **CompositeFilter** | `FILTER` | `filters`, `logic='and'` | No |
 | **DataAvailabilityFilter** | `FILTER` | `min_bars=50` | No |
 | **LiquidityFilter** | `FILTER` | `min_dollar_volume=1000000` | No |
 | **PriceFilter** | `FILTER` | `min_price=1.0`, `max_price=None` | No |
 | **StrataFilter** | `FILTER` | `strata`, `symbol_order`, `include=None` | No |
 | **VolatilityFilter** | `FILTER` | `min_vol=0.001`, `max_vol=1.0`, `annualize=True` | No |
 | **VolumeFilter** | `FILTER` | `min_volume=100000` | No |
+
+---
+
+## CompositeFilter
+
+Combine multiple filters with AND/OR logic.
+
+**Role**: `FILTER` | **Ephemeral**: No
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filters` | `list` | Required |  |
+| `logic` | `str` | `'and'` |  |
+
+### Source Code
+
+Full `compute()` implementation — no hidden logic.
+
+```python
+def compute(
+    self,
+    data: Union[TaggedArray, List[TaggedArray]],
+    timestamp: Optional[pd.Timestamp] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> TaggedArray:
+    """Apply all filters and combine results."""
+    if not self._filters:
+        if isinstance(data, list):
+            data = data[0]
+        last = data[-1] if len(data) > 0 else data
+        exists = last.exists
+        valid = last.valid
+        result = np.where(exists & valid, 1.0, 0.0)
+        return TaggedArray(
+            value=result,
+            exists=exists,
+            valid=exists & valid,
+            updated=np.ones(len(result), dtype=bool),
+        )
+
+    results = [f.compute(data, timestamp, context) for f in self._filters]
+
+    first_result = results[0]
+    exists = first_result.exists
+    valid = first_result.valid
+
+    combined_values = first_result.value.copy()
+    for r in results[1:]:
+        r_values = r.value
+        if self._logic == "and":
+            combined_values = np.minimum(combined_values, r_values)
+        else:
+            combined_values = np.maximum(combined_values, r_values)
+
+    return TaggedArray(
+        value=combined_values,
+        exists=exists,
+        valid=valid,
+        updated=np.ones(len(combined_values), dtype=bool),
+    )
+```
+
+<sub>Source: `apps/trading/operators/base.py`</sub>
+
 
 ---
 

@@ -13,18 +13,18 @@ This page documents **12 operators** (role: `INDICATOR`).
 
 | Operator | Role | Key Parameters | Ephemeral |
 |----------|------|----------------|-----------|
-| **ADX** | `INDICATOR` | `close`, `high`, `low` | No |
-| **ADXR** | `INDICATOR` | `close`, `high`, `low` | No |
-| **DX** | `INDICATOR` | `close`, `high`, `low` | No |
-| **AROON** | `INDICATOR` | `high`, `low`, `period=14` | No |
-| **AROONOSC** | `INDICATOR` | `high`, `low`, `period=14` | No |
-| **PLUS_DI** | `INDICATOR` | `close`, `high`, `low` | No |
-| **MINUS_DI** | `INDICATOR` | `close`, `high`, `low` | No |
-| **PLUS_DM** | `INDICATOR` | `high`, `low`, `period=14` | No |
-| **MINUS_DM** | `INDICATOR` | `high`, `low`, `period=14` | No |
-| **ICHIMOKU** | `INDICATOR` | `high`, `low`, `close` | No |
-| **SAR** | `INDICATOR` | `high`, `low`, `acceleration=0.02` | No |
-| **SAREXT** | `INDICATOR` | `high`, `low`, `start_value=0.0` | No |
+| **ADX** | `INDICATOR` | `period=14` | No |
+| **ADXR** | `INDICATOR` | `period=14` | No |
+| **DX** | `INDICATOR` | `period=14` | No |
+| **AROON** | `INDICATOR` | `period=14`, `output='up'` | No |
+| **AROONOSC** | `INDICATOR` | `period=14` | No |
+| **PLUS_DI** | `INDICATOR` | `period=14` | No |
+| **MINUS_DI** | `INDICATOR` | `period=14` | No |
+| **PLUS_DM** | `INDICATOR` | `period=14` | No |
+| **MINUS_DM** | `INDICATOR` | `period=14` | No |
+| **ICHIMOKU** | `INDICATOR` | `tenkan_period=9`, `kijun_period=26`, `senkou_b_period=52` | No |
+| **SAR** | `INDICATOR` | `acceleration=0.02`, `maximum=0.2` | No |
+| **SAREXT** | `INDICATOR` | `start_value=0.0`, `offset_on_reverse=0.0`, `accel_init_long=0.02` | No |
 
 ---
 
