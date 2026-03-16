@@ -1,152 +1,182 @@
 ---
 title: "Onchain Data"
-description: "DeFiLlama aggregate metrics and RPC-based onchain data collection across EVM, Solana, Aptos, Sui, TON, Tron, and Cosmos"
+description: "RPC-based and DeFiLlama onchain data collection across 16 chains and 20 DeFiLlama ecosystems"
 ---
 
 ## Overview
 
 ClyptQ collects onchain data from two complementary sources:
 
-1. **DeFiLlama** — Aggregate chain-level metrics (TVL, DEX volume, fees, stablecoin supply). Free API, no key required.
-2. **RPC Collectors** — Direct blockchain node queries for granular data (gas prices, DeFi lending rates, stablecoin supply, DEX pool state, whale transfers).
+1. **RPC Direct Collection** — Hourly granularity (1h). Direct blockchain node queries for gas, DeFi rates, stablecoin supply, DEX pools, exchange flow, whale transfers, and network metrics.
+2. **DeFiLlama API** — Daily granularity (1d). Aggregate chain-level TVL, DEX volume, fees/revenue, and stablecoin circulating supply across 20 chains.
 
-Both sources output normalized DataFrames that flow into the graph as FIELD inputs.
+All data is public and requires no API keys or licenses. RPC endpoints use public fallbacks with optional private override via environment variables.
 
-## DeFiLlama Data
+## 1. RPC Direct Collection (1h)
 
-### Supported Data Types
+### Chain × Data Type Matrix
 
-| Data Type | Fields | API Endpoint | Description |
+| Chain | gas | defi_rates | stablecoin_supply | dex_pools | market_reserves | exchange_flow | whale_transfers | network | mempool |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Bitcoin** | - | - | - | - | - | O | O | O | O (live only) |
+| **Ethereum** | O | O | O | - | - | O | O | - | - |
+| **Arbitrum** | O | O | O | O | O | O | O | - | - |
+| **Base** | O | O | O | O | O | O | O | - | - |
+| **Optimism** | O | O | O | O | O | O | O | - | - |
+| **Polygon** | O | O | O | O | O | O | O | - | - |
+| **BSC** | O | O (Venus) | O | - | - | O | O | - | - |
+| **Avalanche** | O | O (Aave) | O | O | O | O | O | - | - |
+| **Mantle** | O | - | O | - | - | O | O | - | - |
+| **zkSync** | O | - | O | - | - | O | O | - | - |
+| **Solana** | O (fees) | - | - | - | - | - | - | O | - |
+| **Aptos** | O | - | - | - | - | - | - | O | - |
+| **TON** | O | - | - | - | - | - | - | O | - |
+| **TRON** | O (energy) | - | - | - | - | - | - | O | - |
+| **Cosmos** | - | - | - | - | - | - | - | O | - |
+| **Sui** | O | - | - | - | - | - | - | O | - |
+
+**Data sources**: Bitcoin = Mempool.space, EVM = Archive Node RPC, Others = chain-native RPC.
+
+### EVM DeFi Protocol Support
+
+Not all EVM chains support the same DeFi protocols:
+
+| Chain | Aave V3 | Compound V3 | Venus | DEX Pool (UniV3) | Market Reserves |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Arbitrum** | O | O | - | O | O |
+| **Base** | O | O | - | O | O |
+| **Optimism** | O | O | - | O | O |
+| **Polygon** | O | O | - | O | O |
+| **BSC** | - | - | O | O | - |
+| **Avalanche** | O | - | - | O | O |
+| **Mantle** | - | - | - | - | - |
+| **zkSync** | - | - | - | - | - |
+
+### DeFi Rates Fields (per chain)
+
+| Chain | Fields |
+|---|---|
+| Arbitrum / Base / Optimism / Polygon | `aave_v3_supply_rate_usdc`, `aave_v3_borrow_rate_usdc`, `compound_v3_borrow_rate` |
+| Avalanche | `aave_v3_supply_rate_usdc`, `aave_v3_borrow_rate_usdc` (no Compound) |
+| BSC | `venus_supply_rate_usdc`, `venus_supply_rate_usdt`, `venus_borrow_rate_usdc`, `venus_borrow_rate_usdt` |
+| Mantle / zkSync | *None — no DeFi protocol support* |
+
+### Stablecoin Supply Fields
+
+| Chain | Fields |
+|---|---|
+| **Base** | `usdc_total_supply` only (no USDT on Base) |
+| All others | `usdc_total_supply`, `usdt_total_supply` |
+
+### Data Types per Chain (Summary)
+
+| Chain | Supported data_types |
+|---|---|
+| **Arbitrum** | gas, defi_rates, stablecoin_supply, dex_pools, market_reserves, exchange_flow, whale_transfers |
+| **Base** | gas, defi_rates, stablecoin_supply, dex_pools, market_reserves, exchange_flow, whale_transfers |
+| **Optimism** | gas, defi_rates, stablecoin_supply, dex_pools, market_reserves, exchange_flow, whale_transfers |
+| **Polygon** | gas, defi_rates, stablecoin_supply, dex_pools, market_reserves, exchange_flow, whale_transfers |
+| **BSC** | gas, defi_rates (Venus), stablecoin_supply, dex_pools, exchange_flow, whale_transfers |
+| **Avalanche** | gas, defi_rates (Aave only), stablecoin_supply, dex_pools, market_reserves, exchange_flow, whale_transfers |
+| **Mantle** | gas, stablecoin_supply, exchange_flow, whale_transfers |
+| **zkSync** | gas, stablecoin_supply, exchange_flow, whale_transfers |
+| **Ethereum** | gas, defi_rates, stablecoin_supply, exchange_flow, whale_transfers |
+| **Bitcoin** | exchange_flow, whale_transfers, network, mempool (live only) |
+| **Solana** | gas (fees), network |
+| **Aptos** | gas, network |
+| **TON** | gas, network |
+| **TRON** | gas (energy), network |
+| **Cosmos** | network |
+| **Sui** | gas, network |
+
+## 2. DeFiLlama API (1d)
+
+All 27 chains receive the same 4 data types at daily granularity. No API key required.
+
+### Supported Chains (from collect.yaml)
+
+| Chain | tvl_usd | volume_24h_usd | daily_fees / revenue_usd | stablecoin_circulating_usd |
+|---|:---:|:---:|:---:|:---:|
+| ethereum | O | O | O | O |
+| bsc | O | O | O | O |
+| tron | O | O | O | O |
+| solana | O | O | O | O |
+| arbitrum | O | O | O | O |
+| base | O | O | O | O |
+| avalanche | O | O | O | O |
+| polygon | O | O | O | O |
+| optimism | O | O | O | O |
+| sui | O | O | O | O |
+| aptos | O | O | O | O |
+| ton | O | O | O | O |
+| mantle | O | O | O | O |
+| manta | O | O | O | O |
+| linea | O | O | O | O |
+| zksync-era | O | O | O | O |
+| blast | O | O | O | O |
+| scroll | O | O | O | O |
+| starknet | O | O | O | O |
+| fantom | O | O | O | O |
+| hyperliquid | O | O | O | O |
+| cronos | O | O | O | O |
+| near | O | O | O | O |
+| cardano | O | O | O | O |
+| berachain | O | O | O | O |
+| sonic | O | O | O | O |
+| sei | O | O | O | O |
+
+Chain slug-to-API-name mapping is loaded dynamically from `/v2/chains`, with hardcoded fallback for offline use.
+
+## 3. Coverage Summary
+
+| Source | Chains | Data Types | Total Combinations | Granularity |
+|---|---|---|---|---|
+| RPC Direct | 16 | up to 9 | ~62 | 1h |
+| DeFiLlama | 27 | 4 | 108 | 1d |
+| **Total** | | | **~170** | |
+
+### Tradeable Chains (Binance Futures)
+
+| DeFiLlama Chain | Symbol | RPC Data | Status |
 |---|---|---|---|
-| `tvl` | `tvl_usd` | `/v2/historicalChainTvl/{chain}` | Total Value Locked across all protocols on a chain |
-| `dex_volume` | `volume_24h_usd` | `/overview/dexs/{chain}` | Aggregated DEX trading volume |
-| `fees` | `daily_fees_usd`, `daily_revenue_usd` | `/overview/fees/{chain}` | Protocol fees and revenue |
-| `stablecoin` | `total_circulating_usd`, `total_bridged_usd`, `total_minted_usd` | `/stablecoincharts/{chain}` | Stablecoin supply breakdown |
+| ethereum | ETH | gas, defi_rates, stablecoin_supply, exchange_flow, whale_transfers | O |
+| bsc | BNB | gas, defi_rates | O |
+| solana | SOL | fees, network | O |
+| arbitrum | ARB | gas, defi_rates, dex_pools, market_reserves, exchange_flow, whale_transfers | O |
+| avalanche | AVAX | gas, defi_rates | O |
+| polygon | POL | gas, defi_rates | O |
+| optimism | OP | gas, defi_rates | O |
+| sui | SUI | gas, network | O |
+| aptos | APT | gas, network | O |
+| ton | TON | gas, network | O |
+| tron | TRX | energy, network | O |
+| cosmos | ATOM | network, staking | O |
+| manta | MANTA | - | O |
+| starknet | STRK | - | O |
+| linea | LINEA | - | O |
+| zksync-era | ZK | gas | O |
+| cardano | ADA | - | O |
 
-All DeFiLlama data is **daily granularity**. Rate limit: 500 requests/min.
+## RPC Configuration
 
-### Supported Chains (Top 20 by TVL)
-
-| Chain Slug | Storage Symbol | API Name |
-|---|---|---|
-| `ethereum` | `ETH` | Ethereum |
-| `bsc` | `BSC` | BSC |
-| `tron` | `TRX` | Tron |
-| `solana` | `SOL` | Solana |
-| `arbitrum` | `ARBITRUM` | Arbitrum |
-| `base` | `BASE` | Base |
-| `avalanche` | `AVALANCHE` | Avalanche |
-| `polygon` | `POLYGON` | Polygon |
-| `optimism` | `OPTIMISM` | Optimism |
-| `sui` | `SUI` | Sui |
-| `aptos` | `APT` | Aptos |
-| `ton` | `TON` | TON |
-| `mantle` | `MANTLE` | Mantle |
-| `manta` | `MANTA` | Manta |
-| `linea` | `LINEA` | Linea |
-| `zksync-era` | `ZKSYNC` | ZKsync Era |
-| `blast` | `BLAST` | Blast |
-| `scroll` | `SCROLL` | Scroll |
-| `starknet` | `STARKNET` | Starknet |
-| `fantom` | `FANTOM` | Fantom |
-
-Chain slug-to-API-name mapping is loaded dynamically from the `/v2/chains` endpoint on first use, with a hardcoded fallback for offline scenarios.
-
-### Usage
-
-```python
-from clyptq.data.collectors.defillama.collector import DeFiLlamaCollector
-from datetime import datetime
-
-# Collect TVL data
-collector = DeFiLlamaCollector(data_type="tvl", chains=["ethereum", "solana", "arbitrum"])
-data = collector.collect_historical(
-    symbols=["ethereum", "solana", "arbitrum"],
-    start=datetime(2024, 1, 1),
-    end=datetime(2024, 12, 31),
-)
-# data["ETH"] -> DataFrame with tvl_usd column
-
-# Collect DEX volumes
-vol_collector = DeFiLlamaCollector(data_type="dex_volume")
-volumes = vol_collector.collect_historical(
-    symbols=["ethereum", "base"],
-    start=datetime(2024, 6, 1),
-    end=datetime(2024, 12, 31),
-)
-```
-
-### In a TradingDataSpec
-
-```python
-from clyptq.apps.trading.spec.observation.onchain import OnChainSpec
-
-onchain = OnChainSpec(
-    data_type="tvl",
-    chains=["ethereum", "solana", "arbitrum"],
-)
-# Produces FIELD:defillama:onchain:tvl_usd in the graph
-```
-
-## RPC Collectors
-
-For granular onchain data beyond DeFiLlama aggregates, ClyptQ includes direct RPC collectors for multiple blockchain ecosystems.
-
-### Supported Blockchains
-
-| Blockchain | Collector | Data Types |
-|---|---|---|
-| **EVM Chains** (Arbitrum, Base, Optimism, Polygon, BSC, Avalanche, Mantle, zkSync) | `EVMChainCollector` | Gas prices, DeFi rates (Aave V3, Compound V3, Venus), stablecoin supply, DEX pool state, market reserves, exchange flow, whale transfers |
-| **Ethereum** | `EthereumCollector` | Gas, DeFi rates, stablecoin supply, L1-specific metrics |
-| **Solana** | `SolanaCollector` | Transaction fees, DeFi activity, token flows |
-| **Aptos** | `AptosCollector` | Gas, DeFi metrics |
-| **Sui** | `SuiCollector` | Gas, DeFi metrics |
-| **TON** | `TONCollector` | Network activity, token flows |
-| **Tron** | `TronCollector` | Stablecoin flows, network metrics |
-| **Cosmos** | `CosmosCollector` | Staking, IBC transfers |
-| **Bitcoin** | `BitcoinCollector` | Block data, fee rates |
-
-### EVM Chain Coverage Matrix
-
-The EVM collector supports multiple DeFi protocols per chain:
-
-| Chain | Aave V3 | Compound V3 | Venus | DEX Pool | Market Reserves |
-|---|---|---|---|---|---|
-| Arbitrum | Yes | Yes | - | Yes | Yes |
-| Base | Yes | Yes | - | Yes | Yes |
-| Optimism | Yes | Yes | - | Yes | Yes |
-| Polygon | Yes | Yes | - | Yes | Yes |
-| BSC | - | - | Yes | Yes | - |
-| Avalanche | Yes | - | - | Yes | Yes |
-| Mantle | - | - | - | - | - |
-| zkSync | - | - | - | - | - |
-
-### EVM Data Types
-
-For chains with full protocol support (Arbitrum, Base, Optimism, Polygon):
-
-- **`gas`** — Gas price in native units
-- **`defi_rates`** — Aave V3 supply/borrow rates, Compound V3 borrow rate (USDC)
-- **`stablecoin_supply`** — USDC + USDT total supply on chain
-- **`dex_pools`** — Uniswap V3 pool state (price, liquidity, fee tier)
-- **`market_reserves`** — Aave aToken/debtToken total supply (deposits vs borrows)
-- **`exchange_flow`** — Tokens moving to/from known exchange wallets
-- **`whale_transfers`** — Large-value transfers above threshold
-
-### RPC Configuration
-
-Each chain reads its RPC URL from an environment variable with a public fallback:
+EVM chains use **Alchemy archive nodes** by default for exchange flow and whale transfer data (requires archive access). Each chain reads its RPC URL from an environment variable, with public fallback for non-archive data:
 
 ```bash
-# Override with your own RPC for better rate limits
-export ARBITRUM_RPC_URL="https://your-arbitrum-rpc.com"
-export BASE_RPC_URL="https://your-base-rpc.com"
-export SOLANA_RPC_URL="https://your-solana-rpc.com"
+# Alchemy (recommended for exchange_flow + whale_transfers)
+export ETHEREUM_RPC_URL="https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY"
+export ARBITRUM_RPC_URL="https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY"
+export BASE_RPC_URL="https://base-mainnet.g.alchemy.com/v2/YOUR_KEY"
+
+# Non-EVM chains use native RPCs
+export SOLANA_RPC_URL="https://api.mainnet-beta.solana.com"
+export BITCOIN_RPC_URL="https://mempool.space/api"
 ```
 
-## Combining Onchain Data with Alphas
+Clients sharing the same Alchemy API key automatically share a rate limiter (330 CU/sec) to prevent throttling.
 
-Onchain metrics work as graph FIELD inputs just like OHLCV data. You can reference them in any alpha operator:
+## Using Onchain Data in Alphas
+
+Onchain metrics flow into the graph as FIELD inputs, just like OHLCV data:
 
 ```python
 from clyptq.apps.trading.operators import AlphaOperator
@@ -157,15 +187,13 @@ class TVLMomentumAlpha(AlphaOperator):
 
     def __init__(self, tvl_input: Input, close_input: Input, window: int = 14):
         super().__init__(inputs=[tvl_input, close_input])
-        self._mom_window = window
+        self._window = window
         self._validate_lookback()
 
     def compute_signal(self, data):
         tvl = data[0].value    # (T, N) — daily TVL per chain
         close = data[1].value  # (T, N) — price data
-
-        # TVL momentum as a signal
-        tvl_change = self._delta(tvl, self._mom_window) / self._delay(tvl, self._mom_window)
+        tvl_change = self._delta(tvl, self._window) / self._delay(tvl, self._window)
         return self._rank(tvl_change)
 ```
 

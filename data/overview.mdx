@@ -9,14 +9,17 @@ ClyptQ supports four categories of data that can be combined as inputs to any tr
 
 ## Supported Data Types
 
-| Category | Source | Granularity | Key Fields |
-|---|---|---|---|
-| **OHLCV (Crypto)** | Binance, Bybit, Coinbase, OKX, Gate.io, Kraken, Gemini | Tick to 1d | `close`, `open`, `high`, `low`, `volume` |
-| **Stocks** | yfinance, Tiingo | 1d | `close`, `open`, `high`, `low`, `volume` |
-| **Onchain** | DeFiLlama (aggregate), RPC (EVM, Solana, Aptos, Sui, TON, Tron, Cosmos) | 1h to 1d | TVL, fees, gas, DeFi rates, stablecoin supply |
-| **Macro** | FRED (Federal Reserve) | Daily to quarterly | Interest rates, CPI, GDP, VIX, money supply |
-| **Order Book** | Binance, Bybit, Coinbase, OKX, Gate.io, Kraken, Gemini | Live / historical snapshots | Bid/ask depth, spread, imbalance |
-| **Sentiment** | Fear & Greed Index, CryptoQuant | 1d | Market sentiment scores, exchange flows |
+| Category | Source | Granularity | Key Fields | Status |
+|---|---|---|---|---|
+| **OHLCV (Crypto)** | Binance, Bybit, Coinbase, OKX, Gate.io, Kraken, Hyperliquid, Aster | Tick to 1d | `close`, `open`, `high`, `low`, `volume` | Production |
+| **Funding Rates** | Binance, Bybit, Coinbase, Kraken, Hyperliquid, Aster | 1h to 8h | `funding_rate` | Production |
+| **Futures Metrics** | Binance, Bybit, Gate.io | 5m to 1h | OI, L/S ratio, liquidations | Production |
+| **Onchain (DeFiLlama)** | DeFiLlama API (27 chains) | 1d | TVL, DEX volume, fees, stablecoin supply | Production |
+| **Onchain (RPC)** | Alchemy archive, native RPCs (16 chains) | 1h | Gas, DeFi rates, exchange flow, whale transfers | Production |
+| **Macro (FRED)** | Federal Reserve FRED API (38 series) | Daily to quarterly | Interest rates, CPI, GDP, VIX, money supply | Production |
+| **Sentiment** | Fear & Greed Index | 1d | Market sentiment score | Production |
+| **US Stocks** | Tiingo, Alpaca, IBKR, SEC EDGAR | 1d | OHLCV, fundamentals (40+ fields) | Developed (not in production) |
+| **Order Book** | Binance (historical ZIP) | Tick / 1s | Bid/ask depth, spread, imbalance | Developed (not in production) |
 
 ## Data Flow
 
