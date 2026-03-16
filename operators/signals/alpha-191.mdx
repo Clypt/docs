@@ -8,13 +8,19 @@ description: "191 Formulaic Alphas — systematic alpha generation from Guotai J
 ## Overview
 
 Implementation of 191 Formulaic Alphas (Guotai Junan Securities, 2017).
-**191 alphas** available, each as a standalone operator.
+**191 alphas** available, each inheriting from [`AlphaOperator`](/operators/signals/alpha-operator).
 
-All Alpha 191 operators share: **Role**: `ALPHA` | **Ephemeral**: No
+All Alpha 191 operators use the **AlphaOperator DSL** — the same numba-accelerated helpers used by Alpha101. All 191 alphas take 5 OHLCV inputs (close, open, high, low, volume).
 
-## Base Class DSL
+<Info>
+**Lookback validation**: Alphas with window parameters call `_validate_lookback()` to ensure sufficient data. Raises `ValueError` on insufficient lookback.
+</Info>
 
-All Alpha 191 operators inherit from `Alpha191Base`, which provides DSL helper functions matching the original pseudo-code operators. VWAP is approximated as typical price `(H+L+C)/3`.
+See the [Alpha191 IC Analysis notebook](https://github.com/Clypt/clyptq/blob/master/examples/community/14_alpha191_comprehensive_backtest.ipynb) for comprehensive crypto backtesting results.
+
+## DSL Reference
+
+All Alpha 191 operators inherit DSL helpers from `AlphaOperator`. See the [AlphaOperator reference](/operators/signals/alpha-operator) for the full DSL documentation. VWAP is approximated as typical price `(H+L+C)/3`.
 
 | Method | Description |
 |--------|-------------|

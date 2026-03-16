@@ -1,0 +1,176 @@
+---
+title: "Onchain Data"
+description: "DeFiLlama aggregate metrics and RPC-based onchain data collection across EVM, Solana, Aptos, Sui, TON, Tron, and Cosmos"
+---
+
+## Overview
+
+ClyptQ collects onchain data from two complementary sources:
+
+1. **DeFiLlama** — Aggregate chain-level metrics (TVL, DEX volume, fees, stablecoin supply). Free API, no key required.
+2. **RPC Collectors** — Direct blockchain node queries for granular data (gas prices, DeFi lending rates, stablecoin supply, DEX pool state, whale transfers).
+
+Both sources output normalized DataFrames that flow into the graph as FIELD inputs.
+
+## DeFiLlama Data
+
+### Supported Data Types
+
+| Data Type | Fields | API Endpoint | Description |
+|---|---|---|---|
+| `tvl` | `tvl_usd` | `/v2/historicalChainTvl/{chain}` | Total Value Locked across all protocols on a chain |
+| `dex_volume` | `volume_24h_usd` | `/overview/dexs/{chain}` | Aggregated DEX trading volume |
+| `fees` | `daily_fees_usd`, `daily_revenue_usd` | `/overview/fees/{chain}` | Protocol fees and revenue |
+| `stablecoin` | `total_circulating_usd`, `total_bridged_usd`, `total_minted_usd` | `/stablecoincharts/{chain}` | Stablecoin supply breakdown |
+
+All DeFiLlama data is **daily granularity**. Rate limit: 500 requests/min.
+
+### Supported Chains (Top 20 by TVL)
+
+| Chain Slug | Storage Symbol | API Name |
+|---|---|---|
+| `ethereum` | `ETH` | Ethereum |
+| `bsc` | `BSC` | BSC |
+| `tron` | `TRX` | Tron |
+| `solana` | `SOL` | Solana |
+| `arbitrum` | `ARBITRUM` | Arbitrum |
+| `base` | `BASE` | Base |
+| `avalanche` | `AVALANCHE` | Avalanche |
+| `polygon` | `POLYGON` | Polygon |
+| `optimism` | `OPTIMISM` | Optimism |
+| `sui` | `SUI` | Sui |
+| `aptos` | `APT` | Aptos |
+| `ton` | `TON` | TON |
+| `mantle` | `MANTLE` | Mantle |
+| `manta` | `MANTA` | Manta |
+| `linea` | `LINEA` | Linea |
+| `zksync-era` | `ZKSYNC` | ZKsync Era |
+| `blast` | `BLAST` | Blast |
+| `scroll` | `SCROLL` | Scroll |
+| `starknet` | `STARKNET` | Starknet |
+| `fantom` | `FANTOM` | Fantom |
+
+Chain slug-to-API-name mapping is loaded dynamically from the `/v2/chains` endpoint on first use, with a hardcoded fallback for offline scenarios.
+
+### Usage
+
+```python
+from clyptq.data.collectors.defillama.collector import DeFiLlamaCollector
+from datetime import datetime
+
+# Collect TVL data
+collector = DeFiLlamaCollector(data_type="tvl", chains=["ethereum", "solana", "arbitrum"])
+data = collector.collect_historical(
+    symbols=["ethereum", "solana", "arbitrum"],
+    start=datetime(2024, 1, 1),
+    end=datetime(2024, 12, 31),
+)
+# data["ETH"] -> DataFrame with tvl_usd column
+
+# Collect DEX volumes
+vol_collector = DeFiLlamaCollector(data_type="dex_volume")
+volumes = vol_collector.collect_historical(
+    symbols=["ethereum", "base"],
+    start=datetime(2024, 6, 1),
+    end=datetime(2024, 12, 31),
+)
+```
+
+### In a TradingDataSpec
+
+```python
+from clyptq.apps.trading.spec.observation.onchain import OnChainSpec
+
+onchain = OnChainSpec(
+    data_type="tvl",
+    chains=["ethereum", "solana", "arbitrum"],
+)
+# Produces FIELD:defillama:onchain:tvl_usd in the graph
+```
+
+## RPC Collectors
+
+For granular onchain data beyond DeFiLlama aggregates, ClyptQ includes direct RPC collectors for multiple blockchain ecosystems.
+
+### Supported Blockchains
+
+| Blockchain | Collector | Data Types |
+|---|---|---|
+| **EVM Chains** (Arbitrum, Base, Optimism, Polygon, BSC, Avalanche, Mantle, zkSync) | `EVMChainCollector` | Gas prices, DeFi rates (Aave V3, Compound V3, Venus), stablecoin supply, DEX pool state, market reserves, exchange flow, whale transfers |
+| **Ethereum** | `EthereumCollector` | Gas, DeFi rates, stablecoin supply, L1-specific metrics |
+| **Solana** | `SolanaCollector` | Transaction fees, DeFi activity, token flows |
+| **Aptos** | `AptosCollector` | Gas, DeFi metrics |
+| **Sui** | `SuiCollector` | Gas, DeFi metrics |
+| **TON** | `TONCollector` | Network activity, token flows |
+| **Tron** | `TronCollector` | Stablecoin flows, network metrics |
+| **Cosmos** | `CosmosCollector` | Staking, IBC transfers |
+| **Bitcoin** | `BitcoinCollector` | Block data, fee rates |
+
+### EVM Chain Coverage Matrix
+
+The EVM collector supports multiple DeFi protocols per chain:
+
+| Chain | Aave V3 | Compound V3 | Venus | DEX Pool | Market Reserves |
+|---|---|---|---|---|---|
+| Arbitrum | Yes | Yes | - | Yes | Yes |
+| Base | Yes | Yes | - | Yes | Yes |
+| Optimism | Yes | Yes | - | Yes | Yes |
+| Polygon | Yes | Yes | - | Yes | Yes |
+| BSC | - | - | Yes | Yes | - |
+| Avalanche | Yes | - | - | Yes | Yes |
+| Mantle | - | - | - | - | - |
+| zkSync | - | - | - | - | - |
+
+### EVM Data Types
+
+For chains with full protocol support (Arbitrum, Base, Optimism, Polygon):
+
+- **`gas`** — Gas price in native units
+- **`defi_rates`** — Aave V3 supply/borrow rates, Compound V3 borrow rate (USDC)
+- **`stablecoin_supply`** — USDC + USDT total supply on chain
+- **`dex_pools`** — Uniswap V3 pool state (price, liquidity, fee tier)
+- **`market_reserves`** — Aave aToken/debtToken total supply (deposits vs borrows)
+- **`exchange_flow`** — Tokens moving to/from known exchange wallets
+- **`whale_transfers`** — Large-value transfers above threshold
+
+### RPC Configuration
+
+Each chain reads its RPC URL from an environment variable with a public fallback:
+
+```bash
+# Override with your own RPC for better rate limits
+export ARBITRUM_RPC_URL="https://your-arbitrum-rpc.com"
+export BASE_RPC_URL="https://your-base-rpc.com"
+export SOLANA_RPC_URL="https://your-solana-rpc.com"
+```
+
+## Combining Onchain Data with Alphas
+
+Onchain metrics work as graph FIELD inputs just like OHLCV data. You can reference them in any alpha operator:
+
+```python
+from clyptq.apps.trading.operators import AlphaOperator
+from clyptq.system.graph import Input
+
+class TVLMomentumAlpha(AlphaOperator):
+    """Alpha based on chain TVL momentum."""
+
+    def __init__(self, tvl_input: Input, close_input: Input, window: int = 14):
+        super().__init__(inputs=[tvl_input, close_input])
+        self._mom_window = window
+        self._validate_lookback()
+
+    def compute_signal(self, data):
+        tvl = data[0].value    # (T, N) — daily TVL per chain
+        close = data[1].value  # (T, N) — price data
+
+        # TVL momentum as a signal
+        tvl_change = self._delta(tvl, self._mom_window) / self._delay(tvl, self._mom_window)
+        return self._rank(tvl_change)
+```
+
+## Related Pages
+
+- [Data Sources Overview](/data/overview) — All supported data types
+- [FRED Macro Data](/data/fred) — Federal Reserve economic indicators
+- [AlphaOperator DSL](/operators/signals/alpha-operator) — Using onchain data in alpha formulas

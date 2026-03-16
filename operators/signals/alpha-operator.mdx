@@ -1,0 +1,185 @@
+---
+title: "AlphaOperator DSL"
+description: "Base class for all alpha signals — numba-accelerated time-series and cross-sectional helpers"
+---
+
+## Overview
+
+`AlphaOperator` is the DSL base class that every alpha signal in ClyptQ inherits from. It provides a library of **numba-accelerated** time-series and cross-sectional helper functions that operate on 2D `(time, n_symbols)` numpy arrays, matching the pseudo-code operators used in academic alpha papers (Alpha101, Alpha191).
+
+Subclasses override a single method — `compute_signal` — to define the alpha formula. All boilerplate (mask handling, `TaggedArray` wrapping, NaN/Inf safety, `errstate` management) is handled automatically by the base class.
+
+```python
+from clyptq.apps.trading.operators import AlphaOperator
+```
+
+## Creating a Custom Alpha
+
+### 1. Inherit and override `compute_signal`
+
+```python
+from clyptq.apps.trading.operators import AlphaOperator
+from clyptq.system.graph import Input
+
+class MyAlpha(AlphaOperator):
+    def __init__(self, close_input: Input, volume_input: Input, window: int = 20):
+        super().__init__(inputs=[close_input, volume_input])
+        self._window = window
+
+    def compute_signal(self, data):
+        close = data[0].value   # (T, N) ndarray
+        volume = data[1].value  # (T, N) ndarray
+        ret = self._ret(close)
+        corr = self._corr(ret, volume, self._window)
+        return self._rank(corr)
+```
+
+### 2. Return types
+
+`compute_signal` can return either:
+
+| Return shape | Behavior |
+|---|---|
+| **1D** `(n_symbols,)` | Used directly as the alpha score |
+| **2D** `(T, n_symbols)` | Last row `[-1]` is extracted as the alpha score |
+| **`None`** | Outputs all-NaN (signal abstains this tick) |
+
+### 3. Inputs
+
+The `data` argument is a list of `TaggedArray` objects in the same order as the `inputs` you declared in `__init__`. Access raw numpy values via `data[i].value`, which returns a `(T, N)` ndarray where `T` is time and `N` is the number of symbols.
+
+## DSL Helper Reference
+
+All helpers accept and return 2D `(T, N)` numpy arrays unless noted otherwise. They are accessible as `self._<name>` inside `compute_signal`.
+
+### Derived Fields
+
+| Method | Signature | Description |
+|---|---|---|
+| `_ret` | `(c)` | Simple returns: `c[t]/c[t-1] - 1` |
+| `_vwap` | `(h, l_, c)` | Approximate VWAP (typical price): `(H+L+C)/3` |
+| `_amount` | `(c, v)` | Dollar amount: `close * volume` |
+
+### Time-Series Operators (numba-accelerated)
+
+| Method | Signature | Description |
+|---|---|---|
+| `_delay` | `(x, d)` | Shift back by `d` periods |
+| `_delta` | `(x, d)` | Difference: `x[t] - x[t-d]` |
+| `_sum` | `(x, n)` | Rolling sum over `n` periods |
+| `_mean` | `(x, n)` | Rolling simple average over `n` periods |
+| `_std` | `(x, n)` | Rolling standard deviation |
+| `_sma` | `(x, n, m=1)` | Exponentially weighted moving average (alpha=`m/n`) |
+| `_wma` | `(x, n)` | Linearly-weighted moving average |
+| `_decaylinear` | `(x, n)` | Alias for `_wma` |
+| `_tsmax` | `(x, n)` | Rolling max over `n` periods |
+| `_tsmin` | `(x, n)` | Rolling min over `n` periods |
+| `_tsrank` | `(x, n)` | Percentile rank within rolling window |
+| `_highday` | `(x, n)` | Periods since highest value in window |
+| `_lowday` | `(x, n)` | Periods since lowest value in window |
+
+### Cross-Sectional Operators (numba-accelerated)
+
+| Method | Signature | Description |
+|---|---|---|
+| `_rank` | `(x)` | Cross-sectional percentile rank per row (works on 1D or 2D) |
+| `_corr` | `(x, y, n)` | Rolling Pearson correlation |
+| `_cov` | `(x, y, n)` | Rolling covariance |
+| `_regbeta` | `(y, n)` | Slope of OLS regression `y ~ t` over rolling window |
+| `_regresid` | `(y, x_factor, n)` | Regression residual of `y` vs `x_factor` over rolling window |
+
+### Utility Operators
+
+| Method | Signature | Description |
+|---|---|---|
+| `_count` | `(cond, n)` | Count `True` values in rolling window |
+| `_sign` | `(x)` | Element-wise sign |
+| `_log` | `(x)` | Signed log (preserves sign, avoids `log(0)`) |
+| `_abs` | `(x)` | Element-wise absolute value |
+| `_last` | `(x)` | Extract last row from 2D array (or return 1D as-is) |
+| `_sumac` | `(x)` | Cumulative sum along time axis |
+| `_sumif` | `(x, n, cond)` | Rolling sum of `x` where `cond` is `True` |
+
+### Benchmark Helpers
+
+Column 0 is treated as the benchmark (e.g., BTC in a crypto universe).
+
+| Method | Signature | Description |
+|---|---|---|
+| `_bm` | `(x)` | Benchmark column broadcast to all symbols (2D) |
+| `_bm_col` | `(x)` | Benchmark column as 1D per row |
+
+## Lookback Validation
+
+Call `self._validate_lookback()` at the end of your `__init__` (after setting window attributes) to verify that all `Input` lookbacks are large enough for the windows your alpha uses.
+
+The method introspects any `self._*_window` attributes and checks that every input has `lookback >= max(all_windows) + 2`. If validation fails, a `ValueError` is raised with a clear message.
+
+```python
+class MyAlpha(AlphaOperator):
+    def __init__(self, close_input, window=20):
+        super().__init__(inputs=[close_input])
+        self._fast_window = 10
+        self._slow_window = window
+        self._validate_lookback()  # ensures close_input.lookback >= 22
+```
+
+## Examples
+
+### Simple: Momentum Rank
+
+A cross-sectional momentum alpha that ranks symbols by their 20-period return.
+
+```python
+class MomentumRankAlpha(AlphaOperator):
+    def __init__(self, close_input, window=20):
+        super().__init__(inputs=[close_input])
+        self._mom_window = window
+        self._validate_lookback()
+
+    def compute_signal(self, data):
+        close = data[0].value
+        ret = self._delta(close, self._mom_window) / self._delay(close, self._mom_window)
+        return self._rank(ret)
+```
+
+### Complex: Volume-Weighted Trend Residual
+
+An alpha that combines volume correlation with trend regression, then neutralizes via cross-sectional ranking.
+
+```python
+class VolumeTrendResidAlpha(AlphaOperator):
+    def __init__(self, close_input, volume_input, window=20, corr_window=10):
+        super().__init__(inputs=[close_input, volume_input])
+        self._trend_window = window
+        self._corr_window = corr_window
+        self._validate_lookback()
+
+    def compute_signal(self, data):
+        close = data[0].value
+        volume = data[1].value
+
+        # Trend component: regression residual (detrended price)
+        resid = self._regresid(close, volume, self._trend_window)
+
+        # Volume confirmation: correlation between returns and volume
+        ret = self._ret(close)
+        vol_corr = self._corr(ret, volume, self._corr_window)
+
+        # Combine: high residual + positive volume correlation = signal
+        raw = resid * vol_corr
+
+        # Cross-sectional rank for comparability
+        return self._rank(raw)
+```
+
+## Migration Note
+
+The **Alpha101** and **Alpha191** operator families now inherit from `AlphaOperator` through intermediate base classes (`Alpha101Base`, `Alpha191Base`). These bases add the standard 5-input OHLCV convention (`close, open, high, low, volume`) and expose a `_compute_alpha(c, o, h, l_, v)` interface, but all DSL helpers documented above are available in those alphas as well.
+
+If you are migrating a standalone alpha to this base class:
+
+1. Change the parent class from `BaseOperator` to `AlphaOperator`
+2. Move your logic into `compute_signal(data)` instead of `compute(data, ...)`
+3. Replace any manual rolling/rank computations with the built-in DSL helpers
+4. Add `self._validate_lookback()` at the end of `__init__`

@@ -8,9 +8,24 @@ description: "101 Formulaic Alphas — systematic alpha generation from Kakushad
 ## Overview
 
 Implementation of [101 Formulaic Alphas](https://arxiv.org/abs/1601.00991) (Kakushadze, Z., 2016).
-**101 alphas** available, each as a standalone operator.
+**101 alphas** available, each as a standalone operator inheriting from [`AlphaOperator`](/operators/signals/alpha-operator).
 
-All Alpha 101 operators share: **Role**: `ALPHA` | **Ephemeral**: No
+All Alpha 101 operators use the **AlphaOperator DSL** — numba-accelerated helpers for time-series and cross-sectional operations. Each alpha's `compute_signal()` is typically 5-15 lines of DSL calls.
+
+<Info>
+**Lookback validation**: Each alpha validates that input lookback is sufficient for its window parameters at instantiation time. Insufficient lookback raises `ValueError` immediately instead of producing silent zeros.
+</Info>
+
+### Input Categories
+
+| Category | Inputs | Example Alphas |
+|----------|--------|----------------|
+| **Price-only** | close (or open+close) | A001, A004, A008, A033 |
+| **Price-volume** | close+volume (or open+volume) | A003, A007, A012, A013 |
+| **Multi-field** | high+low+close+volume | A011, A025, A041, A055 |
+| **All fields** | open+high+low+close+volume | A005, A036, A062, A071 |
+
+See the [Alpha101 IC Analysis notebook](https://github.com/Clypt/clyptq/blob/master/examples/community/12_alpha101_comprehensive_backtest.ipynb) for comprehensive crypto backtesting results.
 
 ## Alpha Catalog
 

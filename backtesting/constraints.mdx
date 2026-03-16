@@ -1,0 +1,274 @@
+---
+title: "Backtest Constraints"
+description: "Control which execution constraints are active during backtesting with BacktestConstraintsSpec"
+---
+
+## What BacktestConstraintsSpec Controls
+
+Real exchanges enforce multiple layers of execution constraints: order size minimums, margin requirements, liquidation thresholds, and funding rate settlements. In a backtest, you may want to selectively enable or disable these layers depending on the stage of your research.
+
+`BacktestConstraintsSpec` gives you fine-grained control over five constraint toggles:
+
+| Toggle | What It Does | Default |
+|--------|-------------|---------|
+| `validate_order_limits` | Enforces min amount, min cost, and precision rounding per exchange | `True` |
+| `validate_margin` | Rejects orders when available margin is less than required margin | `True` |
+| `enable_liquidation` | Force-closes all positions when maintenance margin is breached | `True` |
+| `enable_funding` | Applies perpetual futures funding rate settlement at 8-hour intervals | `True` |
+| `max_leverage_override` | Overrides the exchange default max leverage (`None` = use exchange default) | `None` |
+
+When no `BacktestConstraintsSpec` is provided to `TradingExecutionSpec`, all constraints are active (equivalent to the `realistic()` preset).
+
+## Three Presets
+
+Rather than configuring each toggle individually, use the class method presets for common scenarios:
+
+```python
+from clyptq.apps.trading.spec.execution import BacktestConstraintsSpec
+```
+
+| Preset | Order Limits | Margin | Liquidation | Funding | Use Case |
+|--------|:---:|:---:|:---:|:---:|------|
+| `research()` | Off | Off | Off | Off | Pure signal analysis with zero friction |
+| `cost_only()` | Off | Off | Off | **On** | Fee and funding impact analysis |
+| `realistic()` | **On** | **On** | **On** | **On** | Production-realistic simulation (default) |
+
+### research()
+
+Disables every constraint. Pair with zero-cost `CostModelSpec` for a completely frictionless backtest:
+
+```python
+constraints = BacktestConstraintsSpec.research()
+# validate_order_limits=False
+# validate_margin=False
+# enable_liquidation=False
+# enable_funding=False
+```
+
+### cost_only()
+
+Keeps funding enabled (a real cost for perpetual futures) but disables order validation, margin checks, and liquidation. Useful for isolating the P&L impact of fees and funding without orders being rejected:
+
+```python
+constraints = BacktestConstraintsSpec.cost_only()
+# validate_order_limits=False
+# validate_margin=False
+# enable_liquidation=False
+# enable_funding=True
+```
+
+### realistic()
+
+All constraints active. This is the default behavior and matches what happens in live trading:
+
+```python
+constraints = BacktestConstraintsSpec.realistic()
+# validate_order_limits=True
+# validate_margin=True
+# enable_liquidation=True
+# enable_funding=True
+```
+
+## Individual Toggles
+
+You can mix and match any combination of toggles by passing them directly to the constructor.
+
+### Scenario 1: Funding Analysis Without Liquidation Risk
+
+Test how funding rates erode returns on a carry trade, without positions being liquidated during drawdowns:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=True,
+    validate_margin=True,
+    enable_liquidation=False,   # Keep positions alive through drawdowns
+    enable_funding=True,        # Measure funding cost/income
+)
+```
+
+### Scenario 2: Order Validation Only
+
+Check how many of your orders would be rejected by exchange minimums, without margin or liquidation interference:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=True,  # Enforce min size, precision
+    validate_margin=False,
+    enable_liquidation=False,
+    enable_funding=False,
+)
+```
+
+### Scenario 3: High Leverage Stress Test
+
+Override exchange max leverage to test how a strategy behaves under extreme leverage:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=True,
+    validate_margin=True,
+    enable_liquidation=True,
+    enable_funding=True,
+    max_leverage_override=50.0,  # Override exchange default (e.g., 125x → 50x)
+)
+```
+
+### Scenario 4: Margin-Aware Without Liquidation
+
+Validate that your strategy stays within margin limits, but do not force-close positions. Useful for understanding how close you get to liquidation without actually triggering it:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=False,
+    validate_margin=True,       # Reject orders that exceed margin
+    enable_liquidation=False,   # But don't force-close existing positions
+    enable_funding=True,
+)
+```
+
+### Scenario 5: Conservative Leverage Cap
+
+Run a realistic backtest but cap leverage below the exchange maximum to match your risk policy:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=True,
+    validate_margin=True,
+    enable_liquidation=True,
+    enable_funding=True,
+    max_leverage_override=5.0,  # Cap at 5x regardless of exchange limit
+)
+```
+
+### Scenario 6: Frictionless With Funding
+
+Like `research()` but with funding enabled. Useful when your signal is funding-rate-dependent (e.g., carry or basis trades) and you need funding P&L in your signal but not other constraints:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=False,
+    validate_margin=False,
+    enable_liquidation=False,
+    enable_funding=True,         # Funding is part of the signal
+)
+```
+
+### Scenario 7: Full Realistic With Reduced Leverage
+
+The most common production configuration. All constraints active, but leverage capped to a conservative level:
+
+```python
+constraints = BacktestConstraintsSpec(
+    validate_order_limits=True,
+    validate_margin=True,
+    enable_liquidation=True,
+    enable_funding=True,
+    max_leverage_override=3.0,   # Conservative 3x cap
+)
+```
+
+## Recommended Workflow
+
+Progress through three stages when developing a strategy:
+
+```
+Stage 1: research()     → Does the signal have alpha?
+Stage 2: cost_only()    → Does alpha survive fees and funding?
+Stage 3: realistic()    → Does it survive real execution constraints?
+```
+
+**Stage 1 — Signal Validation.** Use `research()` with zero-cost `CostModelSpec` to isolate pure signal quality. If the strategy does not show alpha here, no amount of execution tuning will save it.
+
+```python
+execution = TradingExecutionSpec(
+    accounts=(
+        AccountSpec(
+            "binance", "futures",
+            base_currency="USDT",
+            initial_cash=10_000.0,
+            cost_model=CostModelSpec(taker_fee=0, maker_fee=0, slippage_bps=0),
+        ),
+    ),
+    execution_price_source="ohlcv",
+    constraints=BacktestConstraintsSpec.research(),
+)
+```
+
+**Stage 2 — Cost Impact.** Switch to `cost_only()` and remove the zero-cost override. This reveals how much of your alpha is consumed by fees and funding.
+
+```python
+execution = TradingExecutionSpec(
+    accounts=(
+        AccountSpec(
+            "binance", "futures",
+            base_currency="USDT",
+            initial_cash=10_000.0,
+            # No cost_model → auto-fetched from exchange
+        ),
+    ),
+    execution_price_source="ohlcv",
+    constraints=BacktestConstraintsSpec.cost_only(),
+)
+```
+
+**Stage 3 — Production Readiness.** Use `realistic()` (or omit constraints entirely, since it is the default). This is the final validation before going live.
+
+```python
+execution = TradingExecutionSpec(
+    accounts=(
+        AccountSpec(
+            "binance", "futures",
+            base_currency="USDT",
+            initial_cash=10_000.0,
+        ),
+    ),
+    execution_price_source="ohlcv",
+    constraints=BacktestConstraintsSpec.realistic(),
+)
+```
+
+<Warning>
+If your strategy shows strong returns in Stage 1 but collapses in Stage 2, it is likely cost-dominated. Reduce trade frequency or improve signal quality before proceeding to Stage 3.
+</Warning>
+
+## Integration with TradingExecutionSpec
+
+`BacktestConstraintsSpec` is passed to `TradingExecutionSpec` via the `constraints` field:
+
+```python
+from clyptq.apps.trading.spec.execution import (
+    TradingExecutionSpec,
+    AccountSpec,
+    CostModelSpec,
+    BacktestConstraintsSpec,
+)
+
+execution = TradingExecutionSpec(
+    accounts=(
+        AccountSpec("binance", "futures", base_currency="USDT", initial_cash=10_000.0),
+    ),
+    execution_price_source="ohlcv",
+    constraints=BacktestConstraintsSpec.cost_only(),
+)
+```
+
+When `constraints` is `None` (the default), all constraints are active — this preserves backward compatibility with existing specs that do not use `BacktestConstraintsSpec`.
+
+The constraints field is only meaningful in backtest mode. In live mode, real exchange rules always apply regardless of this setting.
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Cost Models" icon="receipt" href="/backtesting/cost-models">
+    CostModelSpec, VenueFeeResolver, and slippage modeling
+  </Card>
+  <Card title="Liquidation Logic" icon="triangle-exclamation" href="/backtesting/liquidation-logic">
+    Exchange-specific margin calculations and liquidation simulation
+  </Card>
+  <Card title="Funding Rates" icon="clock" href="/backtesting/funding-rates">
+    8-hour funding settlement and its impact on perpetual futures P&L
+  </Card>
+  <Card title="Backtesting Accuracy" icon="bullseye" href="/backtesting/overview">
+    The five layers of accuracy that make ClyptQ backtests realistic
+  </Card>
+</CardGroup>

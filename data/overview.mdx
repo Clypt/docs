@@ -1,0 +1,124 @@
+---
+title: "Data Sources"
+description: "Supported data types, collection pipeline, and storage architecture"
+---
+
+## Overview
+
+ClyptQ supports four categories of data that can be combined as inputs to any trading strategy graph. All data flows through the same pipeline: declare what you need in `TradingDataSpec`, let the `DataProvider` fetch and normalize it, and consume it as FIELD inputs in the operator graph.
+
+## Supported Data Types
+
+| Category | Source | Granularity | Key Fields |
+|---|---|---|---|
+| **OHLCV (Crypto)** | Binance, Bybit, Coinbase, OKX, Gate.io, Kraken, Gemini | Tick to 1d | `close`, `open`, `high`, `low`, `volume` |
+| **Stocks** | yfinance, Tiingo | 1d | `close`, `open`, `high`, `low`, `volume` |
+| **Onchain** | DeFiLlama (aggregate), RPC (EVM, Solana, Aptos, Sui, TON, Tron, Cosmos) | 1h to 1d | TVL, fees, gas, DeFi rates, stablecoin supply |
+| **Macro** | FRED (Federal Reserve) | Daily to quarterly | Interest rates, CPI, GDP, VIX, money supply |
+| **Order Book** | Binance, Bybit, Coinbase, OKX, Gate.io, Kraken, Gemini | Live / historical snapshots | Bid/ask depth, spread, imbalance |
+| **Sentiment** | Fear & Greed Index, CryptoQuant | 1d | Market sentiment scores, exchange flows |
+
+## Data Flow
+
+```
+TradingDataSpec
+    |
+    |-- symbol_source_map (which symbols, which exchange)
+    |-- observations      (OHLCVSpec, OnChainSpec, MacroSpec, ...)
+    |-- start / end       (date range)
+    |
+    v
+DataProvider
+    |-- Routes to correct Collector (Binance, FRED, DeFiLlama, ...)
+    |-- Fetches historical or subscribes to live stream
+    |-- Normalizes to unified DataFrame schema
+    |
+    v
+StatefulGraph FIELD Inputs
+    |-- FIELD:binance:futures:ohlcv:close    (T, N) RollingBuffer
+    |-- FIELD:fred:macro:DFF                 (T, 1) forward-filled
+    |-- FIELD:defillama:onchain:tvl          (T, N) daily
+    |
+    v
+Operators consume FIELDs via Input(source="FIELD:...", lookback=N)
+```
+
+## Declaring Data Sources
+
+### OHLCV (Crypto)
+
+```python
+from clyptq.apps.trading.spec.observation.crypto import OHLCVSpec
+
+ohlcv = OHLCVSpec(
+    exchange="binance",
+    market_type="futures",
+    timeframe="1m",
+)
+```
+
+### Multiple Exchanges
+
+```python
+observations = [
+    OHLCVSpec(exchange="binance", market_type="futures", timeframe="1m"),
+    OHLCVSpec(exchange="bybit", market_type="linear", timeframe="1m"),
+]
+```
+
+### Onchain + Macro
+
+```python
+from clyptq.apps.trading.spec.observation.onchain import OnChainSpec
+from clyptq.apps.trading.spec.observation.macro import MacroSpec
+
+onchain = OnChainSpec(
+    data_type="tvl",
+    chains=["ethereum", "solana", "arbitrum"],
+)
+
+macro = MacroSpec(
+    indicators=["DFF", "T10Y2Y", "VIXCLS"],
+)
+```
+
+## Storage
+
+ClyptQ uses a layered storage system. Collectors write to storage; the graph engine reads from it during warmup and backtest.
+
+| Layer | Format | Use Case |
+|---|---|---|
+| **Local Parquet** | `.parquet` files on disk | Default for development and backtesting |
+| **S3** | Parquet files in S3 buckets | Production, shared team data |
+| **API / Live** | WebSocket streams, REST polling | Live trading, no storage needed |
+
+### Chunk-Based Loading
+
+For large datasets (multi-year, many symbols), the data system uses **chunk-based loading** to avoid memory exhaustion:
+
+- Historical data is partitioned by time chunks (e.g., monthly Parquet files)
+- The backtest engine loads only the chunk needed for the current simulation window
+- Warmup buffers pre-load enough history for the longest lookback in the graph
+- Garbage collection runs periodically between chunks to free memory
+
+This means you can backtest over years of 1-minute data across hundreds of symbols without loading everything into RAM at once.
+
+## Collector Architecture
+
+Every data source implements the `UnifiedCollector` interface:
+
+```python
+class UnifiedCollector:
+    def collect_historical(symbols, start, end, timeframe) -> Dict[str, DataFrame]
+    def get_latest(symbols, timeframe) -> Dict[str, Dict]
+    def subscribe(symbols, on_data, on_error, timeframe) -> Subscription
+    def collect_and_save(symbols, start, end, timeframe) -> Dict[str, int]
+```
+
+This unified interface means all data sources — whether exchange candles, onchain metrics, or macro indicators — are consumed the same way by the graph engine.
+
+## Related Pages
+
+- [Onchain Data](/data/onchain) — DeFiLlama and RPC collector details
+- [FRED Macro Data](/data/fred) — Federal Reserve economic indicators
+- [Data System (Engine)](/engine/data-system) — How the graph engine consumes data

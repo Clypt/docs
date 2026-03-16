@@ -82,9 +82,18 @@
       ]
     },
     {
+      "group": "Data Sources",
+      "pages": [
+        "data/overview",
+        "data/onchain",
+        "data/fred"
+      ]
+    },
+    {
       "group": "Backtesting Accuracy",
       "pages": [
         "backtesting/overview",
+        "backtesting/constraints",
         "backtesting/lookahead-bias-prevention",
         "backtesting/cost-models",
         "backtesting/funding-rates",
@@ -111,7 +120,8 @@
         "tutorials/multi-factor",
         "tutorials/ai-augmented",
         "tutorials/cross-exchange-arb",
-        "tutorials/backtest-to-live"
+        "tutorials/backtest-to-live",
+        "tutorials/community"
       ]
     },
     {
@@ -133,6 +143,7 @@
         {
           "group": "Signals",
           "pages": [
+            "operators/signals/alpha-operator",
             "operators/signals/alphas",
             "operators/signals/factors",
             "operators/signals/alpha-101",

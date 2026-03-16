@@ -1,0 +1,218 @@
+---
+title: "FRED Macro Data"
+description: "Federal Reserve Economic Data — interest rates, inflation, liquidity, employment, and more as alpha inputs"
+---
+
+## Overview
+
+ClyptQ integrates with the [FRED API](https://fred.stlouisfed.org/) (Federal Reserve Economic Data) to provide macro economic indicators as inputs to trading strategies. Macro data is particularly valuable for crypto strategies because crypto markets are highly sensitive to liquidity conditions, interest rate expectations, and risk sentiment.
+
+The `FREDCollector` supports **38 default indicators** across 10 categories, with forward-fill expansion so the latest known value is always available at every timestamp.
+
+## Setup
+
+FRED requires a free API key. Get one at [https://fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html).
+
+```bash
+export FRED_API_KEY="your_api_key_here"
+```
+
+## Supported Indicators
+
+### Interest Rates & Yield Curve
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `DFF` | Federal Funds Rate | % | Daily |
+| `DFEDTARU` | Fed Funds Upper Target | % | Daily |
+| `DFEDTARL` | Fed Funds Lower Target | % | Daily |
+| `DGS1` | 1-Year Treasury Rate | % | Daily |
+| `DGS2` | 2-Year Treasury Rate | % | Daily |
+| `DGS5` | 5-Year Treasury Rate | % | Daily |
+| `DGS10` | 10-Year Treasury Rate | % | Daily |
+| `DGS30` | 30-Year Treasury Rate | % | Daily |
+| `T10Y2Y` | 10Y-2Y Treasury Spread | % | Daily |
+| `T10Y3M` | 10Y-3M Treasury Spread | % | Daily |
+
+### Liquidity & Money Supply
+
+These are critical for crypto — net liquidity (`WALCL - RRPONTSYD - WTREGEN`) is a key driver of risk asset prices.
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `WALCL` | Fed Balance Sheet (Total Assets) | Millions | Weekly |
+| `RRPONTSYD` | Overnight Reverse Repo (ON RRP) | Billions | Daily |
+| `WTREGEN` | Treasury General Account (TGA) | Millions | Weekly |
+| `TOTRESNS` | Total Reserves of Depository Institutions | Billions | Monthly |
+| `M1SL` | M1 Money Supply | Billions | Monthly |
+| `M2SL` | M2 Money Supply | Billions | Monthly |
+
+### Inflation & Expectations
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `CPIAUCSL` | Consumer Price Index (CPI) | Index | Monthly |
+| `CPILFESL` | Core CPI (ex Food & Energy) | Index | Monthly |
+| `PCEPI` | PCE Price Index | Index | Monthly |
+| `PCEPILFE` | Core PCE (ex Food & Energy) | Index | Monthly |
+| `T5YIE` | 5-Year Breakeven Inflation | % | Daily |
+| `T10YIE` | 10-Year Breakeven Inflation | % | Daily |
+| `MICH` | Michigan Inflation Expectations | % | Monthly |
+
+### Employment
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `UNRATE` | Unemployment Rate | % | Monthly |
+| `PAYEMS` | Total Nonfarm Payrolls | Thousands | Monthly |
+| `ICSA` | Initial Jobless Claims | Thousands | Weekly |
+| `CCSA` | Continued Jobless Claims | Thousands | Weekly |
+
+### Economic Activity
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `GDP` | Gross Domestic Product | Billions | Quarterly |
+| `INDPRO` | Industrial Production Index | Index | Monthly |
+| `UMCSENT` | Consumer Sentiment (UMich) | Index | Monthly |
+| `RSAFS` | Advance Retail Sales | Millions | Monthly |
+| `HOUST` | Housing Starts | Thousands | Monthly |
+
+### Volatility, Credit & Risk
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `VIXCLS` | VIX Volatility Index | Index | Daily |
+| `BAMLH0A0HYM2` | High Yield Bond Spread (OAS) | % | Daily |
+| `BAMLC0A0CM` | Investment Grade Bond Spread (OAS) | % | Daily |
+
+### Dollar, Commodities & Equities
+
+| Series ID | Name | Unit | Frequency |
+|---|---|---|---|
+| `DTWEXBGS` | Trade Weighted Dollar Index | Index | Daily |
+| `DCOILWTICO` | WTI Crude Oil Price | USD/barrel | Daily |
+| `SP500` | S&P 500 Index | Index | Daily |
+| `NASDAQCOM` | NASDAQ Composite Index | Index | Daily |
+
+## Symbol Aliases
+
+The `FREDSymbolMapper` provides human-readable aliases for common series:
+
+```python
+from clyptq.data.collectors.fred.symbol_mapper import FREDSymbolMapper
+
+FREDSymbolMapper.to_native("FED_FUNDS_RATE")  # -> "DFF"
+FREDSymbolMapper.to_native("CPI")             # -> "CPIAUCSL"
+FREDSymbolMapper.to_native("VIX")             # -> "VIXCLS"
+FREDSymbolMapper.to_native("YIELD_CURVE_10Y2Y")  # -> "T10Y2Y"
+```
+
+## Usage
+
+### Direct Collection
+
+```python
+from clyptq.data.collectors.fred.collector import FREDCollector
+from datetime import datetime
+
+collector = FREDCollector(api_key="your_key")
+
+# Collect specific indicators
+data = collector.collect_historical(
+    symbols=["DFF", "T10Y2Y", "VIXCLS", "WALCL"],
+    start=datetime(2020, 1, 1),
+    end=datetime(2024, 12, 31),
+)
+# data["DFF"] -> DataFrame with 'value' and 'exists' columns
+
+# Filter by category
+rate_indicators = collector.get_available_symbols(category="interest_rate")
+# -> ["DFF", "DFEDTARU", "DFEDTARL", "DGS1", "DGS2", ...]
+```
+
+### In a TradingDataSpec
+
+```python
+from clyptq.apps.trading.spec.observation.macro import MacroSpec
+
+macro = MacroSpec(
+    indicators=["DFF", "T10Y2Y", "VIXCLS", "WALCL", "RRPONTSYD", "WTREGEN"],
+)
+# Produces FIELD:fred:macro:DFF, FIELD:fred:macro:T10Y2Y, etc.
+```
+
+### Collect and Save to Storage
+
+```python
+collector = FREDCollector(api_key="your_key", storage=my_storage)
+
+results = collector.collect_and_save(
+    symbols=["DFF", "CPIAUCSL", "M2SL", "VIXCLS"],
+    start=datetime(2015, 1, 1),
+    end=datetime(2024, 12, 31),
+)
+# results -> {"DFF": 2500, "CPIAUCSL": 120, "M2SL": 120, "VIXCLS": 2500}
+```
+
+## Resolution and Forward-Fill
+
+FRED data has a `FIXED` resolution type. Each indicator is released at its natural frequency (daily, weekly, monthly, quarterly). Between releases, the **previous value is forward-filled** so that at any given timestamp the latest known data is available.
+
+This reflects reality: GDP does not change daily — the market trades on the last known GDP value until the next release.
+
+## Using Macro Data as Alpha Inputs
+
+Macro indicators are powerful conditioning variables for crypto alphas. Here are common patterns:
+
+### Net Liquidity Signal
+
+```python
+class NetLiquidityAlpha(AlphaOperator):
+    """Long crypto when net liquidity is expanding."""
+
+    def __init__(self, walcl_input, rrp_input, tga_input, window=20):
+        super().__init__(inputs=[walcl_input, rrp_input, tga_input])
+        self._liq_window = window
+        self._validate_lookback()
+
+    def compute_signal(self, data):
+        fed_bs = data[0].value   # WALCL (Fed balance sheet)
+        rrp = data[1].value      # RRPONTSYD (reverse repo)
+        tga = data[2].value      # WTREGEN (Treasury General Account)
+
+        # Net Liquidity = Fed BS - RRP - TGA
+        net_liq = fed_bs - rrp - tga
+        liq_momentum = self._delta(net_liq, self._liq_window)
+
+        return self._rank(liq_momentum)
+```
+
+### Yield Curve Regime Filter
+
+```python
+class YieldCurveRegimeAlpha(AlphaOperator):
+    """Reduce exposure when yield curve inverts (recession signal)."""
+
+    def __init__(self, spread_input, close_input, window=10):
+        super().__init__(inputs=[spread_input, close_input])
+        self._regime_window = window
+
+    def compute_signal(self, data):
+        spread = data[0].value   # T10Y2Y (10Y-2Y spread)
+        close = data[1].value
+
+        # Trend of yield curve spread
+        spread_trend = self._regbeta(spread, self._regime_window)
+        ret = self._ret(close)
+
+        # Momentum weighted by yield curve regime
+        mom = self._mean(ret, self._regime_window)
+        return self._rank(mom * self._sign(spread_trend))
+```
+
+## Related Pages
+
+- [Data Sources Overview](/data/overview) — All supported data types
+- [Onchain Data](/data/onchain) — DeFiLlama and RPC collectors
+- [AlphaOperator DSL](/operators/signals/alpha-operator) — Building alphas with macro inputs

@@ -1,0 +1,105 @@
+---
+title: "Community Notebooks"
+description: "Guided examples covering quantitative finance theory and practical ClyptQ strategy implementation"
+---
+
+## Overview
+
+The community examples directory contains 14 notebooks that bridge quantitative finance theory with hands-on ClyptQ implementation. Each notebook introduces a concept from academic finance, builds intuition with synthetic data or derivations, and then shows how to express it as a working ClyptQ strategy or analysis.
+
+These notebooks serve as both learning resources and starting points for your own strategies. They progress from foundational concepts (mean reversion, portfolio optimization) through advanced topics (regime switching, factor models) to full production-grade backtests.
+
+<Note>
+The `templates/` directory has been replaced by the `community/` notebooks. Community notebooks provide richer, more complete examples with theoretical context, inline visualizations, and end-to-end backtest configurations.
+</Note>
+
+## Notebook Index
+
+### 01 — Ornstein-Uhlenbeck Mean Reversion
+
+Introduces the Ornstein-Uhlenbeck (OU) process as a model for mean-reverting price series. Covers parameter estimation (half-life, long-run mean, volatility), z-score signal construction, and a pairs trading strategy using OU-calibrated entry/exit thresholds.
+
+### 02 — Markowitz, Risk Parity & Equal Weight
+
+Compares three portfolio allocation methods: Markowitz mean-variance optimization, risk parity (inverse-volatility and equal-risk-contribution), and naive equal weight. Demonstrates how each approach responds to different correlation regimes and how to implement them as ClyptQ optimizer operators.
+
+### 03 — Kelly Criterion Position Sizing
+
+Derives the Kelly criterion from first principles and applies it to position sizing in a multi-asset portfolio. Covers full Kelly, fractional Kelly (for practical risk management), and the relationship between Kelly sizing, Sharpe ratio, and drawdown risk.
+
+### 04 — Hurst Exponent & Fractal Markets
+
+Estimates the Hurst exponent using rescaled range (R/S) analysis and detrended fluctuation analysis (DFA). Shows how to use the Hurst exponent to classify assets as mean-reverting (H < 0.5), random walk (H = 0.5), or trending (H > 0.5), and how to select strategy type accordingly.
+
+### 05 — Information Coefficient & Alpha Decay
+
+Measures signal quality using the information coefficient (IC) and information ratio (IR). Analyzes how alpha signals decay over time and how to determine optimal rebalance frequency. Demonstrates the fundamental law of active management in practice.
+
+### 06 — GBM vs Fat-Tailed Reality
+
+Compares the geometric Brownian motion (GBM) assumption underlying Black-Scholes with real market return distributions. Examines kurtosis, skewness, and tail behavior. Shows why strategies calibrated on GBM assumptions underestimate risk and how to model fat tails with Student-t and stable distributions.
+
+### 07 — Entropy & Market Efficiency
+
+Applies Shannon entropy and approximate entropy (ApEn) to measure market efficiency and predictability. Lower entropy suggests more structure (and potentially exploitable patterns). Demonstrates how entropy-based regime detection can be used as a strategy filter.
+
+### 08 — Copula & Tail Dependence
+
+Goes beyond linear correlation to model joint tail behavior using copulas (Gaussian, Clayton, Gumbel). Shows that assets can have low average correlation but high tail dependence — meaning they crash together. Applies copula-based risk metrics to portfolio construction.
+
+### 09 — HMM Regime Switching
+
+Fits a Hidden Markov Model (HMM) to market returns to identify latent regimes (e.g., low-volatility trending vs high-volatility mean-reverting). Uses the Viterbi algorithm for regime classification and forward-backward algorithm for regime probability estimation. Builds a regime-aware strategy that switches behavior based on the current state.
+
+### 10 — Optimal Execution (TWAP/VWAP)
+
+Covers execution algorithms for minimizing market impact when trading large orders. Implements TWAP (time-weighted average price) and VWAP (volume-weighted average price) scheduling. Discusses the Almgren-Chriss framework for balancing urgency against impact cost.
+
+### 11 — Fama-French Factor Model
+
+Implements the Fama-French three-factor and five-factor models. Decomposes strategy returns into market beta, size (SMB), value (HML), profitability (RMW), and investment (CMA) exposures. Shows how to use factor attribution to understand what is driving your strategy's returns.
+
+### 12 — Alpha101 Comprehensive Backtest
+
+End-to-end implementation of alpha signals inspired by the WorldQuant Alpha101 formulaic alpha collection. Demonstrates how to express cross-sectional alpha factors as ClyptQ operators, combine them with an optimizer, and run a full multi-asset backtest with realistic execution constraints.
+
+### 13 — Backtest Constraints & Venue Comparison
+
+Demonstrates `BacktestConstraintsSpec` in practice. Runs the same strategy across multiple constraint configurations (`research()`, `cost_only()`, `realistic()`) and compares results. Also compares execution across different venues (Binance, Gateio, Bybit) to show how fee structures and order limits affect P&L.
+
+### 14 — Alpha191 Comprehensive Backtest
+
+Full backtest implementation using alpha signals derived from the Alpha191 factor library. Similar in structure to Notebook 12 but with a different factor set. Covers factor preprocessing, signal combination, position sizing, and performance attribution with realistic cost modeling.
+
+## Getting Started
+
+Each notebook is self-contained and can be run independently. Open any notebook in Jupyter or VS Code and follow the cells in order. Notebooks include markdown explanations between code cells to provide theoretical context.
+
+```python
+# Typical notebook structure:
+# 1. Theory & motivation (markdown)
+# 2. Synthetic data exploration (build intuition)
+# 3. ClyptQ imports and spec configuration
+# 4. Graph construction with operators
+# 5. Backtest execution
+# 6. Results analysis and visualization
+```
+
+For notebooks that require market data, use `Helper.data_catalog()` to check what is available locally, or let ClyptQ auto-download the needed data during backtest execution.
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="First Strategy Tutorial" icon="rocket" href="/tutorials/first-strategy">
+    Step-by-step guide to building your first ClyptQ strategy from scratch
+  </Card>
+  <Card title="Backtest Constraints" icon="sliders" href="/backtesting/constraints">
+    BacktestConstraintsSpec presets and individual toggle reference
+  </Card>
+  <Card title="Cost Models" icon="receipt" href="/backtesting/cost-models">
+    Exchange-specific fee structures and slippage modeling
+  </Card>
+  <Card title="Multi-Factor Strategies" icon="layer-group" href="/tutorials/multi-factor">
+    Combining multiple alpha signals into a single strategy
+  </Card>
+</CardGroup>
