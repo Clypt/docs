@@ -55,6 +55,12 @@ spec = TradingSpec(
 
 **What is NOT included**: Source code of custom operators (if any). Custom operators are packaged as compiled modules.
 
+<Warning>
+**Current limitation**: The submission pipeline currently supports **strategy code only** — model weight files (`.pkl`, `.joblib`, `.pt`, `.onnx`), trained artifacts, and external data files cannot be uploaded alongside the strategy. This means **ML/DL strategies that depend on pre-trained model files are currently limited to the research environment** (Jupyter notebooks). They cannot yet be deployed to paper/live trading or listed on the marketplace.
+
+**Planned**: A **workspace file explorer** feature will allow builders to upload and manage model artifacts alongside their strategy code, enabling full ML/DL pipeline support for marketplace submission and live deployment.
+</Warning>
+
 ### Validation Steps
 
 1. **Reproducibility check**: Platform runs the submitted spec on the builder's declared exchange data. Results must match the builder's reported metrics within tolerance.

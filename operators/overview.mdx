@@ -43,7 +43,39 @@ class MyOperator(BaseOperator):
 **Key rules:**
 1. **Stateless** — Operators must not store mutable state between ticks. The graph manages all state via [RollingBuffers](/engine/lookback-buffers)
 2. **TaggedArray in, TaggedArray out** — All inputs and outputs are TaggedArrays with 4 fields (value, exists, valid, updated)
-3. **Declare inputs upfront** — Each input is declared via `Input(source, timeframe, lookback)` at graph registration time
+3. **Declare inputs upfront** — Each input is declared via `Input(source, timeframe, lookback, gaps)` at graph registration time
+
+### Input Specification
+
+```python
+from clyptq.system.graph import Input
+
+Input(
+    source="FIELD:binance:futures:ohlcv:close",  # Data source
+    timeframe="1h",                                # Input timeframe
+    lookback=20,                                   # Bars of history to keep
+    gaps="nan",                                    # Gap handling mode
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `source` | `str` | required | FIELD, STATE, or node ID to read from |
+| `timeframe` | `str` | required | Timeframe for this input (e.g., `"1m"`, `"1h"`, `"1d"`) |
+| `lookback` | `int` | `1` | Number of bars to keep in the circular buffer |
+| `gaps` | `str` | `"nan"` | How to handle calendar gaps: `"nan"` (keep as-is), `"skip"` (valid rows only), `"ffill"` (forward-fill) |
+
+**Gap modes explained:**
+
+- **`"nan"`** — Default. Optimal for 24/7 markets (crypto). All rows kept, non-existing rows have `exists=False`.
+- **`"skip"`** — For markets with regular gaps (US stocks, forex). Returns only rows where `exists=True`. The buffer allocates extra headroom to ensure `lookback` valid rows.
+- **`"ffill"`** — For sparse data (macro indicators, monthly releases). Forward-fills gap rows with the last valid value.
+
+<Note>
+The `gaps="skip"` and `gaps="ffill"` modes are implemented and production-ready. `"skip"` is designed for US stock data (weekday-only trading), but since stock data collection is not yet deployed to production, it has not been exercised at scale. `"nan"` (the default) is used by all current crypto production strategies. Once stock data is onboarded, no operator changes are needed — only the `gaps` parameter on the Input spec.
+</Note>
+
+See [Lookback Buffers — Gap Handling](/engine/lookback-buffers#gap-handling-skip--ffill--nan) for implementation details.
 
 ## Category Guide
 

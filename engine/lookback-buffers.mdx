@@ -217,6 +217,79 @@ flowchart TB
     class D source
 ```
 
+## Gap Handling: skip / ffill / nan
+
+Different asset classes have different trading schedules. Crypto trades 24/7, US stocks trade weekdays 9:30-16:00 ET, and macro data releases monthly. When these data sources are combined in a single graph, **gaps** appear — timestamps where some sources have data and others don't.
+
+The `Input.gaps` parameter controls how each buffer handles missing rows:
+
+```python
+from clyptq.system.graph import Input
+
+# Crypto: 24/7, no gaps — default "nan" is optimal
+close = Input("FIELD:binance:futures:ohlcv:close", timeframe="1h", lookback=20, gaps="nan")
+
+# US Stocks: skip weekends/holidays — "skip" returns only valid rows
+stock = Input("FIELD:alpaca:stock:ohlcv:close", timeframe="1d", lookback=20, gaps="skip")
+
+# Macro data: monthly releases — "ffill" carries last value forward
+macro = Input("FIELD:fred:macro:DFF", timeframe="1d", lookback=5, gaps="ffill")
+```
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `"nan"` (default) | Keep all rows as-is. Non-existing rows have `exists=False`, `value=NaN`. | 24/7 markets (crypto). Optimal when there are no calendar gaps. |
+| `"skip"` | Return only rows where `exists=True`. Buffer stores extra headroom (`lookback // 2`) to ensure `lookback` valid rows are returned after filtering. | Markets with regular gaps (stocks, forex). Operators see only trading-day data. Currently implemented and production-ready, but not yet actively exercised because US stock data collection is not yet in production. |
+| `"ffill"` | Forward-fill gap rows with the last valid value. `updated=False` for filled rows. | Sparse data (macro indicators, monthly releases). Operators always see a value. |
+
+### Headroom for skip Mode
+
+When `gaps="skip"`, the buffer allocates extra capacity so that after filtering out non-existing rows, at least `lookback` valid rows remain:
+
+```
+Input(lookback=20, gaps="skip")
+  → capacity = lookback + headroom = 20 + 10 = 30
+  → 30 rows stored, then filtered to 20 valid rows
+```
+
+This is transparent to operators — they always receive exactly `lookback` rows.
+
+## Trading Calendars
+
+The calendar system marks which timestamps are valid trading periods. It generates an `exists` mask that the data provider applies before the data enters the graph.
+
+| Calendar | Behavior | Asset Class |
+|----------|----------|-------------|
+| `AlwaysOnCalendar` | All timestamps valid (24/7) | Crypto, perpetual futures |
+| `USEquityCalendar` | NYSE hours (9:30-16:00 ET), weekdays, holidays excluded | US stocks, ETFs |
+| `MonthlyCalendar` | First timestamp of each month only | FRED macro data (GDP, CPI) |
+
+Calendars are set at the observation spec level, not per operator. The graph combines multiple calendars when a strategy uses cross-asset data.
+
+## Cross-Asset & Cross-Timezone Strategies
+
+ClyptQ's tagged tensor architecture natively supports strategies that combine data from different asset classes, exchanges, and timezones:
+
+```python
+# Cross-asset strategy: crypto + stocks + macro
+observations = [
+    OHLCVSpec(exchange="binance", market_type="futures", timeframe="1h"),  # 24/7 crypto
+    StockOHLCVSpec(exchange="alpaca", timeframe="1d"),                     # US market hours
+    MacroSpec(indicators=["DFF", "T10Y2Y", "VIXCLS"]),                   # Monthly/daily
+]
+```
+
+The system handles timezone alignment automatically:
+- **Crypto** (UTC, 24/7) → `AlwaysOnCalendar`, `gaps="nan"`
+- **US Stocks** (ET, weekdays) → `USEquityCalendar`, `gaps="skip"`
+- **Macro** (UTC, sparse) → `MonthlyCalendar`, `gaps="ffill"`
+
+All data aligns to the system clock frequency. Lower-frequency sources (1d stock data on a 1h clock) are forward-filled or skip-filtered based on the `gaps` parameter. The `exists` mask ensures operators know which data points are real observations vs. filled values.
+
+<Note>
+The calendar system and `gaps="skip"` mode are fully implemented and production-ready, but the cross-asset use case (crypto + stocks) is not yet exercised in production because US stock data collection has not been deployed. Once stock data is onboarded, cross-asset strategies will work without any engine changes — only the observation specs and `gaps` parameters need to be configured.
+</Note>
+
 ## Relationship to Other Concepts
 
 - **[TaggedArray](/engine/tagged-array)**: RollingBuffer stores and delivers TaggedArrays

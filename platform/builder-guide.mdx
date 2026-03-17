@@ -21,6 +21,10 @@ This guide walks you through the full Builder workflow: develop a strategy in Ju
 
 When you submit a strategy to the marketplace, your `.py` file is executed inside ClyptQ's validation sandbox. Your code must follow a specific contract for the platform to validate, backtest, and deploy it correctly.
 
+<Note>
+**ML/DL strategies**: Currently, only the `.py` strategy file is submitted — external model files (`.pkl`, `.pt`, `.onnx`) cannot be uploaded. ML/DL workflows that require pre-trained models are supported in the **research environment** (Jupyter notebooks) but cannot yet be deployed to paper/live or listed on the marketplace. A workspace file explorer for model artifact management is planned.
+</Note>
+
 ### The `main()` function
 
 Every strategy must define a `main()` function that returns a `TradingDriver`. The platform calls this function to run your strategy.

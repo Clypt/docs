@@ -218,6 +218,12 @@ This pattern works because:
 - The operator is **stateless** — same inputs produce same outputs
 - The graph handles **lookback, warmup, and data routing** automatically
 
+<Warning>
+**Research environment only**: ML/DL strategies that load external model files (`.bst`, `.pkl`, `.pt`, `.onnx`) currently work only in the Jupyter research environment. The marketplace submission pipeline accepts strategy code (`.py`) only — model weight files cannot be uploaded alongside the strategy.
+
+**Coming soon**: A **workspace file explorer** will allow builders to upload model artifacts into a managed workspace. This will enable ML/DL strategies to be submitted to the marketplace and deployed to paper/live trading with their model files intact.
+</Warning>
+
 ## Related Pages
 
 <CardGroup cols={2}>
