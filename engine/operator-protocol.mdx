@@ -1,6 +1,6 @@
 ---
 title: "Operator Protocol"
-description: "The standardized interface for all computation in ClyptQ — 13 roles, custom operators, self-referencing patterns, and ML/DL integration"
+description: "The standardized interface for all computation in ClyptQ — 14 roles, custom operators, self-referencing patterns, and ML/DL integration"
 ---
 
 ## Core Interface
@@ -9,7 +9,7 @@ Every operator in ClyptQ implements a single method — the equivalent of a CPU 
 
 ```python
 class BaseOperator(ABC):
-    role: OperatorRole  # One of 13 roles
+    role: OperatorRole  # One of 14 roles
 
     def compute(
         self,

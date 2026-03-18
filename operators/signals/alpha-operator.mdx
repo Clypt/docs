@@ -175,7 +175,7 @@ class VolumeTrendResidAlpha(AlphaOperator):
 
 ## Migration Note
 
-The **Alpha101** and **Alpha191** operator families now inherit from `AlphaOperator` through intermediate base classes (`Alpha101Base`, `Alpha191Base`). These bases add the standard 5-input OHLCV convention (`close, open, high, low, volume`) and expose a `_compute_alpha(c, o, h, l_, v)` interface, but all DSL helpers documented above are available in those alphas as well.
+All **Alpha101** (101 alphas) and **Alpha191** (191 alphas) operators now inherit directly from `AlphaOperator`. Each alpha implements `compute_signal(data)` using the DSL helpers documented above.
 
 If you are migrating a standalone alpha to this base class:
 
